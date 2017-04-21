@@ -25,6 +25,16 @@ extern void *CN_bpool;
 /* Maximum buffer usage. */
 extern PIO_Offset maxusage;
 
+/* handler for freeing the memory buffer pool */
+void bpool_free(void *p)
+{
+  free(p);
+  if(p == CN_bpool){
+    CN_bpool = NULL;
+  }
+}
+
+
 /**
  * Initialize the compute buffer to size pio_cnbuffer_limit.
  *
@@ -49,10 +59,10 @@ int compute_buffer_init(iosystem_desc_t *ios)
         if (!CN_bpool)
             return pio_err(ios, NULL, PIO_ENOMEM, __FILE__, __LINE__);
 
-        bectl(NULL, malloc, free, pio_cnbuffer_limit);
+        bectl(NULL, malloc, bpool_free, pio_cnbuffer_limit);
     }
 #endif
-    LOG((2, "compute_buffer_init CN_bpool = %d", CN_bpool));
+    LOG((2, "compute_buffer_init complete"));
 
     return PIO_NOERR;
 }
@@ -85,7 +95,7 @@ int compute_buffer_init(iosystem_desc_t *ios)
  * less than blocksize*numiotasks then some iotasks will have a NULL
  * iobuf.
  * @param frame the frame or record dimension for each of the nvars
- * variables in iobuf.
+ * variables in iobuf.  NULL if this iodesc contains non-record vars.
  * @return 0 for success, error code otherwise.
  * @ingroup PIO_write_darray
  */
@@ -122,7 +132,7 @@ int pio_write_darray_multi_nc(file_desc_t *file, int nvars, const int *vid, int 
     vdesc = file->varlist + vid[0];
 
     /* If async is in use, send message to IO master task. */
-    if (ios->async_interface)
+    if (ios->async)
     {
         if (!ios->ioproc)
         {
@@ -379,7 +389,7 @@ int pio_write_darray_multi_nc(file_desc_t *file, int nvars, const int *vid, int 
  * less than blocksize*numiotasks then some iotasks will have a NULL
  * iobuf.
  * @param frame the record dimension for each of the nvars variables
- * in iobuf.
+ * in iobuf.  NULL if this iodesc contains non-record vars.
  * @return 0 for success, error code otherwise.
  * @ingroup PIO_write_darray
  */
@@ -416,11 +426,11 @@ int pio_write_darray_multi_nc_serial(file_desc_t *file, int nvars, const int *vi
     /* Get the var info. */
     vdesc = file->varlist + vid[0];
 
-    LOG((2, "vdesc record %d ndims %d nreqs %d ios->async_interface = %d", vdesc->record,
-         vdesc->ndims, vdesc->nreqs, ios->async_interface));
+    LOG((2, "vdesc record %d ndims %d nreqs %d ios->async = %d", vdesc->record,
+         vdesc->ndims, vdesc->nreqs, ios->async));
 
     /* If async is in use, and this is not an IO task, bcast the parameters. */
-    if (ios->async_interface)
+    if (ios->async)
     {
         if (!ios->ioproc)
         {
@@ -1223,6 +1233,7 @@ int flush_output_buffer(file_desc_t *file, bool force, PIO_Offset addsize)
             vdesc = file->varlist + i;
             if (vdesc->iobuf)
             {
+		LOG((3,"freeing variable buffer in flush_output_buffer"));
                 brel(vdesc->iobuf);
                 vdesc->iobuf = NULL;
             }
@@ -1298,6 +1309,7 @@ void free_cn_buffer_pool(iosystem_desc_t *ios)
 {
 #if !PIO_USE_MALLOC
     LOG((2, "free_cn_buffer_pool CN_bpool = %d", CN_bpool));
+    /* Note: it is possible that CN_bpool has been freed and set to NULL by bpool_free() */
     if (CN_bpool)
     {
         cn_buffer_report(ios, false);
@@ -1312,9 +1324,9 @@ void free_cn_buffer_pool(iosystem_desc_t *ios)
 /**
  * Flush the buffer.
  *
- * @param ncid identifies the netCDF file
- * @param wmb May be NULL, in which case function returns.
- * @param flushtodisk
+ * @param ncid identifies the netCDF file.
+ * @param wmb pointer to the wmulti_buffer structure.
+ * @param flushtodisk if true, then flush data to disk.
  * @returns 0 for success, error code otherwise.
  * @ingroup PIO_write_darray
  */
@@ -1333,14 +1345,14 @@ int flush_buffer(int ncid, wmulti_buffer *wmb, bool flushtodisk)
     LOG((1, "flush_buffer ncid = %d flushtodisk = %d", ncid, flushtodisk));
 
     /* If there are any variables in this buffer... */
-    if (wmb->validvars > 0)
+    if (wmb->num_arrays > 0)
     {
         /* Write any data in the buffer. */
-        ret = PIOc_write_darray_multi(ncid, wmb->vid,  wmb->ioid, wmb->validvars,
+        ret = PIOc_write_darray_multi(ncid, wmb->vid,  wmb->ioid, wmb->num_arrays,
                                       wmb->arraylen, wmb->data, wmb->frame,
                                       wmb->fillvalue, flushtodisk);
 
-        wmb->validvars = 0;
+        wmb->num_arrays = 0;
 
         /* Release the list of variable IDs. */
         brel(wmb->vid);
@@ -1368,11 +1380,11 @@ int flush_buffer(int ncid, wmulti_buffer *wmb, bool flushtodisk)
 }
 
 /**
- * Compute the maximum aggregate number of bytes.
+ * Compute the maximum aggregate number of bytes. This is called by
+ * subset_rearrange_create() and box_rearrange_create().
  *
- * @param ios the IO system structure
- * @param iodesc a pointer to the defined iodescriptor for the
- * buffer. If NULL, function returns immediately.
+ * @param ios pointer to the IO system structure.
+ * @param iodesc a pointer to decomposition description.
  * @returns 0 for success, error code otherwise.
  */
 int compute_maxaggregate_bytes(iosystem_desc_t *ios, io_desc_t *iodesc)
@@ -1388,19 +1400,27 @@ int compute_maxaggregate_bytes(iosystem_desc_t *ios, io_desc_t *iodesc)
     LOG((2, "compute_maxaggregate_bytes iodesc->maxiobuflen = %d iodesc->ndof = %d",
          iodesc->maxiobuflen, iodesc->ndof));
 
+    /* Determine the max bytes that can be held on IO task. */
     if (ios->ioproc && iodesc->maxiobuflen > 0)
         maxbytesoniotask = pio_buffer_size_limit / iodesc->maxiobuflen;
 
+    /* Determine the max bytes that can be held on computation task. */
     if (ios->comp_rank >= 0 && iodesc->ndof > 0)
         maxbytesoncomputetask = pio_cnbuffer_limit / iodesc->ndof;
 
+    /* Take the min of the max IO and max comp bytes. */
     maxbytes = min(maxbytesoniotask, maxbytesoncomputetask);
     LOG((2, "compute_maxaggregate_bytes maxbytesoniotask = %d maxbytesoncomputetask = %d",
          maxbytesoniotask, maxbytesoncomputetask));
 
+    /* Get the min value of this on all tasks. */
+    LOG((3, "before allreaduce maxbytes = %d", maxbytes));
     if ((mpierr = MPI_Allreduce(MPI_IN_PLACE, &maxbytes, 1, MPI_INT, MPI_MIN,
                                 ios->union_comm)))
         return check_mpi2(ios, NULL, mpierr, __FILE__, __LINE__);
+    LOG((3, "after allreaduce maxbytes = %d", maxbytes));
+
+    /* Remember the result. */
     iodesc->maxbytes = maxbytes;
 
     return PIO_NOERR;

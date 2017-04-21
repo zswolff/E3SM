@@ -65,17 +65,17 @@ PIO_Offset PIOc_set_buffer_size_limit(PIO_Offset limit)
  * that is on this processor. There are nvars arrays of data, and each
  * array of data contains one record worth of data for that variable.
  * @param frame an array of length nvars with the frame or record
- * dimension for each of the nvars variables in IOBUF
- * @param fillvalue pointer to the fill value to be used for missing
- * data. Ignored if NULL. If provided, must be the correct fill value
- * for the variable. The correct fill value will be used if NULL is
- * passed.
+ * dimension for each of the nvars variables in IOBUF. NULL if this
+ * iodesc contains non-record vars.
+ * @param fillvalue pointer an array (of length nvars) of pointers to
+ * the fill value to be used for missing data.
  * @param flushtodisk non-zero to cause buffers to be flushed to disk.
  * @return 0 for success, error code otherwise.
  * @ingroup PIO_write_darray
  */
-int PIOc_write_darray_multi(int ncid, const int *varids, int ioid, int nvars, PIO_Offset arraylen,
-                            void *array, const int *frame, void **fillvalue, bool flushtodisk)
+int PIOc_write_darray_multi(int ncid, const int *varids, int ioid, int nvars,
+                            PIO_Offset arraylen, void *array, const int *frame,
+                            void **fillvalue, bool flushtodisk)
 {
     iosystem_desc_t *ios;  /* Pointer to io system information. */
     file_desc_t *file;     /* Pointer to file information. */
@@ -98,61 +98,74 @@ int PIOc_write_darray_multi(int ncid, const int *varids, int ioid, int nvars, PI
         if (varids[v] < 0 || varids[v] > PIO_MAX_VARS)
             return pio_err(ios, file, PIO_EINVAL, __FILE__, __LINE__);
 
-    LOG((1, "PIOc_write_darray_multi ncid = %d ioid = %d nvars = %d arraylen = %ld flushtodisk = %d",
+    LOG((1, "PIOc_write_darray_multi ncid = %d ioid = %d nvars = %d arraylen = %ld "
+         "flushtodisk = %d",
          ncid, ioid, nvars, arraylen, flushtodisk));
 
     /* Check that we can write to this file. */
-    if (! (file->mode & PIO_WRITE))
+    if (!(file->mode & PIO_WRITE))
         return pio_err(ios, file, PIO_EPERM, __FILE__, __LINE__);
 
     /* Get iodesc. */
     if (!(iodesc = pio_get_iodesc_from_id(ioid)))
         return pio_err(ios, file, PIO_EBADID, __FILE__, __LINE__);
+    pioassert(iodesc->rearranger == PIO_REARR_BOX || iodesc->rearranger == PIO_REARR_SUBSET,
+              "unknown rearranger", __FILE__, __LINE__);
 
-    /* For netcdf serial writes we collect the data on io nodes and
+    /* Get a pointer to the variable info for the first variable. */
+    vdesc0 = &file->varlist[varids[0]];
+
+    /* if the buffer is already in use in pnetcdf we need to flush first */
+    if (file->iotype == PIO_IOTYPE_PNETCDF && vdesc0->iobuf)
+	flush_output_buffer(file, 1, 0);
+
+    pioassert(!vdesc0->iobuf, "buffer overwrite",__FILE__, __LINE__);
+
+    /* Determine total size of aggregated data (all vars/records).
+     * For netcdf serial writes we collect the data on io nodes and
      * then move that data one node at a time to the io master node
      * and write (or read). The buffer size on io task 0 must be as
      * large as the largest used to accommodate this serial io
-     * method. */
-    vdesc0 = file->varlist + varids[0];
-    pioassert(!vdesc0->iobuf, "Attempt to overwrite existing io buffer",__FILE__, __LINE__);
-
-    /* ??? */
-    /*   rlen = iodesc->llen*nvars; */
+     * method.  */
     rlen = 0;
     if (iodesc->llen > 0)
         rlen = iodesc->maxiobuflen * nvars;
 
-    /* Currently there are two rearrangers box=1 and subset=2. There
-     * is never a case where rearranger==0. */
-    LOG((2, "iodesc->rearranger = %d iodesc->needsfill = %d\n", iodesc->rearranger,
-         iodesc->needsfill));
-    if (iodesc->rearranger > 0)
+    /* Allocate iobuf. */
+    if (rlen > 0)
     {
-        if (rlen > 0)
-        {
-            if ((mpierr = MPI_Type_size(iodesc->basetype, &vsize)))
-                return check_mpi(file, mpierr, __FILE__, __LINE__);
-            LOG((3, "vsize = %d", vsize));
+        /* Get the size of the MPI type. */
+        if ((mpierr = MPI_Type_size(iodesc->basetype, &vsize)))
+            return check_mpi(file, mpierr, __FILE__, __LINE__);
+        LOG((3, "rlen = %d vsize = %d", rlen, vsize));
 
-            /* Allocate memory for the variable buffer. */
-            if (!(vdesc0->iobuf = bget((size_t)vsize * (size_t)rlen)))
-                piomemerror(ios, (size_t)rlen * (size_t)vsize, __FILE__, __LINE__);
-            LOG((3, "allocated %ld bytes for variable buffer", (size_t)rlen * (size_t)vsize));
+        /* Allocate memory for the buffer for all vars/records. */
+        if (!(vdesc0->iobuf = bget((size_t)vsize * (size_t)rlen)))
+            return pio_err(ios, file, PIO_ENOMEM, __FILE__, __LINE__);
+        LOG((3, "allocated %lld bytes for variable buffer", (size_t)rlen * (size_t)vsize));
 
-            /* If data are missing for the BOX rearranger, insert fill values. */
-            if (iodesc->needsfill && iodesc->rearranger == PIO_REARR_BOX)
-                for (int nv = 0; nv < nvars; nv++)
-                    for (int i = 0; i < iodesc->maxiobuflen; i++)
-                        memcpy(&((char *)vdesc0->iobuf)[vsize * (i + nv * iodesc->maxiobuflen)],
-                               &((char *)fillvalue)[nv * vsize], vsize);
-        }
-
-        /* Move data from compute to IO tasks. */
-        if ((ierr = rearrange_comp2io(ios, iodesc, array, vdesc0->iobuf, nvars)))
-            return pio_err(ios, file, ierr, __FILE__, __LINE__);
+        /* If fill values are desired, and we're using the BOX
+         * rearranger, insert fill values. */
+        if (iodesc->needsfill && iodesc->rearranger == PIO_REARR_BOX)
+            for (int nv = 0; nv < nvars; nv++)
+                for (int i = 0; i < iodesc->maxiobuflen; i++)
+                    memcpy(&((char *)vdesc0->iobuf)[vsize * (i + nv * iodesc->maxiobuflen)],
+                           &((char *)fillvalue)[nv * vsize], vsize);
     }
-    
+    else if (file->iotype == PIO_IOTYPE_PNETCDF && ios->ioproc)
+    {
+	/* this assures that iobuf is allocated on all iotasks thus
+	 assuring that the flush_output_buffer call above is called
+	 collectively (from all iotasks) */
+        if (!(vdesc0->iobuf = bget(1)))
+            return pio_err(ios, file, PIO_ENOMEM, __FILE__, __LINE__);
+        LOG((3, "allocated token for variable buffer"));
+    }
+
+    /* Move data from compute to IO tasks. */
+    if ((ierr = rearrange_comp2io(ios, iodesc, array, vdesc0->iobuf, nvars)))
+        return pio_err(ios, file, ierr, __FILE__, __LINE__);
+
     /* Write the darray based on the iotype. */
     LOG((2, "about to write darray for iotype = %d", file->iotype));
     switch (file->iotype)
@@ -182,6 +195,7 @@ int PIOc_write_darray_multi(int ncid, const int *varids, int ioid, int nvars, PI
         /* Release resources. */
         if (vdesc0->iobuf)
         {
+	    LOG((3,"freeing variable buffer in pio_darray"));
             brel(vdesc0->iobuf);
             vdesc0->iobuf = NULL;
         }
@@ -202,8 +216,7 @@ int PIOc_write_darray_multi(int ncid, const int *varids, int ioid, int nvars, PI
         LOG((2, "nvars = %d holegridsize = %ld iodesc->needsfill = %d\n", nvars,
              iodesc->holegridsize, iodesc->needsfill));
 
-        if (vdesc0->fillbuf)
-            piodie("Attempt to overwrite existing buffer",__FILE__,__LINE__);
+	pioassert(!vdesc0->fillbuf, "buffer overwrite",__FILE__, __LINE__);
 
         /* Get a buffer. */
 	if (ios->io_rank == 0)
@@ -269,6 +282,23 @@ int PIOc_write_darray_multi(int ncid, const int *varids, int ioid, int nvars, PI
  * it to the IO nodes when the compute buffer is full or when a flush
  * is triggered.
  *
+ * Internally, this function will:
+ * <ul>Locate info about this file, decomposition, and variable.
+
+ * <li>If we don't have a fillvalue for this variable, determine one
+ * and remember it for future calls.
+
+ * <li>Initialize or find the multi_buffer for this record/var.
+
+ * <li>Find out how much free space is available in the multi buffer
+ * and flush if needed.
+ *
+ * <li>Store the new user data in the mutli buffer.
+ * <li>If needed, fill in gaps in data will fillvalue.
+ * <li>
+ * <li>
+ * </ul>
+ *
  * @param ncid the ncid of the open netCDF file.
  * @param varid the ID of the variable that these data will be written
  * to.
@@ -320,58 +350,56 @@ int PIOc_write_darray(int ncid, int varid, int ioid, PIO_Offset arraylen, void *
     if (!(iodesc = pio_get_iodesc_from_id(ioid)))
         return pio_err(ios, file, PIO_EBADID, __FILE__, __LINE__);
 
+    /* Check that the local size of the variable passed in matches the
+     * size expected by the io descriptor. Fail if arraylen is too
+     * small, just put a warning in the log if it is too big (the
+     * excess values will be ignored.) */
+    if (arraylen < iodesc->ndof)
+        return pio_err(ios, file, PIO_EINVAL, __FILE__, __LINE__);
+    LOG((2, "%s arraylen = %d iodesc->ndof = %d",
+         (iodesc->ndof != arraylen) ? "WARNING: iodesc->ndof != arraylen" : "",
+         arraylen, iodesc->ndof));
+
     /* Get var description. */
-    vdesc = file->varlist + varid;
+    vdesc = &(file->varlist[varid]);
     LOG((2, "vdesc record %d ndims %d nreqs %d", vdesc->record, vdesc->ndims, vdesc->nreqs));
 
-    /* Is this a record variable? */
+    /* If we don't know the fill value for this var, get it. */
+    if (!vdesc->fillvalue)
+    {
+        int no_fill;
+        LOG((3, "getting fill value"));
+        
+        /* Find out PIO data type of var. */
+        if ((ierr = PIOc_inq_vartype(file->pio_ncid, varid, &vdesc->pio_type)))
+            return pio_err(ios, file, ierr, __FILE__, __LINE__);
+
+        /* Find out length of type. */
+        if ((ierr = PIOc_inq_type(ncid, vdesc->pio_type, NULL, &vdesc->type_size)))
+            return pio_err(ios, file, ierr, __FILE__, __LINE__);
+        LOG((3, "getting fill value for varid = %d pio_type = %d type_size = %d",
+             varid, vdesc->pio_type, vdesc->type_size));
+
+        /* Allocate storage for the fill value. */
+        if (!(vdesc->fillvalue = malloc(vdesc->type_size)))
+            return pio_err(ios, file, PIO_ENOMEM, __FILE__, __LINE__);
+
+        /* Get the fill value. */
+        if ((ierr = PIOc_inq_var_fill(file->pio_ncid, varid, &no_fill, vdesc->fillvalue)))
+            return pio_err(ios, file, ierr, __FILE__, __LINE__);
+        vdesc->use_fill = no_fill ? 0 : 1;
+        LOG((3, "vdesc->use_fill = %d", vdesc->use_fill));
+    }
+
+    /* Is this a record variable? The user must set the vdesc->record
+     * value by calling PIOc_setframe() before calling this
+     * function. */
     recordvar = vdesc->record >= 0 ? true : false;
     LOG((3, "recordvar = %d", recordvar));
 
-    /* Check that the local size of the variable passed in matches the
-     * size expected by the io descriptor. */
-    if (arraylen < iodesc->ndof)
-        return pio_err(ios, file, PIO_EINVAL, __FILE__, __LINE__);
-
-    if (iodesc->ndof != arraylen)
-        LOG((1, "User supplied array is larger than expected, arraylen != iodesc->ndof"));
-
-    /* Get a pointer to the buffer space for this file. It will hold
-     * data from one or more variables that fit the same
-     * description. */
-    wmb = &file->buffer;
-
-    /* If the ioid is not initialized, set it. For non record vars,
-     * use the negative ??? */
-    if (wmb->ioid == -1)
-        wmb->ioid = recordvar ? ioid : -ioid;
-    else
-    {
-        /* Handle record and non-record variables differently. */
-        if (recordvar)
-        {
-            /* Moving to the end of the wmb linked list to add the
-             * current variable. ??? */
-            while(wmb->next && wmb->ioid != ioid)
-                if (wmb->next)
-                    wmb = wmb->next;
-#ifdef _PNETCDF
-            /* Do we still need the commented code below? ??? */
-            /* flush the previous record before starting a new one. this is collective */
-            /*       if (vdesc->request != NULL && (vdesc->request[0] != NC_REQ_NULL) ||
-                     (wmb->frame != NULL && vdesc->record != wmb->frame[0])){
-                     needsflush = 2;  // flush to disk
-                     } */
-#endif
-        }
-        else
-        {
-            /* Move to end of list. */
-            while(wmb->next && wmb->ioid != -(ioid))
-                if (wmb->next)
-                    wmb = wmb->next;
-        }
-    }
+    /* Get the size of the MPI type. */
+    if ((mpierr = MPI_Type_size(iodesc->basetype, &tsize)))
+        return check_mpi(file, mpierr, __FILE__, __LINE__);
 
     /* The write multi buffer wmulti_buffer is the cache on compute
        nodes that will collect and store multiple variables before
@@ -381,18 +409,24 @@ int PIOc_write_darray(int ncid, int varid, int ioid, PIO_Offset arraylen, void *
        decomposition and base data size and we also need to keep track
        of whether each is a recordvar (has an unlimited dimension) or
        not. */
-    if ((recordvar && wmb->ioid != ioid) || (!recordvar && wmb->ioid != -(ioid)))
+
+    /* Move to end of list or the entry that matches this ioid. */
+    for (wmb = &file->buffer; wmb->next && wmb->ioid != ioid; wmb = wmb->next)
+        ;
+
+    /* If this is a new wmb entry, initialize it. */
+    if (wmb->ioid != ioid)
     {
         /* Allocate a buffer. */
         if (!(wmb->next = bget((bufsize)sizeof(wmulti_buffer))))
-            piomemerror(ios, sizeof(wmulti_buffer), __FILE__, __LINE__);
+            return pio_err(ios, file, PIO_ENOMEM, __FILE__, __LINE__);
         LOG((3, "allocated multi-buffer"));
 
         /* Set pointer to newly allocated buffer and initialize.*/
         wmb = wmb->next;
         wmb->next = NULL;
-        wmb->ioid = recordvar ? ioid : -ioid;
-        wmb->validvars = 0;
+        wmb->ioid = ioid;
+        wmb->num_arrays = 0;
         wmb->arraylen = arraylen;
         wmb->vid = NULL;
         wmb->data = NULL;
@@ -400,15 +434,10 @@ int PIOc_write_darray(int ncid, int varid, int ioid, PIO_Offset arraylen, void *
         wmb->fillvalue = NULL;
     }
 
-    /* Get the size of the MPI type. */
-    if ((mpierr = MPI_Type_size(iodesc->basetype, &tsize)))
-        return check_mpi(file, mpierr, __FILE__, __LINE__);
-
-    LOG((2, "wmb->validvars = %d arraylen = %d tsize = %d\n", wmb->validvars,
-         arraylen, tsize));
-
     /* At this point wmb should be pointing to a new or existing buffer
        so we can add the data. */
+    LOG((2, "wmb->num_arrays = %d arraylen = %d tsize = %d\n", wmb->num_arrays,
+         arraylen, tsize));
 
     /* Find out how much free, contiguous space is available. */
     bfreespace(&totfree, &maxfree);
@@ -416,23 +445,24 @@ int PIOc_write_darray(int ncid, int varid, int ioid, PIO_Offset arraylen, void *
     /* maxfree is the available memory. If that is < 10% greater than
      * the size of the current request needsflush is true. */
     if (needsflush == 0)
-        needsflush = (maxfree <= 1.1 * (1 + wmb->validvars) * arraylen * tsize);
+        needsflush = (maxfree <= 1.1 * (1 + wmb->num_arrays) * arraylen * tsize);
 
     /* Tell all tasks on the computation communicator whether we need
      * to flush data. */
-    if ((mpierr = MPI_Allreduce(MPI_IN_PLACE, &needsflush, 1,  MPI_INT,  MPI_MAX, ios->comp_comm)))
+    if ((mpierr = MPI_Allreduce(MPI_IN_PLACE, &needsflush, 1,  MPI_INT,  MPI_MAX,
+                                ios->comp_comm)))
         return check_mpi(file, mpierr, __FILE__, __LINE__);
     LOG((2, "needsflush = %d", needsflush));
 
     /* Flush data if needed. */
     if (needsflush > 0)
     {
-        LOG((2, "maxfree = %ld wmb->validvars = %d (1 + wmb->validvars) * arraylen * tsize = %ld totfree = %ld\n",
-             maxfree, wmb->validvars, (1 + wmb->validvars) * arraylen * tsize, totfree));
-
 #ifdef PIO_ENABLE_LOGGING
         /* Collect a debug report about buffer. */
         cn_buffer_report(ios, true);
+        LOG((2, "maxfree = %ld wmb->num_arrays = %d (1 + wmb->num_arrays) *"
+             " arraylen * tsize = %ld totfree = %ld\n", maxfree, wmb->num_arrays,
+             (1 + wmb->num_arrays) * arraylen * tsize, totfree));
 #endif /* PIO_ENABLE_LOGGING */
 
         /* If needsflush == 2 flush to disk otherwise just flush to io node. */
@@ -443,73 +473,102 @@ int PIOc_write_darray(int ncid, int varid, int ioid, PIO_Offset arraylen, void *
     /* Get memory for data. */
     if (arraylen > 0)
     {
-        if (!(wmb->data = bgetr(wmb->data, (1 + wmb->validvars) * arraylen * tsize)))
-            piomemerror(ios, (1 + wmb->validvars) * arraylen * tsize, __FILE__, __LINE__);
-        LOG((2, "got %ld bytes for data", (1 + wmb->validvars) * arraylen * tsize));
+        if (!(wmb->data = bgetr(wmb->data, (1 + wmb->num_arrays) * arraylen * tsize)))
+            return pio_err(ios, file, PIO_ENOMEM, __FILE__, __LINE__);
+        LOG((2, "got %ld bytes for data", (1 + wmb->num_arrays) * arraylen * tsize));
     }
 
     /* vid is an array of variable ids in the wmb list, grow the list
      * and add the new entry. */
-    if (!(wmb->vid = bgetr(wmb->vid, sizeof(int) * (1 + wmb->validvars))))
-        piomemerror(ios, (1 + wmb->validvars) * sizeof(int), __FILE__, __LINE__);
+    if (!(wmb->vid = bgetr(wmb->vid, sizeof(int) * (1 + wmb->num_arrays))))
+        return pio_err(ios, file, PIO_ENOMEM, __FILE__, __LINE__);
 
     /* wmb->frame is the record number, we assume that the variables
      * in the wmb list may not all have the same unlimited dimension
      * value although they usually do. */
     if (vdesc->record >= 0)
-        if (!(wmb->frame = bgetr(wmb->frame, sizeof(int) * (1 + wmb->validvars))))
-            piomemerror(ios, (1 + wmb->validvars) * sizeof(int), __FILE__, __LINE__);
+        if (!(wmb->frame = bgetr(wmb->frame, sizeof(int) * (1 + wmb->num_arrays))))
+            return pio_err(ios, file, PIO_ENOMEM, __FILE__, __LINE__);
 
-    /* If we need a fill value, get it. */
+    /* If we need a fill value, get it. If we are using the subset
+     * rearranger and not using the netcdf fill mode then we need to
+     * do an extra write to fill in the holes with the fill value. */
     if (iodesc->needsfill)
     {
         /* Get memory to hold fill value. */
-        if (!(wmb->fillvalue = bgetr(wmb->fillvalue, tsize * (1 + wmb->validvars))))
-            piomemerror(ios, (1 + wmb->validvars) * tsize, __FILE__, __LINE__);
+        if (!(wmb->fillvalue = bgetr(wmb->fillvalue, tsize * (1 + wmb->num_arrays))))
+            return pio_err(ios, file, PIO_ENOMEM, __FILE__, __LINE__);
 
         /* If the user passed a fill value, use that, otherwise use
          * the default fill value of the netCDF type. Copy the fill
          * value to the buffer. */
         if (fillvalue)
         {
-            memcpy((char *)wmb->fillvalue + tsize * wmb->validvars, fillvalue, tsize);
+            memcpy((char *)wmb->fillvalue + tsize * wmb->num_arrays, fillvalue, tsize);
             LOG((3, "copied user-provided fill value tsize = %d", tsize));
         }
         else
         {
+            void *fill;
+            signed char byte_fill = PIO_FILL_BYTE;
+            char char_fill = PIO_FILL_CHAR;
+            short short_fill = PIO_FILL_SHORT;
+            int int_fill = PIO_FILL_INT;
+            float float_fill = PIO_FILL_FLOAT;
+            double double_fill = PIO_FILL_DOUBLE;
+#ifdef _NETCDF4
+            unsigned char ubyte_fill = PIO_FILL_UBYTE;
+            unsigned short ushort_fill = PIO_FILL_USHORT;
+            unsigned int uint_fill = PIO_FILL_UINT;
+            long long int64_fill = PIO_FILL_INT64;
+            long long uint64_fill = PIO_FILL_UINT64;
+#endif /* _NETCDF4 */
             vtype = (MPI_Datatype)iodesc->basetype;
             LOG((3, "caller did not provide fill value vtype = %d", vtype));
-            if (vtype == MPI_INT)
-            {
-                int fill = PIO_FILL_INT;
-                memcpy((char *)wmb->fillvalue + tsize * wmb->validvars, &fill, tsize);
-            }
+
+            /* This must be done with an if statement, not a case, or
+             * openmpi will not build. */
+            if (vtype == MPI_BYTE)
+                fill = &byte_fill;
+            else if (vtype == MPI_CHAR)
+                fill = &char_fill;
+            else if (vtype == MPI_SHORT)
+                fill = &short_fill;
+            else if (vtype == MPI_INT)
+                fill = &int_fill;
             else if (vtype == MPI_FLOAT)
-            {
-                float fill = PIO_FILL_FLOAT;
-                memcpy((char *)wmb->fillvalue + tsize * wmb->validvars, &fill, tsize);
-            }
+                fill = &float_fill;
             else if (vtype == MPI_DOUBLE)
-            {
-                double fill = PIO_FILL_DOUBLE;
-                memcpy((char *)wmb->fillvalue + tsize * wmb->validvars, &fill, tsize);
-            }
-            else if (vtype == MPI_CHARACTER)
-            {
-                char fill = PIO_FILL_CHAR;
-                memcpy((char *)wmb->fillvalue + tsize * wmb->validvars, &fill, tsize);
-            }
+                fill = &double_fill;
+#ifdef _NETCDF4
+            else if (vtype == MPI_UNSIGNED_CHAR)
+                fill = &ubyte_fill;
+            else if (vtype == MPI_UNSIGNED_SHORT)
+                fill = &ushort_fill;
+            else if (vtype == MPI_UNSIGNED)
+                fill = &uint_fill;
+            else if (vtype == MPI_LONG_LONG)
+                fill = &int64_fill;
+            else if (vtype == MPI_UNSIGNED_LONG_LONG)
+                fill = &uint64_fill;
+#endif /* _NETCDF4 */
             else
                 return pio_err(ios, file, PIO_EBADTYPE, __FILE__, __LINE__);
+
+            memcpy((char *)wmb->fillvalue + tsize * wmb->num_arrays, fill, tsize);
+            LOG((3, "copied fill value"));
         }
     }
 
+    LOG((3, "here we are"));
     /* Tell the buffer about the data it is getting. */
     wmb->arraylen = arraylen;
-    wmb->vid[wmb->validvars] = varid;
+    wmb->vid[wmb->num_arrays] = varid;
+    LOG((3, "wmb->num_arrays = %d wmb->vid[wmb->num_arrays] = %d", wmb->num_arrays,
+         wmb->vid[wmb->num_arrays]));
 
     /* Copy the user-provided data to the buffer. */
-    bufptr = (void *)((char *)wmb->data + arraylen * tsize * wmb->validvars);
+    bufptr = (void *)((char *)wmb->data + arraylen * tsize * wmb->num_arrays);
     if (arraylen > 0)
     {
         memcpy(bufptr, array, arraylen * tsize);
@@ -519,15 +578,11 @@ int PIOc_write_darray(int ncid, int varid, int ioid, PIO_Offset arraylen, void *
     /* Add the unlimited dimension value of this variable to the frame
      * array in wmb. */
     if (wmb->frame)
-        wmb->frame[wmb->validvars] = vdesc->record;
-    wmb->validvars++;
+        wmb->frame[wmb->num_arrays] = vdesc->record;
+    wmb->num_arrays++;
 
-    LOG((2, "wmb->validvars = %d iodesc->maxbytes / tsize = %d iodesc->ndof = %d iodesc->llen = %d",
-         wmb->validvars, iodesc->maxbytes / tsize, iodesc->ndof, iodesc->llen));
-
-    /* Call the sync when ??? */
-    if (wmb->validvars >= iodesc->maxbytes / tsize)
-        PIOc_sync(ncid);
+    LOG((2, "wmb->num_arrays = %d iodesc->maxbytes / tsize = %d iodesc->ndof = %d iodesc->llen = %d",
+         wmb->num_arrays, iodesc->maxbytes / tsize, iodesc->ndof, iodesc->llen));
 
     return PIO_NOERR;
 }
@@ -568,6 +623,8 @@ int PIOc_read_darray(int ncid, int varid, int ioid, PIO_Offset arraylen,
     /* Get the iodesc. */
     if (!(iodesc = pio_get_iodesc_from_id(ioid)))
         return pio_err(ios, file, PIO_EBADID, __FILE__, __LINE__);
+    pioassert(iodesc->rearranger == PIO_REARR_BOX || iodesc->rearranger == PIO_REARR_SUBSET,
+              "unknown rearranger", __FILE__, __LINE__);
 
     /* ??? */
     if (ios->iomaster == MPI_ROOT)
@@ -575,23 +632,15 @@ int PIOc_read_darray(int ncid, int varid, int ioid, PIO_Offset arraylen,
     else
         rlen = iodesc->llen;
 
-    /* Is a rearranger in use? */
-    if (iodesc->rearranger > 0)
+    if (ios->ioproc && rlen > 0)
     {
-        if (ios->ioproc && rlen > 0)
-        {
-            /* Get the MPI type size. */
-            if ((mpierr = MPI_Type_size(iodesc->basetype, &tsize)))
-                return check_mpi(file, mpierr, __FILE__, __LINE__);
+        /* Get the MPI type size. */
+        if ((mpierr = MPI_Type_size(iodesc->basetype, &tsize)))
+            return check_mpi(file, mpierr, __FILE__, __LINE__);
 
-            /* Allocate a buffer for one record. */
-            if (!(iobuf = bget((size_t)tsize * rlen)))
-                piomemerror(ios, rlen * (size_t)tsize, __FILE__, __LINE__);
-        }
-    }
-    else
-    {
-        iobuf = array;
+        /* Allocate a buffer for one record. */
+        if (!(iobuf = bget((size_t)tsize * rlen)))
+            return pio_err(ios, file, PIO_ENOMEM, __FILE__, __LINE__);
     }
 
     /* Call the correct darray read function based on iotype. */
@@ -611,16 +660,13 @@ int PIOc_read_darray(int ncid, int varid, int ioid, PIO_Offset arraylen,
         return pio_err(NULL, NULL, PIO_EBADIOTYPE, __FILE__, __LINE__);
     }
 
-    /* If a rearranger was specified, rearrange the data. */
-    if (iodesc->rearranger > 0)
-    {
-        if ((ierr = rearrange_io2comp(ios, iodesc, iobuf, array)))
-            return pio_err(ios, file, ierr, __FILE__, __LINE__);
+    /* Rearrange the data. */
+    if ((ierr = rearrange_io2comp(ios, iodesc, iobuf, array)))
+        return pio_err(ios, file, ierr, __FILE__, __LINE__);
 
-        /* Free the buffer. */
-        if (rlen > 0)
-            brel(iobuf);
-    }
+    /* Free the buffer. */
+    if (rlen > 0)
+        brel(iobuf);
 
     return PIO_NOERR;
 }
