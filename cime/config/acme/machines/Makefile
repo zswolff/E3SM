@@ -635,6 +635,11 @@ endif
 ifdef PIO_FILESYSTEM_HINTS
 	CMAKE_OPTS += -D PIO_FILESYSTEM_HINTS:STRING="$(PIO_FILESYSTEM_HINTS)"
 endif
+ifeq ($(strip $(DEBUG)),TRUE)
+        CMAKE_OPTS += -D PIO_ENABLE_LOGGING:BOOL=ON \
+                      -D CMAKE_BUILD_TYPE=Debug
+endif
+
 
 # This captures the many cism-specific options to cmake
 CMAKE_OPTS += $(USER_CMAKE_OPTS)
