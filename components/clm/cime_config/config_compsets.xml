@@ -571,6 +571,11 @@
   </compset>
 
   <compset>
+    <alias>ICLM45CBED</alias>
+    <lname>2000_SATM%QIA_CLM45%BGC-ED_SICE_SOCN_RTM_SGLC_SWAV</lname>
+  </compset>
+
+  <compset>
     <alias>I1850CLM45ED</alias>
     <lname>1850_DATM%QIA_CLM45%BGC-ED_SICE_SOCN_RTM_SGLC_SWAV</lname>
   </compset>

@@ -1210,11 +1210,10 @@ contains
 
     ! Determine the cell id offset on each processor
     cell_id_offset = 0
-    call MPI_Exscan(ncells_loc, cell_id_offset, 1, MPIU_INTEGER, MPI_SUM, mpicom, ierr)
+    !call MPI_Exscan(ncells_loc, cell_id_offset, 1, MPIU_INTEGER, MPI_SUM, mpicom, ierr)
 
     ! Determine the total number of grid cells
-    call MPI_Allreduce(ncells_loc, ncells_tot, 1, MPIU_INTEGER, MPI_SUM, mpicom, ierr)
-
+    !call MPI_Allreduce(ncells_loc, ncells_tot, 1, MPIU_INTEGER, MPI_SUM, mpicom, ierr)
     ! Create a Dual matrix.
     call MatCreateAIJ(mpicom , & ! comm
          ncells_loc          , & ! m
@@ -1375,11 +1374,11 @@ contains
     procinfo%ncells = ncells_owned
 
     offset = 0
-    call MPI_Exscan(ncells_owned, offset, 1, MPIU_INTEGER, MPI_SUM, mpicom, ierr)
+    !call MPI_Exscan(ncells_owned, offset, 1, MPIU_INTEGER, MPI_SUM, mpicom, ierr)
     procinfo%begg = offset + 1
 
     offset = 0
-    call MPI_scan(ncells_owned, offset, 1, MPIU_INTEGER, MPI_SUM, mpicom, ierr)
+    !call MPI_scan(ncells_owned, offset, 1, MPIU_INTEGER, MPI_SUM, mpicom, ierr)
     procinfo%endg = offset
 
     !
@@ -1413,8 +1412,8 @@ contains
        local_clump_info((m-1)*3 + 2) = clump_endg  (m)
     end do
 
-    call MPI_Allgather(local_clump_info, 3*clump_pproc, MPI_INTEGER, &
-         global_clump_info, 3*clump_pproc, MPI_INTEGER, mpicom, ier)
+    !call MPI_Allgather(local_clump_info, 3*clump_pproc, MPI_INTEGER, &
+    !     global_clump_info, 3*clump_pproc, MPI_INTEGER, mpicom, ier)
 
     count = 0
     thread_count(:) = 0

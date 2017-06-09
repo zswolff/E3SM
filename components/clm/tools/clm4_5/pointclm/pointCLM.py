@@ -2,31 +2,21 @@
 
 import netcdf_functions as nffun
 import os, sys, csv, time, math, numpy
-import subprocess
+import re, subprocess
 from optparse import OptionParser
 #from Numeric import *
 
 
-#DMR 4/16/13
-#call_runCLM.py does the following:
-#  1. Call routines to create point data (makepointdata.py, makemetdata.py)
-#  2. Set point and case-specific namelist options
-#  2. configure case
-#  3. build (compile) CESM with clean_build first if requested
-#  4. apply patch for transient CO2 if transient run
+#pointCLM.py does the following:
+#
+#  1. Call routines to create surface and domain data (makepointdata.py)
+#  2. Use create_newcase to build the new case with specified options
+#  3. Set point and case-specific namelist options
+#  4. configure case
+#  5. build (compile) ACME with clean_build first if requested
 #  6. apply user-specified PBS and submit information
-#  7. submit job to PBS queue if requested.
+#  7. submit single run or parameter ensemble job to PBS queue.
 #
-#  For reproducibility, a copy of the current call_PTCLM.py is saved
-#  to the newly created case directory.  This is for informational
-#  purposes only - the script should not be executed from within
-#  the case directory.
-#
-# Add changes from FMY 6/6/2013
-# modified to work for CLM4-pf (CLM4.5.10, with PFLOTRAN interface) version used by NGEE-Arc
-
-
-
 #-------------------Parse options-----------------------------------------------
 
 parser = OptionParser()
@@ -35,11 +25,21 @@ parser.add_option("--caseidprefix", dest="mycaseid", default="", \
                   help="Unique identifier to include as a prefix to the case name")
 parser.add_option("--caseroot", dest="caseroot", default='', \
                   help = "case root directory (default = ./, i.e., under scripts/)")
+parser.add_option("--diags", dest="diags", default=False, \
+                 action="store_true", help="Write special outputs for diagnostics")
 parser.add_option("--runroot", dest="runroot", default="", \
                   help="Directory where the run would be created")
 parser.add_option("--exeroot", dest="exeroot", default="", \
 	         help="Location of executable")
-parser.add_option("--site", dest="site", default='', \
+parser.add_option("--lat_bounds", dest="lat_bounds", default='-999,-999', \
+                  help = 'latitude range for regional run')
+parser.add_option("--lon_bounds", dest="lon_bounds", default='-999,-999', \
+                  help = 'longitude range for regional run')
+parser.add_option("--ilambvars", dest="ilambvars", default=False, \
+                 action="store_true", help="Write special outputs for diagnostics")
+parser.add_option("--res", dest="res", default="CLM_USRDAT", \
+                      help='Resoultion for global simulation')
+parser.add_option("--site", dest="site", default='none', \
                   help = '6-character FLUXNET code to run (required)')
 parser.add_option("--sitegroup", dest="sitegroup", default="AmeriFlux", \
                   help = "site group to use (default AmeriFlux)")
@@ -90,6 +90,8 @@ parser.add_option("--srcmods_loc", dest="srcmods_loc", default='', \
                   help = 'Copy sourcemods from this location')
 parser.add_option("--parm_file", dest="parm_file", default='',
                   help = 'file for parameter modifications')
+parser.add_option("--parm_vals", dest="parm_vals", default="", \
+                  help = 'User specified parameter values')
 parser.add_option("--parm_file_P", dest="parm_file_P", default='',
                   help = 'file for P parameter modifications')
 parser.add_option("--hist_mfilt", dest="hist_mfilt", default=-1, \
@@ -113,9 +115,6 @@ parser.add_option("--no_submit", dest="no_submit", default=False, \
                   help = 'do NOT submit CESM to queue', action="store_true")
 parser.add_option("--align_year", dest="align_year", default=-999, \
                   help = 'Alignment year (transient run only)')
-parser.add_option("--regional", action="store_true", \
-                   dest="regional", default=False, \
-                   help="Flag for regional run (2x2 or greater)")
 parser.add_option("--np", dest="np", default=1, \
                   help = 'number of processors')
 parser.add_option("--ninst", dest="ninst", default=1, \
@@ -126,7 +125,7 @@ parser.add_option("--tstep", dest="tstep", default=0.5, \
                   help = 'CLM timestep (hours)')
 parser.add_option("--co2_file", dest="co2_file", default="fco2_datm_1765-2007_c100614.nc", \
                   help = 'CLM timestep (hours)')
-parser.add_option("--nyears_ad_spinup", dest="ny_ad", default=600, \
+parser.add_option("--nyears_ad_spinup", dest="ny_ad", default=250, \
                   help = 'number of years to run ad_spinup')
 parser.add_option("--metdir", dest="metdir", default="none", \
                   help = 'subdirectory for met data forcing')
@@ -165,18 +164,17 @@ parser.add_option("--surfdata_grid", dest="surfdata_grid", default=False, \
                   help = 'Use gridded surface data instead of site data', action="store_true")
 parser.add_option("--include_nonveg", dest="include_nonveg", default=False, \
                   help = 'Include non-vegetated columns/Landunits in surface data')
-parser.add_option("--xpts", dest="xpts", default=1, \
-                      help = 'for regional runs: xpts')
-parser.add_option("--ypts", dest="ypts", default=1, \
-                      help = 'for regional runs: ypts')
 parser.add_option("--trans2", dest="trans2", default=False, action="store_true", \
                   help = 'Tranisnent phase 2 (1901-2010) - CRUNCEP only')
 parser.add_option("--spinup_vars", dest="spinup_vars", default=False, \
                   help = 'Limit output vars in spinup runs', action="store_true")
-parser.add_option("--cn_only", dest="cn_only", default=True, \
+parser.add_option("--trans_varlist", dest = "trans_varlist", default='', help = "Transient outputs")
+parser.add_option("--c_only", dest="c_only", default=False, \
+                 help="Carbon only (supplemental P and N)", action="store_true")
+parser.add_option("--cn_only", dest="cn_only", default=False, \
                   help = 'Carbon/Nitrogen only (supplemental P)', action="store_true")
-parser.add_option("--cnp", dest="cnp", default=False, \
-                  help = 'CNP model', action = "store_true")
+parser.add_option("--cp_only", dest="cp_only", default=False, \
+                  help = 'Carbon/Phosphorus only (supplemental N)', action = "store_true")
 parser.add_option("--ensemble_file", dest="ensemble_file", default='', \
                   help = 'Parameter sample file to generate ensemble')
 parser.add_option("--mc_ensemble", dest="mc_ensemble", default=-1, \
@@ -189,7 +187,12 @@ parser.add_option("--archiveroot", dest="archiveroot", default='', \
 #Added by Kirk to include the modified parameter file
 parser.add_option("--mod_parm_file", dest="mod_parm_file", default='', \
                   help = "adding the path to the modified parameter file")
-
+parser.add_option("--parm_list", dest="parm_list", default='parm_list', \
+                  help = 'File containing list of parameters to vary')
+parser.add_option("--postproc_file", dest="postproc_file", default="", \
+                  help = 'File for ensemble post processing')
+parser.add_option("--walltime", dest="walltime", default=6, \
+                  help = "desired walltime for each job (hours)")
 (options, args) = parser.parse_args()
 
 #-------------------------------------------------------------------------------
@@ -198,6 +201,10 @@ parser.add_option("--mod_parm_file", dest="mod_parm_file", default='', \
 ppn=1
 if ('titan' in options.machine):
     ppn=16
+    if (int(options.walltime) > 2 and int(options.ng) < 2048):
+        print 'Requested walltime too long'
+        print 'Setting to 2 hours.'
+        options.walltime=2
 elif ('oic2' in options.machine):
     ppn=8
 elif ('oic5' or 'eos' or 'cades' in options.machine):
@@ -205,7 +212,6 @@ elif ('oic5' or 'eos' or 'cades' in options.machine):
 elif ('edison' in options.machine):
     ppn=24
 
-print ppn
 PTCLMdir = os.getcwd()
 
 if (options.hist_vars != ''):
@@ -240,20 +246,18 @@ else:
     options.ccsm_input = os.path.abspath(options.ccsm_input)
 
 compset = options.compset
+isglobal = False
+if (options.site == 'none'):
+    isglobal = True
+    options.site=options.res
 
 if ('CB' in compset):
     cpl_bypass = True
 else:
     cpl_bypass = False
 
-#figure out if clm40 or clm45, set model-specific options
-isclm45 =  False
-surfdir = 'surfdata'
-pftphys_stamp = 'clm40.c130424'
-if ('CLM45' in compset):
-    isclm45 = True
-    surfdir = 'surfdata_map'
-    pftphys_stamp = 'c160128'
+surfdir = 'surfdata_map'
+pftphys_stamp = 'c160711' #'c160711_root'
 CNPstamp = 'c131108'
 
 
@@ -276,6 +280,8 @@ if ('CN' in compset):
   mybgc = 'CN'
 elif ('BGC' in compset):
   mybgc = 'BGC'
+elif ('ED' in compset):
+  mybgc = 'ED'
 else:
   mybgc = 'none'
 
@@ -353,7 +359,6 @@ if (options.ad_spinup):
 if (options.exit_spinup):
     casename = casename+'_exit_spinup'
 
-#PTCLMfiledir = csmdir+'/scripts/acme/pointclm/PTCLM_files/'
 PTCLMfiledir = options.ccsm_input+'/lnd/clm2/PTCLM'
 
 if (caseroot != "./"):
@@ -366,8 +371,7 @@ if (os.path.exists(casedir)):
     
     print('Warning:  Case directory exists')
     if (options.rmold):
-        print('--rmold specified.  Removing old case (this will NOT clean the run directory')
-        print('Please perform a clean build if code has changed')
+        print('--rmold specified.  Removing old case ')
         os.system('rm -rf '+casedir)
     else:
         var = raw_input('proceed (p), remove old (r), or exit (x)? ')
@@ -380,23 +384,27 @@ print("CASE directory is: "+casedir+"\n")
 #Construct case build and run directory
 if (options.exeroot == '' or (os.path.exists(options.exeroot) == False)):
     exeroot = runroot+'/'+casename+'/bld'
-    if ('titan' in options.machine):
-        exeroot = os.path.abspath(os.environ['HOME']+ \
-    	    '/acme_scratch/pointclm/'+casename+'/bld')
+    #if ('titan' in options.machine or 'eos' in options.machine):
+    #    exeroot = os.path.abspath(os.environ['HOME']+ \
+   # 	    '/acme_scratch/pointclm/'+casename+'/bld')
 else:
     exeroot=options.exeroot
 print("CASE exeroot is: "+exeroot+"\n")
 rundir=runroot+'/'+casename+'/run'
 print("CASE rundir is: "+rundir+"\n")
+if (options.rmold):
+    if (options.no_build == False):
+        print('Removing build directory: '+exeroot)
+        os.system('rm -rf '+exeroot)
+    print('Removing run directory: '+rundir)
+    os.system('rm -rf '+rundir)
 
-
-#------------------- make point data for site -------------------------------
+#------Make domain, surface data and pftdyn files ------------------
 if (options.nopointdata == False):
-    ptcmd = 'python makepointdata.py --caseroot '+caseroot+' --casename '+casename+ \
+    ptcmd = 'python makepointdata.py --caseroot '+caseroot+ \
         ' --site '+options.site+' --sitegroup '+options.sitegroup+ \
         ' --csmdir '+csmdir+' --ccsm_input '+options.ccsm_input+ \
-        ' --compset '+compset
-
+        ' --lat_bounds '+options.lat_bounds+' --lon_bounds '+options.lon_bounds
     if (options.metdir != 'none'):
         ptcmd = ptcmd + ' --metdir '+options.metdir
     if (options.makemet):
@@ -405,51 +413,95 @@ if (options.nopointdata == False):
         ptcmd = ptcmd + ' --surfdata_grid'
     if (options.include_nonveg):
         ptcmd = ptcmd + ' --include_nonveg'
-    if (options.regional):
-        ptcmd = ptcmd + ' --regional'
-        ptcmd = ptcmd + ' --xpts '+options.xpts
-        ptcmd = ptcmd + ' --ypts '+options.ypts
-    if ('45' not in compset):
-        ptcmd = ptcmd + ' --clm40'
-    print(ptcmd)
-    os.system(ptcmd)
-else:
-    print('point data making NOT requested!  Make sure they exist')
+    if (options.nopftdyn):
+        ptcmd = ptcmd + ' --nopftdyn'
+    if (isglobal):
+        ptcmd = ptcmd + ' --res '+options.res
+
+    print('Creating surface and domain data')
+    if (options.machine == 'eos' or options.machine == 'titan'):
+        os.system('rm temp/*.nc')
+        print('Note:  NCO operations are slow on eos and titan.')
+        print('Submitting PBS script to make surface and domain data on rhea')
+        pbs_rhea=open('makepointdata_rhea.pbs','w')
+        pbs_rhea.write('#PBS -l walltime=00:30:00\n')
+        pbs_rhea.write('#PBS -l nodes=1\n')
+        pbs_rhea.write('#PBS -A cli112\n')
+        pbs_rhea.write('#PBS -q rhea\n')
+        pbs_rhea.write('#PBS -l gres=atlas1%atlas2\n\n')
+        pbs_rhea.write(' module load nco\n')
+        pbs_rhea.write(' cd '+csmdir+'/components/clm/tools/clm4_5/pointclm/\n')
+        pbs_rhea.write(' rm temp/*.nc\n')
+        pbs_rhea.write(' module unload PE-intel\n')
+        pbs_rhea.write(' module load PE-gnu\n')
+        pbs_rhea.write(' module load python\n')
+        pbs_rhea.write(' module load python_numpy\n')
+        pbs_rhea.write(' module load python_scipy\n')
+        pbs_rhea.write(ptcmd+'\n')
+        pbs_rhea.close()
+        os.system('qsub makepointdata_rhea.pbs')
+        n_nc_files = 3
+        if (options.nopftdyn):
+            n_nc_files = 2
+        n=0
+        while (n < n_nc_files):
+            #Wait until files have been generated on rhea to proceed
+            list_dir = os.listdir('./temp')
+            n=0
+            for file in list_dir:
+                if file.endswith('.nc'):
+                    n=n+1
+            os.system('sleep 10')
+        #Clean up
+        os.system('rm makepointdata_rhea*') 
+    else:
+        os.system(ptcmd)
+
 
 #get site year information
 sitedatadir = os.path.abspath(PTCLMfiledir)
 os.chdir(sitedatadir)
-AFdatareader = csv.reader(open(options.sitegroup+'_sitedata.txt',"rb"))
-for row in AFdatareader:
-    if row[0] == options.site:
-        if (use_cruncep):
-            if ('CN' in compset or 'BGC' in compset):
-                if (options.trans2):
-                    startyear = 1921
-                    endyear   = int(row[7])
+if (isglobal == False):
+    AFdatareader = csv.reader(open(options.sitegroup+'_sitedata.txt',"rb"))
+    for row in AFdatareader:
+        if row[0] == options.site:
+            if (use_cruncep):
+                if ('CN' in compset or 'BGC' in compset):
+                    if (options.trans2):
+                        startyear = 1921
+                        endyear   = int(row[7])
+                    else:
+                        startyear = 1901
+                        endyear   = 1920
                 else:
-                    startyear = 1901
-                    endyear   = 1920
+                    startyear = int(row[6]) #1901
+                    endyear   = int(row[7])
             else:
-                startyear = int(row[6]) #1901
-                endyear   = int(row[7])
-        else:
-            startyear=int(row[6])
-            endyear=int(row[7])
-        alignyear = int(row[8])
-        if (options.regional == True):
-            if (options.xpts < 2 and options.ypts < 2):
-                print('Error:  xpts OR ypts MUST be greater than 1 for regional option\n')
-                sys.exit()
-            numxpts = int(options.xpts)
-            numypts = int(options.ypts)
-        else:
+                startyear=int(row[6])
+                endyear=int(row[7])
+            alignyear = int(row[8])
             numxpts=1
             numypts=1
+else:
+    if (use_cruncep):
+        startyear=1901
+        if ('20TR' in compset):
+            endyear = 2010
+            if (options.trans2):
+                startyear = 1921
+        else:
+            endyear   = 1920
+    else:    #Global default to Qian
+        startyear=1948
+        if ('20TR' in compset):
+            endyear = 2004
+            if (options.trans2):
+                startyear = 1973
+        else:
+            endyear   = 1972
 
-           #numxpts=int(row[9])
-           #numypts=int(row[10])
-ptstr = str(numxpts)+'x'+str(numypts)+'pt'
+if (isglobal == False):
+    ptstr = str(numxpts)+'x'+str(numypts)+'pt'
 os.chdir(csmdir+'/cime/scripts')
 #get simyr
 mysimyr=1850
@@ -459,11 +511,11 @@ if (options.compset == 'ICLM45CN' or options.compset == 'ICLM45BGC' or '2000' in
 #parameter (pft-phys) modifications if desired
 tmpdir = csmdir+'/components/clm/tools/clm4_5/pointclm/temp'
 os.system('mkdir -p '+tmpdir)
-os.system('cp '+options.ccsm_input+'/lnd/clm2/paramdata/clm_params.'+pftphys_stamp+'.nc ' \
-              +tmpdir+'/clm_params.'+pftphys_stamp+'.'+casename+'.nc')
-os.system('chmod u+w ' +tmpdir+'/clm_params.'+pftphys_stamp+'.'+casename+'.nc')
+os.system('nccopy -3 '+options.ccsm_input+'/lnd/clm2/paramdata/clm_params_'+pftphys_stamp+'.nc ' \
+              +tmpdir+'/clm_params.nc')
+os.system('chmod u+w ' +tmpdir+'/clm_params.nc')
 if (options.parm_file != ''):
-    pftfile = tmpdir+'/clm_params.'+pftphys_stamp+'.'+casename+'.nc'
+    pftfile = tmpdir+'/clm_params.nc'
     input   = open(os.path.abspath(options.parm_file))
     for s in input:
         if s[0:1] != '#':
@@ -472,13 +524,25 @@ if (options.parm_file != ''):
             thisvar[int(values[1])] = float(values[2])
             ierr = nffun.putvar(pftfile, values[0], thisvar)
     input.close()
-
+if (options.parm_vals != ''):
+    pftfile = tmpdir+'/clm_params.nc'
+    parms = options.parm_vals.split()
+    nparms = len(parms)
+    for n in range(0,nparms):
+	parm_data=parms[n].split(',')
+        thisvar = nffun.getvar(pftfile, parm_data[0])
+        if (len(parm_data) == 2):
+	   thisvar[:] = float(parm_data[1])
+        elif (len(parm_data) == 3): 
+           thisvar[int(parm_data[1])] = float(parm_data[2])
+        ierr =  nffun.putvar(pftfile, parm_data[0], thisvar)
+           
 #parameter (soil order dependent) modifications if desired    ::X.YANG 
 os.system('cp '+options.ccsm_input+'/lnd/clm2/paramdata/CNP_parameters_'+CNPstamp+'.nc ' \
-              +tmpdir+'/CNP_parameters_'+CNPstamp+casename+'.nc')
-os.system('chmod u+w ' +tmpdir+'/CNP_parameters_'+CNPstamp+casename+'.nc')
+              +tmpdir+'/CNP_parameters.nc')
+os.system('chmod u+w ' +tmpdir+'/CNP_parameters.nc')
 if (options.parm_file_P != ''):
-    soilorderfile = options.ccsm_input+'/lnd/clm2/paramdata/CNP_parameters_'+CNPstamp+casename+'.nc'
+    soilorderfile = tmpdir+'/CNP_parameters.nc'
     input   = open(os.path.abspath(options.parm_file_P))
     for s in input:
         if s[0:1] != '#':
@@ -495,14 +559,14 @@ if (options.ny_ad != options.run_n and options.ad_spinup):
 elif (options.exit_spinup):
     options.run_n = 1
 
-
 #create new case
 print ('./create_newcase --case '+casename+' --mach '+options.machine+' --compset '+ \
-           options.compset+' --res CLM_USRDAT --compiler '+options.compiler+' --mpilib '+ \
-           options.mpilib)
+           options.compset+' --res '+options.res+' --compiler '+options.compiler+' --mpilib '+ \
+           options.mpilib+' --walltime '+str(options.walltime)+':00:00')
 os.system('./create_newcase --case '+casename+' --mach '+options.machine+' --compset '+ \
-	   options.compset+' --res CLM_USRDAT --compiler '+options.compiler+' --mpilib '+ \
-           options.mpilib+' > create_newcase.log')
+	   options.compset+' --res '+options.res+' --compiler '+options.compiler+' --mpilib '+ \
+           options.mpilib+' > create_newcase.log'+' --walltime '+str(options.walltime)+ \
+          ':00:00')
 if (os.path.isdir(casename)):
     print(casename+' created.  See create_newcase.log for details')
     os.system('mv create_newcase.log '+casename)
@@ -511,6 +575,7 @@ else:
 
 os.chdir(casedir)
 
+os.system('./xmlchange SAVE_TIMING=FALSE')
 #------------------ env_build.xml modifications ------------------------
 os.system('./xmlchange -file env_build.xml -id EXEROOT -val '+exeroot)
 
@@ -518,10 +583,7 @@ os.system('./xmlchange -file env_build.xml -id EXEROOT -val '+exeroot)
 os.system('./xmlchange -file env_build.xml -id RTM_MODE -val NULL')
 
 #clm 4_5 cn config options
-if (isclm45):
-    clmcn_opts = "-phys clm4_5"
-else:
-    clmcn_opts = "-phys clm4_0"
+clmcn_opts = "-phys clm4_5"
 
 os.system('./xmlchange -file env_build.xml -id CLM_CONFIG_OPTS -val "'+ \
               clmcn_opts+'"')
@@ -544,12 +606,13 @@ if (options.ccsm_input != ''):
                   +options.ccsm_input)
     
 #define mask and resoultion
-os.system('./xmlchange -file env_run.xml -id CLM_USRDAT_NAME ' \
-              +' -val '+str(numxpts)+'x'+str(numypts)+'pt_'+options.site)
+if (isglobal == False):
+    os.system('./xmlchange -file env_run.xml -id CLM_USRDAT_NAME ' \
+                  +' -val '+str(numxpts)+'x'+str(numypts)+'pt_'+options.site)
 if (options.ad_spinup):
     os.system('./xmlchange -file env_run.xml -id CLM_BLDNML_OPTS ' \
                   +' -val "-mask navy -bgc_spinup on -bgc '+mybgc.lower()+'"')
-elif ('CN' in compset or 'BGC' in compset):
+elif ('CN' in compset or 'BGC' in compset or 'ED' in compset):
     os.system('./xmlchange -file env_run.xml -id CLM_BLDNML_OPTS ' \
                   +' -val "-mask navy -bgc '+mybgc.lower()+'"')
 else:
@@ -559,9 +622,14 @@ if (options.run_startyear > -1):
     os.system('./xmlchange -file env_run.xml -id RUN_STARTDATE ' \
                   +' -val '+str(options.run_startyear)+'-01-01')
 os.system('./xmlchange -file env_run.xml -id ATM_DOMAIN_PATH ' \
-                  +' -val "\${RUNDIR}"')
+              +' -val "\${RUNDIR}"')
 os.system('./xmlchange -file env_run.xml -id LND_DOMAIN_PATH ' \
-                  +' -val "\${RUNDIR}"')
+              +' -val "\${RUNDIR}"')
+os.system('./xmlchange -file env_run.xml -id ATM_DOMAIN_FILE ' \
+              +' -val domain.nc')
+os.system('./xmlchange -file env_run.xml -id LND_DOMAIN_FILE ' \
+              +' -val domain.nc')
+
 #turn off archiving
 os.system('./xmlchange -file env_run.xml -id DOUT_S ' \
                   +' -val "FALSE"') 
@@ -570,8 +638,9 @@ if (use_cruncep):
     os.system('./xmlchange -file env_run.xml -id ' \
                   +'DATM_MODE -val CLMCRUNCEP') 
 else:
-    os.system('./xmlchange -file env_run.xml -id ' \
-                  +'DATM_MODE -val CLM1PT') 
+    if (isglobal == False):
+        os.system('./xmlchange -file env_run.xml -id ' \
+                      +'DATM_MODE -val CLM1PT') 
 os.system('./xmlchange -file env_run.xml -id ' \
               +'DATM_CLMNCEP_YR_START -val '+str(startyear))
 os.system('./xmlchange -file env_run.xml -id ' \
@@ -618,7 +687,6 @@ if ('20TR' in compset):
 #if ('oic' in options.machine or 'eos' in options.machine or 'edison' in options.machine):
 os.system('./xmlchange -file env_run.xml -id PIO_TYPENAME -val netcdf')
 
-#if number of land instances > 1
 os.system('./xmlchange -file env_mach_pes.xml -id NTASKS_ATM -val '+str(options.np))
 os.system('./xmlchange -file env_mach_pes.xml -id NTASKS_LND -val '+str(options.np))
 os.system('./xmlchange -file env_mach_pes.xml -id NTASKS_ICE -val '+str(options.np))
@@ -627,8 +695,17 @@ os.system('./xmlchange -file env_mach_pes.xml -id NTASKS_CPL -val '+str(options.
 os.system('./xmlchange -file env_mach_pes.xml -id NTASKS_GLC -val '+str(options.np))
 os.system('./xmlchange -file env_mach_pes.xml -id NTASKS_ROF -val '+str(options.np))
 os.system('./xmlchange -file env_mach_pes.xml -id NTASKS_WAV -val '+str(options.np))
-os.system('./xmlchange -file env_mach_pes.xml -id NTHRDS_WAV -val '+str(options.np))
-os.system('./xmlchange -file env_mach_pes.xml -id MAX_TASKS_PER_NODE -val '+str(options.np))
+os.system('./xmlchange -file env_mach_pes.xml -id NTHRDS_ATM -val 1')
+os.system('./xmlchange -file env_mach_pes.xml -id NTHRDS_LND -val 1')
+os.system('./xmlchange -file env_mach_pes.xml -id NTHRDS_ICE -val 1')
+os.system('./xmlchange -file env_mach_pes.xml -id NTHRDS_OCN -val 1')
+os.system('./xmlchange -file env_mach_pes.xml -id NTHRDS_CPL -val 1')
+os.system('./xmlchange -file env_mach_pes.xml -id NTHRDS_GLC -val 1')
+os.system('./xmlchange -file env_mach_pes.xml -id NTHRDS_ROF -val 1')
+os.system('./xmlchange -file env_mach_pes.xml -id NTHRDS_WAV -val 1')
+if (int(options.np) > 1):
+    os.system('./xmlchange -file env_mach_pes.xml -id MAX_TASKS_PER_NODE -val '+str(ppn))
+    os.system('./xmlchange -file env_mach_pes.xml -id PES_PER_NODE -val '+str(ppn))
 
 if (int(options.ninst) > 1):
     os.system('./xmlchange -file env_mach_pes.xml -id ' \
@@ -645,7 +722,7 @@ os.system('./xmlchange -file env_run.xml -id ' \
 #--------------------------CESM setup ----------------------------------------
 
 if (options.clean_config):
-    os.system('./cesm_setup -clean')
+    os.system('./case.setup -clean')
     os.system('rm -f Macro')
     os.system('rm -f user-nl-*')
 
@@ -665,12 +742,72 @@ for i in range(1,int(options.ninst)+1):
     output.write('&clm_inparm\n')
 
     #history file options
-    if (options.hist_mfilt != -1):
+    #outputs for SPRUCE MiP and Jiafu's diagnostics code:
+    var_list_hourly = ['GPP', 'NEE', 'NEP', 'NPP', 'LEAFC_ALLOC', 'AGNPP', 'MR', \
+            'CPOOL_TO_DEADSTEMC', 'LIVECROOTC_XFER_TO_LIVECROOTC', 'DEADCROOTC_XFER_TO_DEADCROOTC', \
+            'CPOOL_TO_LIVECROOTC', 'CPOOL_TO_DEADCROOTC', 'FROOTC_ALLOC', 'AR', 'LEAF_MR', 'CPOOL_LEAF_GR',
+            'TRANSFER_LEAF_GR', 'CPOOL_LEAF_STORAGE_GR', 'LIVESTEM_MR', 'CPOOL_LIVESTEM_GR', \
+            'TRANSFER_LIVESTEM_GR', 'CPOOL_LIVESTEM_STORAGE_GR', 'CPOOL_DEADSTEM_GR', \
+            'TRANSFER_DEADSTEM_GR', 'CPOOL_DEADSTEM_STORAGE_GR', 'LIVECROOT_MR', 'CPOOL_LIVECROOT_GR', \
+            'TRANSFER_LIVECROOT_GR', 'CPOOL_LIVECROOT_STORAGE_GR', 'CPOOL_DEADCROOT_GR', 'TRANSFER_DEADCROOT_GR', 'CPOOL_DEADCROOT_STORAGE_GR', \
+            'FROOT_MR', 'CPOOL_FROOT_GR', 'TRANSFER_FROOT_GR', 'CPOOL_FROOT_STORAGE_GR', 'FSH', 'EFLX_LH_TOT', \
+            'Rnet', 'FCTR', 'FGEV', 'FCEV', 'SOILLIQ', 'QOVER', 'QDRAI', 'TOTVEGC', 'LEAFC', 'LIVESTEMC', 'DEADSTEMC', \
+            'FROOTC', 'LIVECROOTC', 'DEADCROOTC', 'TG', 'TV', 'TSA', 'TSOI', 'DEADSTEMC_STORAGE', \
+            'LIVESTEMC_STORAGE', 'DEADCROOTC_STORAGE', 'LIVECROOTC_STORAGE', 'CPOOL_TO_DEADSTEMC_STORAGE', \
+            'CPOOL_TO_LIVESTEMC_STORAGE', 'CPOOL_TO_DEADCROOTC_STORAGE', 'CPOOL_TO_LIVECROOTC_STORAGE', \
+            'ER', 'HR', 'FROOTC_STORAGE', 'LEAFC_STORAGE', 'LEAFC_XFER', 'FROOTC_XFER', 'LIVESTEMC_XFER', \
+            'DEADSTEMC_XFER', 'LIVECROOTC_XFER', 'DEADCROOTC_XFER', 'SR', 'HR_vr', 'FIRA', 
+            'FSA', 'FSDS', 'FLDS', 'TBOT', 'RAIN', 'SNOW', 'WIND', 'PBOT', 'QBOT', 'QVEGT', 'QVEGE', 'QSOIL', \
+            'QFLX_SUB_SNOW', 'QFLX_DEW_GRND', 'QH2OSFC', 'H2OSOI', 'CPOOL_TO_LIVESTEMC', 'TOTLITC', \
+            'TOTSOMC', 'ZWT', 'SNOWDP', 'TLAI']
+    var_list_daily = ['TOTLITC', 'TOTSOMC', 'CWDC', 'LITR1C_vr', 'LITR2C_vr', 'LITR3C_vr', 'SOIL1C_vr', \
+                      'SOIL2C_vr', 'SOIL3C_vr', 'SOIL4C_vr', 'H2OSFC', 'ZWT', 'SNOWDP', 'TLAI']
+    var_list_pft = ['GPP', 'NPP', 'LEAFC_ALLOC', 'AGNPP', 'CPOOL_TO_DEADSTEMC', \
+                    'LIVECROOTC_XFER_TO_LIVECROOTC', 'DEADCROOTC_XFER_TO_DEADCROOTC', \
+                    'CPOOL_TO_LIVECROOTC', 'CPOOL_TO_DEADCROOTC', 'FROOTC_ALLOC', 'AR', 'MR', \
+                    'LEAF_MR', 'CPOOL_LEAF_GR', 'TRANSFER_LEAF_GR', 'CPOOL_LEAF_STORAGE_GR', \
+                    'LIVESTEM_MR', 'CPOOL_LIVESTEM_GR', 'TRANSFER_LIVESTEM_GR', \
+                    'CPOOL_LIVESTEM_STORAGE_GR', 'CPOOL_DEADSTEM_GR', 'TRANSFER_DEADSTEM_GR', \
+                    'CPOOL_DEADSTEM_STORAGE_GR', 'LIVECROOT_MR', 'CPOOL_LIVECROOT_GR', \
+                    'TRANSFER_LIVECROOT_GR', 'CPOOL_LIVECROOT_STORAGE_GR', 'CPOOL_DEADCROOT_GR', \
+                    'TRANSFER_DEADCROOT_GR', 'CPOOL_DEADCROOT_STORAGE_GR', 'FROOT_MR', \
+                    'CPOOL_FROOT_GR', 'TRANSFER_FROOT_GR', 'CPOOL_FROOT_STORAGE_GR', 'FCTR', 'FCEV', \
+                    'TOTVEGC', 'LEAFC', 'LIVESTEMC', 'DEADSTEMC', 'FROOTC', 'LIVECROOTC', \
+                    'DEADCROOTC', 'DEADSTEMC_STORAGE', 'LIVESTEMC_STORAGE', 'DEADCROOTC_STORAGE', \
+                    'LIVECROOTC_STORAGE', 'CPOOL_TO_DEADSTEMC_STORAGE', 'CPOOL_TO_LIVESTEMC_STORAGE', \
+                    'CPOOL_TO_DEADCROOTC_STORAGE', 'CPOOL_TO_LIVECROOTC_STORAGE', \
+                    'FROOTC_STORAGE', 'LEAFC_STORAGE', 'LEAFC_XFER', 'FROOTC_XFER', 'LIVESTEMC_XFER', \
+                    'DEADSTEMC_XFER', 'LIVECROOTC_XFER', 'DEADCROOTC_XFER', 'TLAI', 'CPOOL_TO_LIVESTEMC']
+    var_list_spinup = ['NPOOL', 'EFLX_LH_TOT', 'RETRANSN', 'PCO2', 'PBOT', 'NDEP_TO_SMINN', 'OCDEP', \
+                       'BCDEP', 'COL_FIRE_CLOSS', 'HDM', 'LNFM', 'NEE', 'GPP', 'FPSN', 'AR', 'HR', \
+                       'MR', 'GR', 'ER', 'NPP', 'TLAI', 'SOIL3C', 'SOIL4C', 'TOTSOMC', 'LEAFC', \
+                       'DEADSTEMC', 'DEADCROOTC', 'FROOTC', 'LIVESTEMC', 'LIVECROOTC', 'TOTVEGC', \
+                       'TOTCOLC', 'TOTLITC', 'BTRAN', 'CWDC', 'QVEGE', 'QVEGT', 'QSOIL', 'QDRAI', \
+                       'QRUNOFF', 'FPI', 'FPG']
+    #ILAMB diagnostic variables
+    ilamb_outputs = ['FAREA_BURNED', 'CWDC', 'LEAFC', 'TOTLITC', 'STORVEGC', 'LIVESTEMC', 'DEADSTEMC', \
+                     'TOTPRODC', 'FROOTC', 'LIVECROOTC', 'DEADCROOTC', 'SOIL1C', 'SOIL2C', 'SOIL3C', \
+                     'SOIL4C', 'TOTSOMC', 'TOTVEGC', 'WOODC', 'QSOIL', 'QVEGE', 'COL_FIRE_CLOSS', \
+                     'LITR1C_TO_SOIL1C', 'LITR2C_TO_SOIL2C', 'LITR3C_TO_SOIL3C', 'LAND_USE_FLUX', \
+                     'LITFALL', 'GPP', 'FGR', 'TLAI', 'SNOWLIQ', 'SOILICE', 'SOILLIQ', 'QRUNOFF', \
+                     'QOVER', 'SOILWATER_10CM', 'NBP', 'LEAFC_ALLOC', 'WOODC_ALLOC', 'QINTR', \
+                     'AR', 'GR', 'HR', 'MR', 'FSNO', 'SNOWDP', 'QMELT', 'H2OSNO', 'SNOWBCMSL', \
+                     'SNODSTMSL', 'SNOOCMSL', 'QVEGT', 'TSOI', 'WIND', 'EFLX_LH_TOT', 'FCTR', \
+                     'FCEV', 'FGEV', 'FSH', 'RH2M', 'Q2M', 'RAIN', 'SNOW', 'PBOT', 'FLDS', 'FIRE', \
+                     'FSDS', 'FSR', 'TSA']
+
+
+    if ('20TR' not in compset and int(options.hist_mfilt) == -1):
+	#default to annual for spinup runs if not specified
+	options.hist_mfilt = 1
+	options.hist_nhtfrq = -8760
+
+    if (options.hist_mfilt != -1 and not options.diags):
         if (options.ad_spinup):
             output.write(" hist_mfilt = "+str(options.hist_mfilt)+", "+str(options.hist_mfilt)+"\n")
         else:
             output.write(" hist_mfilt = "+ str(options.hist_mfilt)+"\n")
-    if (options.hist_nhtfrq != -999):
+    if (options.hist_nhtfrq != -999 and not options.diags):
         if (options.ad_spinup):
             output.write(" hist_nhtfrq = "+ str(options.hist_nhtfrq)+", "+str(options.hist_nhtfrq)+"\n")
         else:
@@ -691,44 +828,72 @@ for i in range(1,int(options.ninst)+1):
         print myline
         output.write(myline+"\n")
         hvars_file.close()
+   
     if (options.spinup_vars and (not '20TR' in compset)):
         output.write(" hist_empty_htapes = .true.\n")
-        output.write(" hist_fincl1 = 'NPOOL', 'RETRANSN', 'PCO2', 'PBOT', 'NDEP_TO_SMINN', 'OCDEP', 'BCDEP', 'COL_FIRE_CLOSS', 'HDM', 'LNFM', 'NEE', 'GPP', 'FPSN', 'AR', 'HR', 'MR', 'GR', 'ER', 'NPP', 'TLAI', 'TOTSOMC', 'LEAFC', 'DEADSTEMC', 'DEADCROOTC', 'FROOTC', 'LIVESTEMC', 'LIVECROOTC', 'TOTVEGC', 'TOTCOLC', 'TOTLITC', 'BTRAN', 'CWDC', 'QVEGE', 'QVEGT', 'QSOIL', 'QDRAI', 'QRUNOFF', 'FPI', 'FPG'\n")
+        h0varst = " hist_fincl1 = "
+        for v in var_list_spinup:
+	    h0varst = h0varst+"'"+v+"',"
+        h0varst = h0varst[:-1]+"\n"
+        output.write(h0varst)
+
+    if ('20TR' in compset and options.diags):
+        output.write(" hist_dov2xy = .true., .true., .true., .false.\n")
+        output.write(" hist_mfilt = 1, 8760, 365, 365\n")
+        output.write(" hist_nhtfrq = 0, -1, -24, -24\n")
+        h1varst = " hist_fincl2 = "
+        h2varst = " hist_fincl3 = "
+        h3varst = " hist_fincl4 = "
+        for v in var_list_hourly:
+            h1varst = h1varst+"'"+v+"',"
+            h2varst = h2varst+"'"+v+"',"
+        for v in var_list_daily:
+            h2varst = h2varst+"'"+v+"',"
+        for v in var_list_pft:
+            h3varst = h3varst+"'"+v+"',"
+        h1varst = h1varst[:-1]+"\n"
+        h2varst = h2varst[:-1]+"\n"
+        h3varst = h3varst[:-1]+"\n"
+        output.write(h1varst)
+        output.write(h2varst)
+        output.write(h3varst)
+    elif ('20TR' in compset and (options.trans_varlist != '' or options.ilambvars)):
+	trans_varlist = options.trans_varlist.split(',')
+        if (options.ilambvars):
+            trans_varlist = ilamb_outputs
+	output.write(" hist_empty_htapes = .true.\n")
+        h0varst = " hist_fincl1 = "
+	for v in trans_varlist:
+	    h0varst = h0varst+"'"+v+"',"
+	h0varst = h0varst[:-1]+"\n"
+        output.write(h0varst)
 
     if (options.ad_spinup):
         output.write(" hist_dov2xy = .true., .false.\n")
         if ('BGC' in compset or options.centbgc):
-
-            output.write(" hist_fincl2 = 'CWDC_vr', 'CWDN_vr', 'CWDP_vr', 'SOIL3C_vr', 'SOIL3N_vr', 'SOIL3P_vr', 'SOIL2C_vr', " + \
-                             "'SOIL2N_vr', 'SOIL2P_vr', 'DEADSTEMC', 'DEADSTEMN', 'DEADSTEMP', 'DEADCROOTC', 'DEADCROOTN', "+ \
+            output.write(" hist_fincl2 = 'CWDC_vr', 'CWDN_vr', 'CWDP_vr', 'SOIL3C_vr', 'SOIL3N_vr', " \
+                             +"'SOIL3P_vr', 'SOIL2C_vr','SOIL2N_vr', 'SOIL2P_vr', 'DEADSTEMC', " \
+                             +"'DEADSTEMN', 'DEADSTEMP', 'DEADCROOTC', 'DEADCROOTN', "+ \
                              "'DEADCROOTP', 'LITR3C_vr', 'LITR3N_vr', 'LITR3P_vr'\n")
         else:	
-            output.write(" hist_fincl2 = 'CWDC_vr', 'CWDN_vr', 'CWDP_vr', 'SOIL4C_vr', 'SOIL4N_vr', 'SOIL4P_vr', 'SOIL3C_vr', " + \
-	                     "'SOIL3N_vr', 'SOIL3P_vr', 'DEADSTEMC', 'DEADSTEMN', 'DEADSTEMP', 'DEADCROOTC', 'DEADCROOTN', "+ \
+            output.write(" hist_fincl2 = 'CWDC_vr', 'CWDN_vr', 'CWDP_vr', 'SOIL4C_vr', 'SOIL4N_vr', " \
+                             +"'SOIL4P_vr', 'SOIL3C_vr', 'SOIL3N_vr', 'SOIL3P_vr', 'DEADSTEMC', " \
+                             +"'DEADSTEMN', 'DEADSTEMP', 'DEADCROOTC', 'DEADCROOTN', "+ \
                              "'DEADCROOTP', 'LITR3C_vr', 'LITR3N_vr', 'LITR3P_vr'\n")
-
-    #user-defined initial data file
-    if (finidat != ''):
+        output.write(" finidat = ''\n")
+    elif (options.coldstart == False):
+        #user-defined initial data file
         output.write(" finidat = '"+finidat+"'\n")
+        
     #surface data file
-
-    if (options.nopointdata):
-        output.write(" fsurdat = '"+options.ccsm_input+"/lnd/clm2/"+surfdir+"/surfdata_"+str(numxpts)+'x'+ \
-                         str(numypts)+"pt_"+options.site+"_simyr"+str(mysimyr)+".nc'\n")
-    else:
-        output.write(" fsurdat = './surfdata_"+str(numxpts)+'x'+ \
-                         str(numypts)+"pt_"+casename+"_simyr"+str(mysimyr)+".nc'\n")
+    output.write(" fsurdat = '"+rundir+"/surfdata.nc'\n")
+        
     #pft dynamics file for transient run
     if ('20TR' in compset):
         if (options.nopftdyn):
             output.write(" flanduse_timeseries = ' '\n") 
         else:
-            if (options.nopointdata):
-	        output.write(" flanduse_timeseries = '"+options.ccsm_input+"/lnd/clm2/"+surfdir+ \
-                  "/surfdata.pftdyn_"+str(numxpts)+'x'+str(numypts)+"pt_"+options.site+".nc'\n")
-            else:
-                output.write(" flanduse_timeseries = './surfdata.pftdyn_"+str(numxpts)+'x' \
-                             +str(numypts)+"pt_"+casename+".nc'\n")
+            output.write(" flanduse_timeseries = '"+rundir+"/surfdata.pftdyn.nc'\n")
         output.write(' check_finidat_fsurdat_consistency = .false.\n')
         output.write(' check_finidat_year_consistency = .false.\n')
     #pft-physiology file
@@ -736,43 +901,53 @@ for i in range(1,int(options.ninst)+1):
         if (options.mod_parm_file != ''):
             output.write(" paramfile = '"+options.mod_parm_file+"'\n")
     else:
-        output.write(" paramfile = './clm_params."+pftphys_stamp+"."+ \
-                     casename+".nc'\n")
-    #soil order parameter file
-    output.write(" fsoilordercon = './CNP_parameters_"+CNPstamp+ \
-                     casename+".nc'\n")
+        output.write(" paramfile = '"+rundir+"/clm_params.nc'\n")
 
-    #nitrogen deposition file
+
     if ('CN' in compset or 'BGC' in compset):
+        #soil order parameter file
+        output.write(" fsoilordercon = '"+rundir+"/CNP_parameters.nc'\n")
         output.write( " stream_fldfilename_ndep = '"+options.ccsm_input+ \
-        "/lnd/clm2/ndepdata/fndep_clm_hist_simyr1849-2006_1.9x2.5_c100428.nc'\n")
-    if (options.vsoilc):
-        output.write(" use_vertsoilc = .true.\n")
-    if (options.centbgc):
-        output.write(" use_century_decomp = .true.\n")
-    if (options.no_dynroot):
-        output.write(" use_dynroot = .false.\n")
-    if (options.bulk_denitrif):
-        output.write(" use_nitrif_denitrif = .false.\n")
-    else:
-        output.write(" use_nitrif_denitrif = .true.\n")
-    if (options.CH4 or (not options.bulk_denitrif)):
-        output.write(" use_lch4 = .true.\n")
-    if (options.nofire and isclm45):
-        output.write(" use_nofire = .true.\n")
-    if (options.cn_only or options.ad_spinup):
-        output.write(" suplphos = 'ALL'\n")
-    elif (options.cnp):
-        output.write(" suplphos = 'NONE'\n")
-    if (options.C13):
-        output.write(" use_c13 = .true.\n")
-    if (options.C14):
-        output.write(" use_c14 = .true.\n")
+          "/lnd/clm2/ndepdata/fndep_clm_hist_simyr1849-2006_1.9x2.5_" + \
+                      "c100428.nc'\n")
+        if (options.vsoilc):
+            output.write(" use_vertsoilc = .true.\n")
+        if (options.centbgc):
+            output.write(" use_century_decomp = .true.\n")
+        if (options.no_dynroot):
+            output.write(" use_dynroot = .false.\n")
+        if (options.bulk_denitrif):
+            output.write(" use_nitrif_denitrif = .false.\n")
+        else:
+            output.write(" use_nitrif_denitrif = .true.\n")
+        if (options.CH4 or (not options.bulk_denitrif)):
+            output.write(" use_lch4 = .true.\n")
+        if (options.nofire):
+            output.write(" use_nofire = .true.\n")
+        if (options.c_only):
+            options.write(" suplphos = 'ALL'\n")
+            options.write(" suplnitro  = 'ALL'\n")
+        elif (options.cn_only or options.ad_spinup):
+            output.write(" suplphos = 'ALL'\n")
+            output.write(" suplnitro = 'NONE'\n")
+        elif (options.cp_only):
+            output.write(" suplphos = 'NONE'\n")
+            output.write(" suplnitro = 'ALL'\n")
+        else:
+            output.write(" suplphos = 'NONE'\n")
+            output.write(" suplnitro = 'NONE'\n")
+        if (options.C13):
+            output.write(" use_c13 = .true.\n")
+        if (options.C14):
+            output.write(" use_c14 = .true.\n")
+        output.write(" nyears_ad_carbon_only = 25\n")
+        output.write(" spinup_mortality_factor = 10\n")
     if (cpl_bypass):
         if (use_cruncep):
             output.write(" metdata_type = 'cru-ncep'\n")
             output.write(" metdata_bypass = '"+options.ccsm_input+"/atm/datm7/" \
-                             +"atm_forcing.datm7.cruncep.0.5d._v4_c110920.ornl/cpl_bypass_full'\n")
+                             +"atm_forcing.datm7.cruncep.0.5d.V4.c111104/cpl_bypass_full'\n")
+#                             +"atm_forcing.datm7.cruncep.0.5d._v4_c110920.ornl/cpl_bypass_full'\n")
         else:
             output.write("metdata_type = 'site'\n")
             output.write(" metdata_bypass = '"+options.ccsm_input+"/atm/datm7/" \
@@ -781,20 +956,19 @@ for i in range(1,int(options.ninst)+1):
                          +options.co2_file+"'\n")
         output.write(" aero_file = '"+options.ccsm_input+"/atm/cam/chem/" \
                          +"trop_mozart_aero/aero/aerosoldep_monthly_1849-2006_1.9x2.5_c090803.nc'\n")
-    output.write(" nyears_ad_carbon_only = 25\n")
-    output.write(" spinup_mortality_factor = 10\n")
+
 
     output.close()
 
 #configure case
 if (options.no_config == False):
-    os.system('./cesm_setup')
+    os.system('./case.setup')
 else:
     print("Warning:  No case configure performed")
     sys.exit()
 
 #stream file modificaitons: directory and domain file (for using site_level CRU-NCEP)
-if (not cpl_bypass):
+if (not cpl_bypass and not isglobal):
     if (use_cruncep):
         types = ['Precip', 'Solar', 'TPQW']
         tout  = ['Precip', 'Solar', 'TPHWL']
@@ -843,23 +1017,14 @@ if (not cpl_bypass):
         myoutput.close()
 
 #CPPDEF modifications
-infile  = open("Macros")
-outfile = open("Macros.tmp",'a')
+infile  = open("./Macros.make")
+outfile = open("./Macros.make.tmp",'a')
 for s in infile:
     if (s[0:7] == "CPPDEFS"):
         stemp = s
-        if (options.nofire and isclm45 == False):
-            print("Turning off FIRE\n")
-            stemp = stemp[:-1]+' -DNOFIRE\n'
         if (options.harvmod):
             print("Turning on HARVMOD modificaiton\n")
             stemp = stemp[:-1]+' -DHARVMOD\n'
-        if (options.ad_spinup and isclm45 == False):
-            print("Turning on AD_SPINUP (CLM4.0)")
-            stemp = stemp[:-1]+' -DAD_SPINUP\n'
-        if (options.exit_spinup and isclm45 == False): 
-            print("Turning on EXIT_SPINUP (CLM4.0)")
-            stemp = stemp[:-1]+' -DEXIT_SPINUP\n'
         if (cpl_bypass):
             stemp = stemp[:-1]+' -DCPL_BYPASS\n'
         outfile.write(stemp) 
@@ -877,7 +1042,7 @@ for s in infile:
         outfile.write(s)
 infile.close()
 outfile.close()
-os.system('mv Macros.tmp Macros')
+os.system('mv Macros.make.tmp Macros.make')
 
 
 #copy sourcemods
@@ -896,7 +1061,7 @@ else:
 
 #Datm mods/ transient CO2 patch for transient run (datm buildnml mods)
 if (not cpl_bypass):
-    myinput  = open('./Buildconf/datmconf/datm_atm_in')
+    myinput  = open('./Buildconf/datmconf/datm_in')
     myoutput = open('user_nl_datm','w')
     for s in myinput:
         if ('streams =' in s):
@@ -915,17 +1080,19 @@ if (not cpl_bypass):
                                    '"datm.streams.txt.CLMCRUNCEP.Precip '+str(myalign_year)+ \
                                    ' '+str(startyear)+' '+str(endyear)+'  ", '+ \
                                    '"datm.streams.txt.CLMCRUNCEP.TPQW '+str(myalign_year)+ \
-                                   ' '+str(startyear)+' '+str(endyear)+'  ", '+mypresaero+myco2+'\n')
+                                   ' '+str(startyear)+' '+str(endyear)+'  ", '+mypresaero+myco2+ \
+                                   ', "datm.streams.txt.topo.observed 1 1 1"\n')
             else:
                 myoutput.write(' streams = "datm.streams.txt.CLM1PT.CLM_USRDAT '+str(myalign_year)+ \
-                                   ' '+str(startyear)+' '+str(endyear)+'  ", '+mypresaero+myco2+'\n')
+                                   ' '+str(startyear)+' '+str(endyear)+'  ", '+mypresaero+myco2+ \
+                                   ', "datm.streams.txt.topo.observed 1 1 1"\n')
         elif ('streams' in s):
             continue  #do nothing
         elif ('taxmode' in s):
             if (use_cruncep):
-                taxst = "taxmode = 'cycle', 'cycle', 'cycle', 'extend'"
+                taxst = "taxmode = 'cycle', 'cycle', 'cycle', 'extend', 'extend'"
             else:
-                taxst = "taxmode = 'cycle', 'extend'"
+                taxst = "taxmode = 'cycle', 'extend', 'extend'"
             if ('20TR' in compset):
                 taxst = taxst+", 'extend'"
             myoutput.write(taxst+'\n')
@@ -934,12 +1101,15 @@ if (not cpl_bypass):
     myinput.close()
     myoutput.close()
 
+os.system('mkdir Srcfiles')
 #clean build if requested
 if (options.clean_build):
-    os.system('./'+casename+'.clean_build')
+    os.system('./case.build --clean')
 #compile cesm
 if (options.no_build == False):
-    os.system('./'+casename+'.build')
+    os.system('./case.build')
+    if ('eos' in options.machine):
+      os.system('./case.build')
 else:
     print ('no_build set.  Assuming model has already been built.')
     print ('Creating run directory.  Setting BUILD_COMPLETE = TRUE')
@@ -950,19 +1120,14 @@ if (options.caseroot == ''):
 else:
     os.chdir(casedir) 
 
-#move site data to run directory
-os.system('mv '+tmpdir+'/*'+casename+'*.nc '+runroot+'/'+casename+'/run/')
-if (options.nopointdata == False):
-   os.system('mv '+tmpdir+'/domain*'+options.site+'* '+runroot+'/'+casename+'/run/')
-else:
-   os.system('cp '+options.ccsm_input+'/share/domains/domain.clm/domain*'+options.site+'* ' \
-	+runroot+'/'+casename+'/run/')
-if ('titan' in options.machine):
-   os.system('cp '+exeroot+'/cesm.exe '+csmdir+'/components/clm/tools/clm4_5/pointclm/temp/')
-#os.system('cp -f ../microbepar_in ' +csmdir+'/run/'+casename+'/run/')
+#copy site data to run directory
+os.system('cp '+PTCLMdir+'/temp/domain.nc '+PTCLMdir+'/temp/surfdata.nc  '+ \
+              PTCLMdir+'/temp/*param*.nc '+runroot+'/'+casename+'/run/')
+if ('20TR' in compset and options.nopftdyn == False):
+    os.system('cp '+PTCLMdir+'/temp/surfdata.pftdyn.nc '+runroot+'/'+casename+'/run/')
 
 #submit job if requested
-if (options.no_submit == False and options.mc_ensemble < 0 and options.ensemble_file == ''):
+if (options.no_submit == False and int(options.mc_ensemble) < 0 and options.ensemble_file == ''):
 # Ming, 01/22/16, use a csh script instead of the perl script to submit the job.
 #    os.system("qsub "+casename+".run")
     if ("mesabi" in options.machine):
@@ -978,31 +1143,36 @@ if (options.no_submit == False and options.mc_ensemble < 0 and options.ensemble_
         f.close()
         os.system("qsub qsub.csh")
     else:
-        os.system("qsub "+casename+".run")
+        os.system("./case.submit")
 
-    
+
+
 #------------------------- Code to generate and run parameter ensembles --------------------------------------
 
 os.chdir(PTCLMdir)
 
-if (options.ensemble_file != '' or options.mc_ensemble != -1):
-    if (not(os.path.isfile('parm_list'))):
+if (options.ensemble_file != '' or int(options.mc_ensemble) != -1):
+    if (not(os.path.isfile(options.parm_list))):
 	print('parm_list file does not exist')
+        sys.exit()
+    elif (isglobal):
+        print('Ensemble simulations not supported for regional/global simulations')
         sys.exit()
     else:
         param_names=[]
         param_min=[]
         param_max=[]
-        input = open('parm_list','r')
+        input = open(options.parm_list,'r')
         for s in input:
 	    if (s):
                 param_names.append(s.split()[0])
-                if (len(s.split()) == 3):
-                  param_min.append(float(s.split()[1]))
-                  param_max.append(float(s.split()[2]))
-                else:
-                  param_min.append(float(s.split()[2]))
-                  param_max.append(float(s.split()[3]))
+                if (int(options.mc_ensemble) > 0):
+                    if (len(s.split()) == 3):
+                        param_min.append(float(s.split()[1]))
+                        param_max.append(float(s.split()[2]))
+                    else:
+                        param_min.append(float(s.split()[2]))
+                        param_max.append(float(s.split()[3]))
         input.close() 
         n_parameters = len(param_names)
 
@@ -1020,7 +1190,7 @@ if (options.ensemble_file != '' or options.mc_ensemble != -1):
                 samples[j][nsamples] = float(s.split()[j]) 
             nsamples=nsamples+1
         myinput.close()
-    elif (options.mc_ensemble > 0):
+    elif (int(options.mc_ensemble) > 0):
         nsamples = int(options.mc_ensemble)
         samples=numpy.zeros((n_parameters,nsamples), dtype=numpy.float)
         for i in range(0,nsamples):
@@ -1038,107 +1208,81 @@ if (options.ensemble_file != '' or options.mc_ensemble != -1):
     n_scripts = int(math.ceil(nsamples/float(options.ninst*options.ng)))
  
     num=0
-    #create ensemble directories 
-    if (options.ensemble_file != '' or options.mc_ensemble != -1):
-        for i in range(0,nsamples):
-            #write the PBS scripts to copy directories and run the ensembles for this case
-            if (i % int(options.ng) == 0):
-                input = open(caseroot+'/'+casename+'/'+casename+'.run')
-                numst=str(1000+num)
-                output_copy = open(tmpdir+'/ensemble_copy_'+casename+'_'+numst[1:]+'.pbs','w')
-                output_run  = open(tmpdir+'/ensemble_run_'+casename+'_'+numst[1:]+'.pbs','w')
-                for s in input:
-                    if ("perl" in s):
-                        output_copy.write("#!/bin/csh -f\n")
-                        output_run.write("#!/bin/csh -f\n")
-                    elif ("#PBS" in s or "#!" in s):
-                        #edit number of required nodes for ensemble runs
-                        if ('nodes' in s):
-                            output_copy.write('#PBS -l nodes=1:ppn='+str(ppn)+'\n')
-                            output_run.write('#PBS -l nodes='+str(int(math.ceil(np_total/(ppn*1.0))))+ \
+    #Launch ensemble if requested 
+    mysubmit_type = 'qsub'
+    if (options.machine == 'cori' or options.machine == 'edison'):
+        mysubmit_type = 'sbatch'
+    if (options.ensemble_file != ''):
+        #write the PBS scripts to copy directories and run the ensembles for this case
+        myinput = open(casedir+'/case.run','r')
+        output_run  = open(tmpdir+'/ensemble_run_'+casename+'.pbs','w')
+        for s in myinput:
+            if ("perl" in s or 'python' in s):
+                output_run.write("#!/bin/csh -f\n")
+                if (mysubmit_type == 'qsub'):
+                    output_run.write('#PBS -l walltime='+str(options.walltime)+':00:00\n')
+                else:
+                    output_run.write('#SBATCH --time='+str(options.walltime)+':00:00\n')
+                    if ('edison' in options.machine):
+	                output_run.write('#SBATCH --partition=regular\n')
+            elif ("#PBS" in s or "#!" in s or '#SBATCH' in s):
+                #edit number of required nodes for ensemble runs
+                if ('nodes' in s):
+                    if (options.machine == 'cades'):
+                        output_run.write('#PBS -l nodes='+str(int(math.ceil(np_total/(ppn*1.0))))+ \
                                              ':ppn='+str(ppn)+'\n')
-                        elif ('walltime' in s): 
-                            output_copy.write('#PBS -l walltime=3:00:00\n')
-                            output_run.write('#PBS -l walltime=3:00:00\n')
-                        else:
-                            output_copy.write(s)
-                            output_run.write(s)
-                input.close()
-                output_copy.write("\n")
-                output_run.write("\n")
-            ngst=str(100000+(i % int(options.ng))+1)
-            if ('oic' in options.machine or 'cades' in options.machine):
-                #need to distribute jobs to nodes manually on oic
-                myline_end = int(options.np)*((i % int(options.ng))+1)*int(options.ninst)
-                output_run.write('head -'+str(myline_end)+' $PBS_NODEFILE | tail -1 > '+tmpdir+ \
-                              '/mynodefile'+ngst[1:]+'\n')
-            est=str(100000+i+1)
-            ens_dir  = runroot+'/UQ/'+casename+'/g'+est[1:]
-            if (int(est)-100000 <= math.ceil(float(nsamples)/options.ninst)):
-              output_copy.write('cd '+csmdir+'/components/clm/tools/clm4_5/pointclm/\n')
-              output_copy.write('python ensemble_copy.py --case '+casename+' --runroot '+runroot \
-                                    +' --ens_num '+str(i+1)+' --ens_file '+options.ensemble_file+' &\n')
-              if ((i+1) % ppn == 0 or (i == nsamples-1)):
-	        output_copy.write('wait\n')
-	        
-              output_copy.write('mkdir -p '+ens_dir+'/timing/checkpoints\n')
-              if ('oic' in options.machine or 'cades' in options.machine):
-                   mpi_args = ' -np '+str(options.np)+' --hostfile '+tmpdir+'/mynodefile'+ngst[1:]
-                   if ('cades' in options.machine):        #NOTE - will work with np=1 only
-                  	mpi_args = mpi_args+' --cpu-set '+str(i % ppn)
-                   output_run.write('cd '+ens_dir+'\n')
-                   output_run.write('mpirun '+mpi_args+' '+exeroot+'/cesm.exe > ccsm_log.txt &\n')
-              elif (('titan' in options.machine or 'eos' in options.machine) and int(options.ninst) == 1):
-                  #use wraprun utility on nccs to manage the ensemble
-                  output_run.write('cd '+ens_dir+'\n')
-                  if ( (i % ppn) == 0):
-                      cmd = 'wraprun -n '
-                      for pp in range(0,ppn-1):
-                          cmd = cmd+'1,'
-                      cmd = cmd+'1 --w-cd '+ens_dir
-                  elif ( (i % ppn) < (ppn-1)):
-                      cmd = cmd+','+ens_dir
-                  else:
-                    output_run.write(cmd+','+ens_dir+' '+exeroot+'/cesm.exe > ccsm_log.txt &\n')
-
-            if ((i+1) % int(options.ng) == 0 or (i+1) == nsamples):          
-                output_copy.write('wait\n')
-                output_run.write('wait\n')
-                                 
-                output_copy.close()
-                output_run.close()
-
-                if (not options.no_submit):
-                    if (num == 0):
-                        if (not options.ensemble_nocopy):
-                            subprocess.call('qsub '+tmpdir+'/ensemble_copy_'+ \
-                                                casename+'_'+numst[1:]+'.pbs > '+tmpdir+ \
-                                                '/jobinfo_copy', shell=True)
-                            myinput = open(tmpdir+'/jobinfo_copy')
-                            for s in myinput:
-                                lastjob = s.split('.')[0]
-                            myinput.close()
-                            subprocess.call('qsub -W depend=afterok '+lastjob+' '+tmpdir+'/ensemble_run_'+ \
-                                                casename+'_'+numst[1:]+'.pbs > '+tmpdir+ \
-                                                '/jobinfo_run', shell=True)
-                        else:
-                            subprocess.call('qsub '+tmpdir+'/ensemble_run_'+ \
-                                                casename+'_'+numst[1:]+'.pbs > '+tmpdir+ \
-                                                '/jobinfo_run', shell=True) 
+                    elif (mysubmit_type == 'qsub'):
+                        output_run.write('#PBS -l nodes='+str(int(math.ceil(np_total/(ppn*1.0))))+ \
+                                         '\n')
                     else:
-                        if (not options.ensemble_nocopy):
-                            myinput = open(tmpdir+'/jobinfo_copy')
-                            for s in myinput:
-                                lastjob = s.split('.')[0]
-                            myinput.close()
-                            subprocess.call('qsub '+tmpdir+'/ensemble_copy_'+ \
-                                                casename+'_'+numst[1:]+'.pbs > '+tmpdir+ \
-                                                '/jobinfo_copy', shell=True)
-                        myinput = open(tmpdir+'/jobinfo_run')
-                        for s in myinput:
-                            lastjob = s.split('.')[0]
-                        myinput.close()
-                        subprocess.call('qsub -W depend=afterok:'+lastjob+' '+tmpdir+ \
-                              '/ensemble_run_'+casename+'_'+ \
-                              numst[1:]+'.pbs > '+tmpdir+'/jobinfo_run', shell=True)
-                num = num+1
+                        output_run.write('#SBATCH --nodes='+str(int(math.ceil(np_total/(ppn*1.0))))+ \
+                                         '\n')
+                else:
+                    output_run.write(s)
+        myinput.close()
+
+        output_run.write("\n")
+        if (options.machine == 'eos'):
+            output_run.write('source $MODULESHOME/init/csh\n')
+            output_run.write('module load nco\n')
+            output_run.write('module load cray-netcdf\n')
+	    output_run.write('module unload python\n')
+            output_run.write('module load python/2.7.5\n')
+            output_run.write('module unload PrgEnv-intel\n')
+            output_run.write('module load PrgEnv-gnu\n')
+            output_run.write('module load python_numpy\n')
+            output_run.write('module load python_scipy\n')
+            output_run.write('module load python_mpi4py/2.0.0\n')
+            output_run.write('module unload PrgEnv-gnu\n')
+            output_run.write('module load PrgEnv-intel\n')
+        if (options.machine == 'titan'):
+            output_run.write('source $MODULESHOME/init/csh\n')
+            output_run.write('module load nco\n')
+            output_run.write('module load cray-netcdf\n')
+            output_run.write('module load python/2.7.9\n')
+            output_run.write('module load python_numpy/1.9.2\n')
+            output_run.write('module load python_scipy/0.15.1\n')
+            output_run.write('module load python_mpi4py/2.0.0\n')
+        output_run.write('cd '+csmdir+'/components/clm/tools/clm4_5/pointclm/\n')
+        cnp = 'True'
+        if (options.cn_only or options.c_only):
+            cnp= 'False'
+        if ('oic' in options.machine or 'cades' in options.machine):
+            mpicmd = 'mpirun'
+            if ('cades' in options.machine):
+                mpicmd = '/software/dev_tools/swtree/cs400_centos7.2_pe2016-08/openmpi/1.10.3/centos7.2_gnu5.3.0/bin/mpirun'
+            cmd = mpicmd+' -np '+str(np_total)+' --hostfile $PBS_NODEFILE python manage_ensemble.py ' \
+               +'--case '+casename+' --runroot '+runroot+' --n_ensemble '+str(nsamples)+' --ens_file '+ \
+               options.ensemble_file+' --exeroot '+exeroot+' --parm_list '+options.parm_list+' --cnp '+cnp + \
+               ' --site '+options.site
+        elif (('titan' in options.machine or 'eos' in options.machine or 'edison' in options.machine) and int(options.ninst) == 1):
+            cmd = 'aprun -n '+str(np_total)+' python manage_ensemble.py ' \
+               +'--case '+casename+' --runroot '+runroot+' --n_ensemble '+str(nsamples)+' --ens_file '+ \
+               options.ensemble_file+' --exeroot '+exeroot+' --parm_list '+options.parm_list+' --cnp '+cnp + \
+               ' --site '+options.site
+        if (options.postproc_file != ''): 
+            cmd = cmd + ' --postproc_file '+options.postproc_file
+        output_run.write(cmd+'\n')
+        output_run.close()
+        if (options.no_submit == False):
+            os.system('qsub '+tmpdir+'/ensemble_run_'+casename+'.pbs')
