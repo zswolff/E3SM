@@ -375,8 +375,8 @@ contains
               !get mean annual temperature
               !atm2lnd_vars%forc_mat_grc(g) = (sum(atm2lnd_vars%atm_input(1,g,1,1:counti(1))*atm2lnd_vars%scale_factors(1) + &
               !                             atm2lnd_vars%add_offsets(1))/counti(1))
-              !print*, g, ldomain%lonc(g), ldomain%latc(g),  (sum(atm2lnd_vars%atm_input(1,g,1,1:counti(1))* &	
-              !         atm2lnd_vars%scale_factors(1) + atm2lnd_vars%add_offsets(1))/counti(1))
+              print*, g, ldomain%lonc(g), ldomain%latc(g),  (sum(atm2lnd_vars%atm_input(1,g,1,1:counti(1))* &	
+                       atm2lnd_vars%scale_factors(1) + atm2lnd_vars%add_offsets(1))/counti(1))
             end if 
 
             !Align spinups and transient simulations
@@ -583,7 +583,7 @@ contains
               end if
               close(nu_nml)
               call relavu( nu_nml )
-              !print*, "poulation density stream file: " // trim(stream_fldFileName_popdens)
+              print*, "poulation density stream file: " // trim(stream_fldFileName_popdens)
 
               ierr = nf90_open(trim(stream_fldFileName_popdens), NF90_NOWRITE, ncid)
               ierr = nf90_inq_varid(ncid, 'lat', varid)
@@ -653,6 +653,7 @@ contains
           end if
           close(nu_nml)
           call relavu( nu_nml )
+          print*, "Lightning stream file"
 
           ierr = nf90_open(trim(stream_fldFileName_lightng), NF90_NOWRITE, ncid)
           ierr = nf90_inq_varid(ncid, 'lat', varid)
@@ -663,11 +664,12 @@ contains
           ierr = nf90_get_var(ncid, varid, lnfm1)
           ierr = nf90_close(ncid)
         end if
-        if (nstep .eq. 0) then
+        if (nstep .eq. 0 .and. i .eq. 1) then
             call mpi_bcast(lnfm1, 192*94*2920, MPI_REAL8, 0, mpicom, ier)
             call mpi_bcast (smapt62_lon, 192, MPI_REAL8, 0, mpicom, ier)
             call mpi_bcast (smapt62_lat, 94, MPI_REAL8, 0, mpicom, ier)
-
+        end if
+        if (nstep .eq. 0) then
           mindist=99999
           do thisx = 1,192
             do thisy = 1,94
@@ -711,7 +713,7 @@ contains
             end if
             close(nu_nml)
             call relavu( nu_nml )
-            !print*, 'Nitrogen deposition stream file: ' // stream_fldFileName_ndep
+            print*, 'Nitrogen deposition stream file: ' // stream_fldFileName_ndep
 
             ierr = nf90_open(trim(stream_fldFileName_ndep), nf90_nowrite, ncid)
             ierr = nf90_inq_varid(ncid, 'lat', varid)
@@ -799,10 +801,15 @@ contains
             do av=1,14
               ierr = nf90_inq_varid(ncid, trim(aerovars(av)), varid)
               ierr = nf90_get_var(ncid, varid, aerodata(av,:,:,:), starti, counti)
+              print*, 'Loading aerodata', av, ierr
             end do
             ierr = nf90_close(ncid)
           end if
-          if (i .eq. 1) call mpi_bcast (aerodata, 14*144*96*13, MPI_REAL8, 0, mpicom, ier)
+          if (i .eq. 1) then 
+             print*, 'Test communicate aerodata1'
+             call mpi_bcast (aerodata, 14*144*96*14, MPI_REAL8, 0, mpicom, ier)
+             print*, 'Test communidate aerodata2'
+          end if
        end if
 
        !Use ndep grid indices since they're on the same grid
