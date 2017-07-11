@@ -322,22 +322,25 @@
     </directives>
   </batch_system>
 
-  <batch_system MACH="grizzly" type="moab" >
+  <batch_system MACH="grizzly" type="slurm" >
 	<directives>
-		<directive>-l nodes={{ num_nodes }}:ppn={{ tasks_per_node }}</directive>
-		<directive>-l qos=standard </directive>
+		<directive>--nodes={{ num_nodes }}</directive>
+		<directive>--ntasks-per-node={{ tasks_per_node }}</directive>
+		<directive>--qos=standard </directive>
 	</directives>
 	<queues>
-		<queue walltimemax="16:00:00" default="true">moab</queue>
+		<queue walltimemax="16:00:00" default="true">standard</queue>
 	</queues>
   </batch_system>
 
-   <batch_system MACH="wolf" type="moab" >
+   <batch_system MACH="wolf" type="slurm" >
 	<directives>
-		<directive>-l nodes={{ num_nodes }}:ppn={{ tasks_per_node }}</directive>
+		<directive>--nodes={{ num_nodes }}</directive>
+		<directive>--ntasks-per-node={{ tasks_per_node }}</directive>
+		<directive>--qos=standard </directive>
 	</directives>
 	<queues>
-		<queue walltimemax="16:00:00" default="true">moab</queue>
+		<queue walltimemax="16:00:00" default="true">standard</queue>
 	</queues>
     </batch_system>
 
@@ -386,14 +389,23 @@
      </queues>
    </batch_system>
 
+   <batch_system MACH="metis" type="pbs" >
+     <directives>
+       <directive>-l nodes={{ num_nodes }}</directive>
+     </directives>
+     <queues>
+       <queue walltimemax="24:00:00" jobmin="0" jobmax="3104" default="true">batch</queue>
+     </queues>
+   </batch_system>
+
    <batch_system MACH="titan" type="pbs" >
      <directives>
        <directive>-A {{ project }}</directive>
        <directive>-l nodes={{ num_nodes }}</directive>
      </directives>
      <queues>
-       <queue walltimemax="02:00:00" default="true">batch</queue>
-       <queue walltimemax="01:00:00" jobmin="0" jobmax="64" strict="true">debug</queue>
+       <queue walltimemax="02:00:00" jobmin="0" jobmax="299008" default="true">batch</queue>
+       <queue walltimemax="01:00:00" jobmin="0" jobmax="299008" strict="true">debug</queue>
      </queues>
    </batch_system>
 
