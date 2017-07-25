@@ -187,7 +187,7 @@ if (options.ccsm_input != ''):
     ccsm_input = options.ccsm_input
 elif (options.machine == 'titan' or options.machine == 'eos'):
     ccsm_input = '/lustre/atlas/world-shared/cli900/cesm/inputdata'
-elif (options.machine == 'cades'):
+elif (options.machine == 'cades' or options.machine == 'metis'):
     ccsm_input = '/lustre/or-hydra/cades-ccsi/proj-shared/project_acme/ACME_inputdata/'
 elif (options.machine == 'edison' or options.machine == 'cori'):
     ccsm_input = '/project/projectdirs/acme/inputdata'
@@ -221,7 +221,7 @@ if (options.runroot == '' or (os.path.exists(options.runroot) == False)):
         for s in myinput:
 	   myproject=s[:-1]
         runroot='/lustre/atlas/scratch/'+myuser+'/'+myproject
-    elif (options.machine == 'cades'):
+    elif (options.machine == 'cades' or options.machine == 'metis'):
         runroot='/lustre/or-hydra/cades-ccsi/scratch/'+myuser
     else:
         runroot = csmdir+'/run'

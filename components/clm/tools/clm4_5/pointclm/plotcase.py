@@ -159,6 +159,7 @@ dirs=[]
 nvar = len(myvars)    
 x_toplot    = numpy.zeros([ncases, 2000000], numpy.float)
 data_toplot = numpy.zeros([ncases, nvar, 2000000], numpy.float)
+snum        = numpy.zeros([ncases], numpy.int)
 
 for c in range(0,ncases):
     if (obs and c == ncases-1):   #observations
@@ -350,41 +351,41 @@ for c in range(0,ncases):
     if (avtype == 'default'):
         print(nsteps, avpd)
         for v in range(0,nvar):
-            snum = 0
+            snum[c] = 0
             for s in range(0,int(nsteps/avpd)): 
-                x_toplot[c, snum]       = sum(x[s*avpd:(s+1)*avpd])/avpd
-                data_toplot[c, v, snum] = sum(mydata[v,s*avpd:(s+1)*avpd])/avpd      
-                snum = snum+1
+                x_toplot[c, snum[c]]       = sum(x[s*avpd:(s+1)*avpd])/avpd
+                data_toplot[c, v, snum[c]] = sum(mydata[v,s*avpd:(s+1)*avpd])/avpd      
+                snum[c] = snum[c]+1
 
     #diurnal average (must have hourly output)
     if (avtype == 'diurnal'):
-        snum=36
+        snum[c]=36
         for v in range(0,nvar):
-            mysum = numpy.zeros(snum, numpy.float)
-            myct = numpy.zeros(snum,numpy.float)
+            mysum = numpy.zeros(snum[c], numpy.float)
+            myct = numpy.zeros(snum[c],numpy.float)
             for y in range(0,(yend-ystart+1)):
                 for d in range (int(options.dstart),int(options.dend)):
-                    for s in range(0,snum):        
+                    for s in range(0,snum[c]):        
                         h=s
                         if (h >= 24):
                             h=h-24
                         mysum[s] = mysum[s]+mydata[v,y*8760+(d-1)*24+h]/((yend-ystart+1)* \
                                                  (int(options.dend)-int(options.dstart)+1))
                         myct[s] = myct[s]+1
-            for s in range(0,snum):
+            for s in range(0,snum[c]):
                 x_toplot[c,s] = s+0.5
                 data_toplot[c, v, s] = mysum[s]/myct[s]
       
     #seasonal average (assumes default monthly output)
     if (avtype == 'seasonal'):
         for v in range(0,nvar):
-            snum = 12
-            mysum=numpy.zeros(snum, numpy.float)
+            snum[c] = 12
+            mysum=numpy.zeros(snum[c], numpy.float)
             for y in range(0,(yend-ystart+1)):
-                for s in range(0,snum):
+                for s in range(0,snum[c]):
                     mysum[s]=mysum[s]+mydata[v,(y*12+s)]/(yend-ystart+1)
         
-            for s in range(0,snum):
+            for s in range(0,snum[c]):
                 x_toplot[c,s] = s+0.5
                 data_toplot[c,v,s] = mysum[s]
         
@@ -392,8 +393,8 @@ for c in range(0,ncases):
 for v in range(0,len(myvars)):
     fig = plt.figure()
     ax = plt.subplot(111)
-    for c in range(0,ncases):                
-        ax.plot(x_toplot[c, 1:snum], data_toplot[c,v,1:snum], label=mytitles[c])
+    for c in range(0,ncases): 
+        ax.plot(x_toplot[c, 1:snum[c]], data_toplot[c,v,1:snum[c]], label=mytitles[c])
     if (avtype == 'seasonal'):
         plt.xlabel('Model Month')
     elif (avtype == 'diurnal'):

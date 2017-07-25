@@ -119,8 +119,8 @@ class Frame(wx.Frame):
         m_text3.SetFont(wx.Font(10, wx.SWISS, wx.NORMAL, wx.BOLD))
         m_text3.SetSize(m_text3.GetBestSize())
         box.Add(m_text3, 0, wx.ALL, 3)
-        self.m_site = wx.Choice(panel, -1, choices = mysites)
-        self.m_site.Bind(wx.EVT_CHOICE, self.OnSiteSelect)
+        self.m_site = wx.ListBox(panel, -1, choices = mysites, style=wx.LB_MULTIPLE)
+        self.m_site.Bind(wx.EVT_LISTBOX, self.OnSiteSelect)
         box.Add(self.m_site, 0, wx.ALL, 3)
 
         #case name entry
@@ -414,6 +414,8 @@ class Frame(wx.Frame):
         fname = ccsm_input+'/lnd/clm2/PTCLM/'+mysitegroup_current+"_pftdata.txt"
         AFdatareader = csv.reader(open(fname,"rb"))
         index=event.GetSelection()
+        sites_torun = self.m_site.GetSelections()
+
         mysite=mysites[index]
         pft1_type = 'N/A'
         pft1_pct = '0'
@@ -425,7 +427,6 @@ class Frame(wx.Frame):
                 pft1_pct  = row[1]
                 pft2_type = row[4]
                 pft2_pct  = row[3]
-        print pft2_type
         if (pft1_type.strip() != 'N/A' and pft2_pct.strip() == '0.0'):
             self.m_siteinfo.SetValue('Site information for '+mysite+'\n Site name: '+mynames[index]+ \
                                          '\n Longitude: '+str(mylons[index])+'\n Latitude: '+str(mylats[index])+ \
@@ -442,8 +443,6 @@ class Frame(wx.Frame):
 
     def OnSpinupButton(self,event):
         myindex=event.GetSelection()
-        index=self.m_site.GetSelection()
-        mysite=mysites[index]
         if myindex == 0:
             myspinup='--ad_spinup'
             self.nyears.SetValue('250')
@@ -456,7 +455,6 @@ class Frame(wx.Frame):
         if myindex == 3:
             myspinup='--fullrun'
             self.nyears.SetValue('250')
-        print(myspinup)
             
     def OnPftfileOpen(self, event):
         ccsm_input=self.inputdirtxt.GetValue()
@@ -492,22 +490,29 @@ class Frame(wx.Frame):
         ccsm_input=self.inputdirtxt.GetValue()
         fname=ccsm_input+'/lnd/clm2/PTCLM/'+mysitegroup_current+"_sitedata.txt"
         AFdatareader = csv.reader(open(fname,"rb"))
-        nsites=1
-        mysites=['all']
-        mylons=['all sites']
-        mylats=['all sites']
+        sites_torun = self.m_site.GetSelections()
+        doall = False
+        for i in sites_torun:
+	    if (i == 0): 
+                doall=True
+ 
+        mysites=[]
+        thisrow=0
         for row in AFdatareader:
-            if nsites > 1:
+            if thisrow > 0:
                 mysites.append(row[0])
-                mylons.append(row[3])
-                mylats.append(row[4])
-            nsites=nsites+1
+            thisrow=thisrow+1
         mynyears=self.nyears.GetValue()
         mycaseprefix=self.m_caseprefix.GetValue()
         mypftfile=self.m_pftfile.GetValue()
         myfinidat=self.m_finidat.GetValue()
-        myindex=self.m_site.GetSelection()
-        mysite=mysites[myindex]
+        if (doall):
+            mysite='all,'
+        else:
+            mysite=''
+            for i in sites_torun:
+                if (i != 0):
+                    mysite=mysite+mysites[i-1]+','
         myindex=self.m_spinup.GetSelection()
         mymksrfdat=self.mksrfdat.GetValue()
         mysitedata=self.sitedata.GetValue()
@@ -515,6 +520,7 @@ class Frame(wx.Frame):
         myfire=self.fire.GetValue()
         mydynroot=self.dynroot.GetValue()
         mymcensemble=self.mc_ensemble.GetValue()
+        myeca=self.ecamode.GetValue()
         myconly=self.conly.GetValue()
         mycnonly=self.cnonly.GetValue()
         mycpl_bypass=self.cpl_bypass.GetValue()
@@ -524,24 +530,36 @@ class Frame(wx.Frame):
         cdate="1850"
         if (myindex == 2):
             cdate="20TR"
-        if (myspmode):
-            compset="CLM45"
-            if (mycpl_bypass):
-                compset="CLM45CB"
+        if (mycpl_bypass):
+            prefix='ICB'
+        else: 
+            prefix='I'
+        nutrient ='CNP'
+        if (mycnonly):
+          nutrient = 'CN'
+        if (myconly):
+          nutrient = 'C'
+        if (myeca):
+            nucom = nutrient+'ECACTCBC'
         else:
-            compset="CLM45CN"
+            nucom = nutrient+'RDCTCBC'
+        if (myspmode):
+            compset="ICLM45"
             if (mycpl_bypass):
-                compset="CLM45CBCN"
-        compset = "I"+cdate+compset
-        
-        cmd='python pointCLM.py --site '+mysite+' --machine '+machine+' --rmold --ccsm_input '+ccsm_input+' --sitegroup '+ \
+                compset="ICLM45CB"
+        else:
+            compset = prefix+cdate+nucom
+       
+        #Single case simulation 
+        cmd='python pointCLM.py --site '+mysite[:-1]+' --machine '+machine+' --rmold --ccsm_input '+ccsm_input+' --sitegroup '+ \
             mysitegroup_current+' --compset '+compset+' --rmold'
         if (myindex == 0):
             cmd = cmd+' --ad_spinup --nyears_ad_spinup '+str(mynyears)
         elif (myindex < 3):
             cmd = cmd+' --run_n '+str(mynyears)
         elif (myindex == 3):
-            cmd = 'python site_fullrun.py --site '+mysite+' --machine '+machine+' --ccsm_input '+ccsm_input+' --sitegroup '+ \
+        #Full simulation
+            cmd = 'python site_fullrun.py --site '+mysite[:-1]+' --machine '+machine+' --ccsm_input '+ccsm_input+' --sitegroup '+ \
                 mysitegroup_current+' --nyears_ad_spinup '+str(mynyears)+' --nyears_final_spinup '+str(mynyears)+ \
                 ' --spinup_vars'
             if (mycpl_bypass):
@@ -562,9 +580,11 @@ class Frame(wx.Frame):
             cmd = cmd+' --nofire'
         if (mydynroot == False):
             cmd = cmd+' --no_dynroot'
-        if (myconly == True):
+        if (myconly == True and myindex == 3):
             cmd = cmd+' --c_only'
-        if (mycnonly == True):
+        if (myeca == True and myindex ==3):
+            cmd = cmd+' --ECA'
+        if (mycnonly == True and myindex ==3):
             cmd = cmd+' --cn_only'
         if (ensemble_file != 'none'):
             cmd = cmd+' --ensemble_file '+ensemble_file+' --ng '+myn_proc

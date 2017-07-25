@@ -46,7 +46,7 @@ parser.add_option("--sitegroup", dest="sitegroup", default="AmeriFlux", \
 parser.add_option("--coldstart", dest="coldstart", default=False, \
                   help = "set cold start (mutually exclusive w/finidat)", \
                   action="store_true")
-parser.add_option("--compset", dest="compset", default='I1850CLM45CN', \
+parser.add_option("--compset", dest="compset", default='I1850CNPRDCTCBC', \
                   help = "component set to use (required)\n"
                          "Currently supports ONLY *CLM45(CN) compsets")
 parser.add_option("--cruncep", dest="cruncep", default=False, \
@@ -187,6 +187,8 @@ parser.add_option("--archiveroot", dest="archiveroot", default='', \
 #Added by Kirk to include the modified parameter file
 parser.add_option("--mod_parm_file", dest="mod_parm_file", default='', \
                   help = "adding the path to the modified parameter file")
+parser.add_option("--mod_parm_file_P", dest="mod_parm_file_P", default='', \
+                  help = "adding the path to the modified parameter file")
 parser.add_option("--parm_list", dest="parm_list", default='parm_list', \
                   help = 'File containing list of parameters to vary')
 parser.add_option("--postproc_file", dest="postproc_file", default="", \
@@ -251,15 +253,18 @@ if (options.site == 'none'):
     isglobal = True
     options.site=options.res
 
-if ('CB' in compset):
+if ('CBCN' in compset or 'ICB' in compset):
     cpl_bypass = True
 else:
     cpl_bypass = False
 
 surfdir = 'surfdata_map'
-pftphys_stamp = 'c160711' #'c160711_root'
+pftphys_stamp = '_c160711' #'c160711_root'
+if ('ECA' in compset):
+    pftphys_stamp = '.c160709'
 CNPstamp = 'c131108'
 
+print pftphys_stamp
 
 #check consistency of options
 if ('20TR' in compset):
@@ -276,7 +281,7 @@ if ('20TR' in compset):
 finidat=''
 finidat_year=int(options.finidat_year)
 
-if ('CN' in compset):
+if ('CN' in compset or 'ECA' in compest):
   mybgc = 'CN'
 elif ('BGC' in compset):
   mybgc = 'BGC'
@@ -349,7 +354,7 @@ if ('CRU' in compset or options.cruncep):
     use_cruncep = True
 else:
     use_cruncep = False
-if ('20TR' in compset and use_cruncep and not ('CB' in compset)):
+if ('20TR' in compset and use_cruncep and (not cpl_bypass)):
     if options.trans2:
         casename = casename+'_phase2'
     else:
@@ -511,7 +516,10 @@ if (options.compset == 'ICLM45CN' or options.compset == 'ICLM45BGC' or '2000' in
 #parameter (pft-phys) modifications if desired
 tmpdir = csmdir+'/components/clm/tools/clm4_5/pointclm/temp'
 os.system('mkdir -p '+tmpdir)
-os.system('nccopy -3 '+options.ccsm_input+'/lnd/clm2/paramdata/clm_params_'+pftphys_stamp+'.nc ' \
+if (options.mod_parm_file != ''):
+    os.system('nccopy -3 '+options.mod_parm_file+' '+tmpdir+'/clm_params.nc')
+else:
+    os.system('nccopy -3 '+options.ccsm_input+'/lnd/clm2/paramdata/clm_params'+pftphys_stamp+'.nc ' \
               +tmpdir+'/clm_params.nc')
 os.system('chmod u+w ' +tmpdir+'/clm_params.nc')
 if (options.parm_file != ''):
@@ -538,7 +546,10 @@ if (options.parm_vals != ''):
         ierr =  nffun.putvar(pftfile, parm_data[0], thisvar)
            
 #parameter (soil order dependent) modifications if desired    ::X.YANG 
-os.system('cp '+options.ccsm_input+'/lnd/clm2/paramdata/CNP_parameters_'+CNPstamp+'.nc ' \
+if (options.mod_parm_file_P != ''):
+    os.system('cp '+options.mod_parm_file_P+' '+tmpdir+'/CNP_parameters.nc')
+else:
+    os.system('cp '+options.ccsm_input+'/lnd/clm2/paramdata/CNP_parameters_'+CNPstamp+'.nc ' \
               +tmpdir+'/CNP_parameters.nc')
 os.system('chmod u+w ' +tmpdir+'/CNP_parameters.nc')
 if (options.parm_file_P != ''):
@@ -611,13 +622,7 @@ if (isglobal == False):
                   +' -val '+str(numxpts)+'x'+str(numypts)+'pt_'+options.site)
 if (options.ad_spinup):
     os.system('./xmlchange -file env_run.xml -id CLM_BLDNML_OPTS ' \
-                  +' -val "-mask navy -bgc_spinup on -bgc '+mybgc.lower()+'"')
-elif ('CN' in compset or 'BGC' in compset or 'ED' in compset):
-    os.system('./xmlchange -file env_run.xml -id CLM_BLDNML_OPTS ' \
-                  +' -val "-mask navy -bgc '+mybgc.lower()+'"')
-else:
-    os.system('./xmlchange -file env_run.xml -id CLM_BLDNML_OPTS ' \
-                  +' -val "-mask navy"')
+                  +'-append -val "-bgc_spinup on"')
 if (options.run_startyear > -1):
     os.system('./xmlchange -file env_run.xml -id RUN_STARTDATE ' \
                   +' -val '+str(options.run_startyear)+'-01-01')
@@ -897,11 +902,7 @@ for i in range(1,int(options.ninst)+1):
         output.write(' check_finidat_fsurdat_consistency = .false.\n')
         output.write(' check_finidat_year_consistency = .false.\n')
     #pft-physiology file
-    if ("mesabi" in options.machine):
-        if (options.mod_parm_file != ''):
-            output.write(" paramfile = '"+options.mod_parm_file+"'\n")
-    else:
-        output.write(" paramfile = '"+rundir+"/clm_params.nc'\n")
+    output.write(" paramfile = '"+rundir+"/clm_params.nc'\n")
 
 
     if ('CN' in compset or 'BGC' in compset):
@@ -994,7 +995,7 @@ if (not cpl_bypass and not isglobal):
         myinput  = open('./Buildconf/datmconf/datm.streams.txt.presaero.clim_1850')
         myoutput = open('./user_datm.streams.txt.presaero.clim_1850','w')
         for s in myinput:
-            if (s[0:22] == '            aerosoldep'):
+            if ('aerosoldep_monthly' in s):
                 myoutput.write('            aerosoldep_monthly_1849-2006_1.9x2.5_c090803.nc\n')
             else:
                 myoutput.write(s)
@@ -1002,19 +1003,19 @@ if (not cpl_bypass and not isglobal):
         myoutput.close()
 
     #reverse directories for CLM1PT and site
-    if (use_cruncep == False):
-        myinput  = open('./Buildconf/datmconf/datm.streams.txt.CLM1PT.CLM_USRDAT')
-        myoutput = open('./user_datm.streams.txt.CLM1PT.CLM_USRDAT','w')
-        for s in myinput:
-            if ('CLM1PT_data' in s):
-                temp = s.replace('CLM1PT_data', 'TEMPSTRING')
-                s    = temp.replace(str(numxpts)+'x'+str(numypts)+'pt'+'_'+options.site, 'CLM1PT_data')
-                temp  =s.replace('TEMPSTRING', str(numxpts)+'x'+str(numypts)+'pt'+'_'+options.site)
-                myoutput.write(temp)
-            else:
-                myoutput.write(s)
-        myinput.close()
-        myoutput.close()
+    #if (use_cruncep == False):
+    #    myinput  = open('./Buildconf/datmconf/datm.streams.txt.CLM1PT.CLM_USRDAT')
+    #    myoutput = open('./user_datm.streams.txt.CLM1PT.CLM_USRDAT','w')
+    #    for s in myinput:
+    #        if ('CLM1PT_data' in s):
+    #            temp = s.replace('CLM1PT_data', 'TEMPSTRING')
+    #            s    = temp.replace(str(numxpts)+'x'+str(numypts)+'pt'+'_'+options.site, 'CLM1PT_data')
+    #            temp  =s.replace('TEMPSTRING', str(numxpts)+'x'+str(numypts)+'pt'+'_'+options.site)
+    #            myoutput.write(temp)
+    #        else:
+    #            myoutput.write(s)
+    #    myinput.close()
+    #    myoutput.close()
 
 #CPPDEF modifications
 infile  = open("./Macros.make")
