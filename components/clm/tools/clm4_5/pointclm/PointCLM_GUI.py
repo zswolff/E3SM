@@ -208,6 +208,9 @@ class Frame(wx.Frame):
         self.ecamode =  wx.CheckBox(panel, -1,'Use ECA (RD if not selected)')
         self.ecamode.SetValue(False)
         box2.Add(self.ecamode,0,wx.EXPAND)
+        self.decompmode =  wx.CheckBox(panel, -1,'Use Century (CTC if not selected)')
+        self.decompmode.SetValue(False)
+        box2.Add(self.decompmode,0,wx.EXPAND)
         self.conly =  wx.CheckBox(panel, -1,'Carbon only mode')
         self.conly.SetValue(False)
         box2.Add(self.conly,0,wx.EXPAND)
@@ -521,6 +524,7 @@ class Frame(wx.Frame):
         mydynroot=self.dynroot.GetValue()
         mymcensemble=self.mc_ensemble.GetValue()
         myeca=self.ecamode.GetValue()
+        mydecomp=self.decompmode.GetValue()
         myconly=self.conly.GetValue()
         mycnonly=self.cnonly.GetValue()
         mycpl_bypass=self.cpl_bypass.GetValue()
@@ -539,10 +543,14 @@ class Frame(wx.Frame):
           nutrient = 'CN'
         if (myconly):
           nutrient = 'C'
-        if (myeca):
-            nucom = nutrient+'ECACTCBC'
+        if (mydecomp):
+            decomp = 'CNT'
         else:
-            nucom = nutrient+'RDCTCBC'
+            decomp = 'CTC'
+        if (myeca):
+            nucom = nutrient+'ECA'+decomp+'BC'
+        else:
+            nucom = nutrient+'RD'+decomp+'BC'
         if (myspmode):
             compset="ICLM45"
             if (mycpl_bypass):
@@ -584,6 +592,8 @@ class Frame(wx.Frame):
             cmd = cmd+' --c_only'
         if (myeca == True and myindex ==3):
             cmd = cmd+' --ECA'
+        if (mydecomp == True and myindex==3):
+            cmd = cmd+' --centbgc'
         if (mycnonly == True and myindex ==3):
             cmd = cmd+' --cn_only'
         if (ensemble_file != 'none'):

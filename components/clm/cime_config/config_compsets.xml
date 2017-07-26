@@ -295,6 +295,12 @@
      <alias>I1850CNECACNTBC</alias>
      <lname>1850_DATM%QIA_CLM45%CNECACNTBC_SICE_SOCN_RTM_SGLC_SWAV</lname>
    </compset>
+
+   <compset>
+     <alias>ICB1850CNECACNTBC</alias>
+     <lname>1850_SATM%QIA_CLM45%CNECACNTBC_SICE_SOCN_RTM_SGLC_SWAV</lname>
+   </compset>
+
  
    <compset>
      <alias>I1850CNPECACNTBC</alias>

@@ -304,8 +304,8 @@ for row in AFdatareader:
             basecmd = basecmd+' --bulk_denitrif'
         if (options.vsoilc):
             basecmd = basecmd+' --vertsoilc'
-        if (options.centbgc):
-            basecmd = basecmd+' --centbgc'
+        #if (options.centbgc):
+        #    basecmd = basecmd+' --centbgc'
         if (options.cn_only):
             basecmd = basecmd+' --cn_only'
         if (options.CH4):
@@ -340,10 +340,14 @@ for row in AFdatareader:
             nutrients = 'CN'
         else: 
             nutrients = 'CNP'
-        if (options.eca):
-	    mymodel = nutrients+'ECACTC'
+        if (options.centbgc):
+            decomp_model = 'CNT'
         else:
-            mymodel = nutrients+'RDCTC'
+            decomp_model = 'CTC'
+        if (options.eca):
+	    mymodel = nutrients+'ECA'+decomp_model
+        else:
+            mymodel = nutrients+'RD'+decomp_model
 
         #AD spinup
         cmd_adsp = basecmd+' --ad_spinup --nyears_ad_spinup '+ \

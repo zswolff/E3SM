@@ -80,6 +80,8 @@ module CNDecompCascadeBGCMod
      real(r8) :: minpsi_bgc   !minimum soil water potential for heterotrophic resp
      
      integer  :: nsompools = 3
+     integer  :: nlitpools = 3
+     integer  :: ncwdpools = 1
      real(r8),allocatable :: spinup_vector(:) ! multipliers for soil decomp during accelerated spinup
 
   end type CNDecompBgcParamsType
@@ -108,9 +110,9 @@ contains
     character(len=100) :: tString ! temp. var for reading
     !-----------------------------------------------------------------------
 
-    ! These are not read off of netcdf file
-    allocate(CNDecompBgcParamsInst%spinup_vector(CNDecompBgcParamsInst%nsompools))
-    CNDecompBgcParamsInst%spinup_vector(:) = (/ 1.0_r8, 15.0_r8, 675.0_r8 /)
+
+    allocate(CNDecompBgcParamsInst%spinup_vector(CNDecompBgcParamsInst%nsompools+ &
+         CNDecompBgcParamsInst%nlitpools+CNDecompBgcParamsInst%ncwdpools))
 
     ! Read off of netcdf file
     tString='tau_l1'
@@ -236,6 +238,13 @@ contains
     if ( .not. readv ) call endrun(msg=trim(errCode)//trim(tString)//errMsg(__FILE__, __LINE__))
     CNDecompBgcParamsInst%cwd_flig_bgc=tempr 
 
+    CNDecompBgcParamsInst%spinup_vector(1) =  max(1.0_r8, CNDecompBgcParamsInst%tau_l1_bgc)
+    CNDecompBgcParamsInst%spinup_vector(2) =  max(1.0_r8, CNDecompBgcParamsInst%tau_l2_l3_bgc)
+    CNDecompBgcParamsInst%spinup_vector(3) =  max(1.0_r8, CNDecompBgcParamsInst%tau_l2_l3_bgc)
+    CNDecompBgcParamsInst%spinup_vector(4) =  max(1.0_r8, CNDecompBgcParamsInst%tau_s1_bgc)
+    CNDecompBgcParamsInst%spinup_vector(5) =  max(1.0_r8, CNDecompBgcParamsInst%tau_s2_bgc)
+    CNDecompBgcParamsInst%spinup_vector(6) =  max(1.0_r8, CNDecompBgcParamsInst%tau_s3_bgc)
+    CNDecompBgcParamsInst%spinup_vector(7) =  max(1.0_r8, 0.5_r8 * CNDecompBgcParamsInst%tau_cwd_bgc)
   end subroutine readCNDecompBgcParams
 
   !-----------------------------------------------------------------------
@@ -428,6 +437,7 @@ contains
       is_lignin                      (i_litr3) = .true.
 
       ! CWD
+
       if (.not.use_ed) then
          floating_cn_ratio_decomp_pools (i_cwd)   = .true.
          floating_cp_ratio_decomp_pools (i_cwd)   = .true.
@@ -451,6 +461,7 @@ contains
       else
          i_soil1 = 4
       endif
+      
       floating_cn_ratio_decomp_pools (i_soil1) = .false.
       floating_cp_ratio_decomp_pools (i_soil1) = .true.
       decomp_pool_name_restart       (i_soil1) = 'soil1'
@@ -509,16 +520,16 @@ contains
       is_cellulose                   (i_soil3) = .false.
       is_lignin                      (i_soil3) = .false.
 
-      spinup_factor(i_litr1) = 1._r8
-      spinup_factor(i_litr2) = 1._r8
-      spinup_factor(i_litr3) = 1._r8
+      spinup_factor(i_litr1) = CNDecompBgcParamsInst%spinup_vector(1)
+      spinup_factor(i_litr2) = CNDecompBgcParamsInst%spinup_vector(2)
+      spinup_factor(i_litr3) = CNDecompBgcParamsInst%spinup_vector(3)
       !CWD
-      if (.not. use_ed) then
-         spinup_factor(i_cwd) = 1._r8
+      if (.not. use_ed) then 
+          spinup_factor(i_cwd) = CNDecompBgcParamsInst%spinup_vector(7)
       end if
-      spinup_factor(i_soil1) = CNDecompBgcParamsInst%spinup_vector(1)
-      spinup_factor(i_soil2) = CNDecompBgcParamsInst%spinup_vector(2)
-      spinup_factor(i_soil3) = CNDecompBgcParamsInst%spinup_vector(3)
+      spinup_factor(i_soil1) = CNDecompBgcParamsInst%spinup_vector(4)
+      spinup_factor(i_soil2) = CNDecompBgcParamsInst%spinup_vector(5)
+      spinup_factor(i_soil3) = CNDecompBgcParamsInst%spinup_vector(6)
 
 
       !----------------  list of transitions and their time-independent coefficients  ---------------!
@@ -605,14 +616,15 @@ contains
 
   !-----------------------------------------------------------------------
   subroutine decomp_rate_constants_bgc(bounds, num_soilc, filter_soilc, &
-       canopystate_vars, soilstate_vars, temperature_vars, ch4_vars, carbonflux_vars)
+       canopystate_vars, soilstate_vars, temperature_vars, ch4_vars, carbonflux_vars, cnstate_vars)
     !
     ! !DESCRIPTION:
     !  calculate rate constants and decomposition pathways for teh CENTURY decomposition cascade model
     !  written by C. Koven based on original CLM4 decomposition cascade
     !
     ! !USES:
-    use clm_time_manager , only : get_days_per_year
+    use clm_time_manager , only : get_days_per_year, get_curr_date
+    use clm_time_manager , only : get_step_size, get_nstep
     use shr_const_mod    , only : SHR_CONST_PI
     use clm_varcon       , only : secspday
     !
@@ -625,8 +637,11 @@ contains
     type(temperature_type) , intent(in)    :: temperature_vars
     type(ch4_type)         , intent(in)    :: ch4_vars
     type(carbonflux_type)  , intent(inout) :: carbonflux_vars
+    type(cnstate_type)     , intent(inout) :: cnstate_vars
     !
     ! !LOCAL VARIABLES:
+    real(r8):: dt                           ! decomp timestep (seconds)   
+    real(r8):: dtd                          ! decomp timestep (days)
     real(r8):: frw(bounds%begc:bounds%endc) ! rooting fraction weight
     real(r8), allocatable:: fr(:,:)         ! column-level rooting fraction by soil depth
     real(r8):: minpsi, maxpsi               ! limits for soil water scalar for decomp
@@ -664,6 +679,7 @@ contains
     real(r8):: days_per_year                ! days per year
     real(r8):: depth_scalar(bounds%begc:bounds%endc,1:nlevdecomp) 
     real(r8):: mino2lim                     !minimum anaerobic decomposition rate
+    integer :: year, mon, day, sec
     !-----------------------------------------------------------------------
 
     !----- CENTURY T response function
@@ -688,6 +704,9 @@ contains
          )
 
       mino2lim = CNParamsShareInst%mino2lim
+      ! set time steps
+      dt = real( get_step_size(), r8 )
+      dtd = dt/secspday
 
       if ( use_century_tfunc .and. normalize_q10_to_century_tfunc ) then
          call endrun(msg='ERROR: cannot have both use_century_tfunc and normalize_q10_to_century_tfunc set as true'//&
@@ -697,27 +716,29 @@ contains
       days_per_year = get_days_per_year()
 
       ! the belowground parameters from century
-      tau_l1 = 1./18.5
-      tau_l2_l3 = 1./4.9
-      tau_s1 = 1./7.3
-      tau_s2 = 1./0.2
-      tau_s3 = 1./.0045
+      !tau_l1 = 1./18.5
+      !tau_l2_l3 = 1./4.9
+      !tau_s1 = 1./7.3
+      !tau_s2 = 1./0.2
+      !tau_s3 = 1./.0045
 
       ! century leaves wood decomposition rates open, within range of 0 - 0.5 yr^-1
-      tau_cwd  = 1./0.3
+      !tau_cwd  = 1./0.3
 
       ! Todo:  FIX(SPM,032414) - the explicit divide gives different results than when that
       ! value is placed in the parameters netcdf file.  To get bfb, keep the 
       ! divide in source.
+      ! DMR 7/25/17 - read parameter from file for UQ efforts
 
-      !tau_l1 = CNDecompBgcParamsInst%tau_l1_bgc
-      !tau_l2_l3 = CNDecompBgcParamsInst%tau_l2_l3_bgc
-      !tau_s1 = CNDecompBgcParamsInst%tau_s1_bgc
-      !tau_s2 = CNDecompBgcParamsInst%tau_s2_bgc
-      !tau_s3 = CNDecompBgcParamsInst%tau_s3_bgc
+      tau_l1 = CNDecompBgcParamsInst%tau_l1_bgc
+      tau_l2_l3 = CNDecompBgcParamsInst%tau_l2_l3_bgc
+      tau_s1 = CNDecompBgcParamsInst%tau_s1_bgc
+      tau_s2 = CNDecompBgcParamsInst%tau_s2_bgc
+      tau_s3 = CNDecompBgcParamsInst%tau_s3_bgc
 
       !set turnover rate of coarse woody debris
-      !tau_cwd = CNDecompBgcParamsInst%tau_cwd_bgc
+      tau_cwd = CNDecompBgcParamsInst%tau_cwd_bgc
+
 
       ! set "Q10" parameter
       Q10 = CNParamsShareInst%Q10
@@ -741,9 +762,12 @@ contains
       ! The following code implements the acceleration part of the AD spinup algorithm
 
       if ( spinup_state .eq. 1 ) then
-         k_s1 = k_s1 * CNDecompBgcParamsInst%spinup_vector(1)
-         k_s2 = k_s2 * CNDecompBgcParamsInst%spinup_vector(2)
-         k_s3 = k_s3 * CNDecompBgcParamsInst%spinup_vector(3)
+         k_l1 = k_s1 * CNDecompBgcParamsInst%spinup_vector(1)
+         k_l2_l3 = k_l2_l3 * CNDecompBgcParamsInst%spinup_vector(2)
+         k_s1 = k_s1 * CNDecompBgcParamsInst%spinup_vector(4)
+         k_s2 = k_s2 * CNDecompBgcParamsInst%spinup_vector(5)
+         k_s3 = k_s3 * CNDecompBgcParamsInst%spinup_vector(6)
+         k_frag = k_frag * CNDecompBgcParamsInst%spinup_vector(7)
       endif
 
        i_litr1 = 1
@@ -993,6 +1017,22 @@ contains
          end do
       end if
 
+       call get_curr_date(year, mon, day, sec)
+       if (year >= 20 .and. year < 40) then 
+         !as a first test, use level 4 (10cm) - this is used to cacluate location-specific acceleration factors
+	 do fc=1,num_soilc
+	   c = filter_soilc(fc) 
+             cnstate_vars%scalaravg_col(c) = cnstate_vars%scalaravg_col(c) + &
+                  (t_scalar(c,4) * w_scalar(c,4) * o_scalar(c,4) ) * dt / (86400._r8 * 365._r8 * 20._r8)
+             if (cnstate_vars%scalaravg_col(c) < 1.0e-2) cnstate_vars%scalaravg_col(c) = 1.0e-2
+         end do
+       else if (year < 20) then 
+          do fc=1,num_soilc
+            c = filter_soilc(fc)
+            cnstate_vars%scalaravg_col(c) = 0._r8
+          end do
+       end if
+
       if (use_vertsoilc) then
          do j = 1,nlevdecomp
             do fc = 1,num_soilc
@@ -1034,6 +1074,29 @@ contains
             end do
          end if
       end if
+
+       if (spinup_state == 1 .and. year >= 40) then 
+         !adjust decomposition factors based on scalar factors from first 20 years of simulation
+         do j=1,nlevdecomp
+           do fc = 1, num_soilc
+             c = filter_soilc(fc)
+             if ( decomp_cascade_con%spinup_factor(i_litr1) > 1._r8) decomp_k(c,j,i_litr1) = decomp_k(c,j,i_litr1)  &
+	       / cnstate_vars%scalaravg_col(c)
+             if ( decomp_cascade_con%spinup_factor(i_litr2) > 1._r8) decomp_k(c,j,i_litr2) = decomp_k(c,j,i_litr2)  &
+	       / cnstate_vars%scalaravg_col(c)
+             if ( decomp_cascade_con%spinup_factor(i_litr3) > 1._r8) decomp_k(c,j,i_litr3) = decomp_k(c,j,i_litr3)  &
+	       / cnstate_vars%scalaravg_col(c)
+             if ( decomp_cascade_con%spinup_factor(i_cwd)   > 1._r8) decomp_k(c,j,i_cwd)   = decomp_k(c,j,i_cwd)    &
+	       / cnstate_vars%scalaravg_col(c)
+             if ( decomp_cascade_con%spinup_factor(i_soil1) > 1._r8) decomp_k(c,j,i_soil1) = decomp_k(c,j,i_soil1)  &
+	       / cnstate_vars%scalaravg_col(c)
+             if ( decomp_cascade_con%spinup_factor(i_soil2) > 1._r8) decomp_k(c,j,i_soil2) = decomp_k(c,j,i_soil2)  &
+	       / cnstate_vars%scalaravg_col(c)
+             if ( decomp_cascade_con%spinup_factor(i_soil3) > 1._r8) decomp_k(c,j,i_soil3) = decomp_k(c,j,i_soil3)  &
+	       / cnstate_vars%scalaravg_col(c)
+           end do
+         end do
+       end if    
 
     end associate
 
