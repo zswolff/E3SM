@@ -264,8 +264,6 @@ if ('ECA' in compset):
     pftphys_stamp = '.c160709'
 CNPstamp = 'c131108'
 
-print pftphys_stamp
-
 #check consistency of options
 if ('20TR' in compset):
     #ignore spinup option if transient compset
@@ -283,8 +281,6 @@ finidat_year=int(options.finidat_year)
 
 if ('CN' in compset or 'ECA' in compest):
   mybgc = 'CN'
-elif ('BGC' in compset):
-  mybgc = 'BGC'
 elif ('ED' in compset):
   mybgc = 'ED'
 else:
@@ -766,7 +762,7 @@ for i in range(1,int(options.ninst)+1):
             'QFLX_SUB_SNOW', 'QFLX_DEW_GRND', 'QH2OSFC', 'H2OSOI', 'CPOOL_TO_LIVESTEMC', 'TOTLITC', \
             'TOTSOMC', 'ZWT', 'SNOWDP', 'TLAI']
     var_list_daily = ['TOTLITC', 'TOTSOMC', 'CWDC', 'LITR1C_vr', 'LITR2C_vr', 'LITR3C_vr', 'SOIL1C_vr', \
-                      'SOIL2C_vr', 'SOIL3C_vr', 'SOIL4C_vr', 'H2OSFC', 'ZWT', 'SNOWDP', 'TLAI']
+                      'SOIL2C_vr', 'SOIL3C_vr', 'H2OSFC', 'ZWT', 'SNOWDP', 'TLAI']
     var_list_pft = ['GPP', 'NPP', 'LEAFC_ALLOC', 'AGNPP', 'CPOOL_TO_DEADSTEMC', \
                     'LIVECROOTC_XFER_TO_LIVECROOTC', 'DEADCROOTC_XFER_TO_DEADCROOTC', \
                     'CPOOL_TO_LIVECROOTC', 'CPOOL_TO_DEADCROOTC', 'FROOTC_ALLOC', 'AR', 'MR', \
@@ -785,14 +781,14 @@ for i in range(1,int(options.ninst)+1):
                     'DEADSTEMC_XFER', 'LIVECROOTC_XFER', 'DEADCROOTC_XFER', 'TLAI', 'CPOOL_TO_LIVESTEMC']
     var_list_spinup = ['NPOOL', 'EFLX_LH_TOT', 'RETRANSN', 'PCO2', 'PBOT', 'NDEP_TO_SMINN', 'OCDEP', \
                        'BCDEP', 'COL_FIRE_CLOSS', 'HDM', 'LNFM', 'NEE', 'GPP', 'FPSN', 'AR', 'HR', \
-                       'MR', 'GR', 'ER', 'NPP', 'TLAI', 'SOIL3C', 'SOIL4C', 'TOTSOMC', 'LEAFC', \
+                       'MR', 'GR', 'ER', 'NPP', 'TLAI', 'SOIL3C', 'TOTSOMC', 'LEAFC', \
                        'DEADSTEMC', 'DEADCROOTC', 'FROOTC', 'LIVESTEMC', 'LIVECROOTC', 'TOTVEGC', \
                        'TOTCOLC', 'TOTLITC', 'BTRAN', 'CWDC', 'QVEGE', 'QVEGT', 'QSOIL', 'QDRAI', \
                        'QRUNOFF', 'FPI', 'FPG']
     #ILAMB diagnostic variables
     ilamb_outputs = ['FAREA_BURNED', 'CWDC', 'LEAFC', 'TOTLITC', 'STORVEGC', 'LIVESTEMC', 'DEADSTEMC', \
                      'TOTPRODC', 'FROOTC', 'LIVECROOTC', 'DEADCROOTC', 'SOIL1C', 'SOIL2C', 'SOIL3C', \
-                     'SOIL4C', 'TOTSOMC', 'TOTVEGC', 'WOODC', 'QSOIL', 'QVEGE', 'COL_FIRE_CLOSS', \
+                     'TOTSOMC', 'TOTVEGC', 'WOODC', 'QSOIL', 'QVEGE', 'COL_FIRE_CLOSS', \
                      'LITR1C_TO_SOIL1C', 'LITR2C_TO_SOIL2C', 'LITR3C_TO_SOIL3C', 'LAND_USE_FLUX', \
                      'LITFALL', 'GPP', 'FGR', 'TLAI', 'SNOWLIQ', 'SOILICE', 'SOILLIQ', 'QRUNOFF', \
                      'QOVER', 'SOILWATER_10CM', 'NBP', 'LEAFC_ALLOC', 'WOODC_ALLOC', 'QINTR', \
@@ -800,7 +796,10 @@ for i in range(1,int(options.ninst)+1):
                      'SNODSTMSL', 'SNOOCMSL', 'QVEGT', 'TSOI', 'WIND', 'EFLX_LH_TOT', 'FCTR', \
                      'FCEV', 'FGEV', 'FSH', 'RH2M', 'Q2M', 'RAIN', 'SNOW', 'PBOT', 'FLDS', 'FIRE', \
                      'FSDS', 'FSR', 'TSA']
-
+    if ('CTC' in compset):
+        var_list_daily.append('SOIL4C_vr')
+        var_list_spinup.append('SOIL4C')
+        ilamb_outputs.append('SOIL4C')
 
     if ('20TR' not in compset and int(options.hist_mfilt) == -1):
 	#default to annual for spinup runs if not specified
@@ -830,7 +829,6 @@ for i in range(1,int(options.ninst)+1):
             else:
                 myline = myline+",'"+s2.strip()+"'"
             line2=line2+1
-        print myline
         output.write(myline+"\n")
         hvars_file.close()
    
@@ -875,7 +873,7 @@ for i in range(1,int(options.ninst)+1):
 
     if (options.ad_spinup):
         output.write(" hist_dov2xy = .true., .false.\n")
-        if ('BGC' in compset or options.centbgc):
+        if ('CNT' in compset):
             output.write(" hist_fincl2 = 'CWDC_vr', 'CWDN_vr', 'CWDP_vr', 'SOIL3C_vr', 'SOIL3N_vr', " \
                              +"'SOIL3P_vr', 'SOIL2C_vr','SOIL2N_vr', 'SOIL2P_vr', 'DEADSTEMC', " \
                              +"'DEADSTEMN', 'DEADSTEMP', 'DEADCROOTC', 'DEADCROOTN', "+ \
@@ -905,7 +903,7 @@ for i in range(1,int(options.ninst)+1):
     output.write(" paramfile = '"+rundir+"/clm_params.nc'\n")
 
 
-    if ('CN' in compset or 'BGC' in compset):
+    if ('RD' in compset or 'ECA' in compset):
         #soil order parameter file
         output.write(" fsoilordercon = '"+rundir+"/CNP_parameters.nc'\n")
         output.write( " stream_fldfilename_ndep = '"+options.ccsm_input+ \
@@ -941,8 +939,12 @@ for i in range(1,int(options.ninst)+1):
             output.write(" use_c13 = .true.\n")
         if (options.C14):
             output.write(" use_c14 = .true.\n")
-        output.write(" nyears_ad_carbon_only = 25\n")
-        output.write(" spinup_mortality_factor = 10\n")
+        if ('ECA' in compset):
+            output.write(" nyears_ad_carbon_only = 0\n")
+            output.write(" spinup_mortality_factor = 1\n")
+        else:
+            output.write(" nyears_ad_carbon_only = 25\n")
+            output.write(" spinup_mortality_factor = 10\n")
     if (cpl_bypass):
         if (use_cruncep):
             output.write(" metdata_type = 'cru-ncep'\n")

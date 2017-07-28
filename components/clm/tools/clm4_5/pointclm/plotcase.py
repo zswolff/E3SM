@@ -54,7 +54,7 @@ parser.add_option("--hist_nhtfrq", dest="myhist_nhtfrq", default=-999, \
                   help = 'beginning model year to plot')
 parser.add_option("--ystart", dest="myystart", default=1, \
                   help = 'beginning model year to plot')
-parser.add_option("--yend", dest="myyend", default=1, \
+parser.add_option("--yend", dest="myyend", default=9999, \
                   help = 'final model year to plot')
 parser.add_option("--diurnal", dest="mydiurnal", default=False, \
                   action="store_true", help = 'plot diurnal cycle')
@@ -70,8 +70,10 @@ parser.add_option("--h2", dest="h2", default=False, \
                   action="store_true", help = 'Use h2 history files')
 parser.add_option("--index", dest="index", help = 'index (site or pft)', \
                    default=0)
+parser.add_option("--spinup", dest="spinup", help = 'plot Ad and final spinup', \
+                   default=False, action="store_true")
 parser.add_option("--scale_factor", dest="scale_factor", help = 'scale factor', \
-                   default=1)
+                   default=-999)
 
 (options,args) = parser.parse_args()
                
@@ -155,31 +157,26 @@ if (obs):
 #site = options.site
 #compset = options.compset
 
-dirs=[]
+#dirs=[]
 nvar = len(myvars)    
 x_toplot    = numpy.zeros([ncases, 2000000], numpy.float)
 data_toplot = numpy.zeros([ncases, nvar, 2000000], numpy.float)
 snum        = numpy.zeros([ncases], numpy.int)
 
 for c in range(0,ncases):
-    if (obs and c == ncases-1):   #observations
-        diro='/home/zdr/models/LoTEC/assim/observations'
-        os.chdir(diro)
+    if (mycases[c] == ''):
+        mydir = cesmdir+'/'+mysites[c]+'_'+mycompsets[c]+'/run/'
     else:
-        if (mycases[c].strip() != ''):
-            dirs.append(cesmdir+'/'+mycases[c]+'_'+mysites[c]+'_'+mycompsets[c]+'/run/')
-        else:
-            dirs.append(cesmdir+'/'+mysites[c]+'_'+mycompsets[c]+'/run/')
-        os.chdir(dirs[c])
- 
+        mydir = cesmdir+'/'+mycases[c]+'_'+mysites[c]+'_'+mycompsets[c]+'/run/'
+    print 'Processing '+mydir
+
     #query lnd_in file for output file information
-    os.system('pwd')
     if ((options.myhist_mfilt == -999 or options.myhist_nhtfrq == -999) or (obs and  c  < ncases-1)):
-        print('Obtaining output resolution information from lnd_in')
-        input = open("lnd_in")
+        #print('Obtaining output resolution information from lnd_in')
+        input = open(mydir+"/lnd_in")
         npf=-999
         tstep=-999
-        input = open("lnd_in")
+        input = open(mydir+"/lnd_in")
         for s in input:
 	    if ('hist_mfilt' in s):
 	        mfiltinfo = s.split()[2]
@@ -196,7 +193,6 @@ for c in range(0,ncases):
                 if (options.h2):
                     tstep = int(nhtfrqinfo.split(',')[2])
         input.close()
-        print npf, tstep
     elif (c == ncases-1 and obs):
         npf   = 8760
         tstep = -1
@@ -220,9 +216,11 @@ for c in range(0,ncases):
         else:
             hst = 'h0'
         if (mycases[c] == ''):
-          testfile = mysites[c]+'_'+mycompsets[c]+'.clm2.'+hst+'.'+yststr[2:6]+'-01.nc'
+          testfile = mydir+'/'+mysites[c]+'_'+mycompsets[c]+'.clm2.'+hst+ \
+                     '.'+yststr[2:6]+'-01.nc'
         else:
-          testfile = mycases[c]+'_'+mysites[c]+'_'+mycompsets[c]+'.clm2.'+hst+'.'+yststr[2:6]+'-01.nc'
+          testfile = mydir+'/'+mycases[c]+'_'+mysites[c]+'_'+mycompsets[c]+ \
+                     '.clm2.'+hst+'.'+yststr[2:6]+'-01.nc'
     else:
         ftype = 'custom'
         nhtot=-1*tstep*npf
@@ -234,9 +232,11 @@ for c in range(0,ncases):
         else:
             hst='h0'
         if (mycases[c] == ''):
-          testfile = mysites[c]+'_'+mycompsets[c]+'.clm2.'+hst+'.'+yststr[2:6]+'-01-01-00000.nc'
+          testfile = mydir+'/'+mysites[c]+'_'+mycompsets[c]+ \
+                     '.clm2.'+hst+'.'+yststr[2:6]+'-01-01-00000.nc'
         else:
-          testfile = mycases[c]+'_'+mysites[c]+'_'+mycompsets[c]+'.clm2.'+hst+'.'+yststr[2:6]+'-01-01-00000.nc'
+          testfile = mydir+'/'+mycases[c]+'_'+mysites[c]+'_'+mycompsets[c]+ \
+                     '.clm2.'+hst+'.'+yststr[2:6]+'-01-01-00000.nc'
         
     if (obs and c == ncases-1):
         ftype='obs'
@@ -245,12 +245,9 @@ for c in range(0,ncases):
         testfile = options.site+'obs.nc'
 
     #check for output files (if not here, change to archive directory)
-    print(testfile)
-    os.system('pwd')
     if (os.path.isfile(testfile) == False):
         print('Output not in run directory.  Switching to archive directory')
         archdir=cesmdir+'/archive/'+mycases[c]+'_'+mysites[c]+'_'+mycompsets[c]+'/lnd/hist'
-        print(archdir)
         if (os.path.exists(archdir) == False):
             print('Archive directory does not exist.  Exiting')
             sys.exit()
@@ -270,7 +267,7 @@ for c in range(0,ncases):
     if (c == 0):   
         var_units=[]
         var_long_names=[]
-
+        myscalefactors=[]
     #read monthly .nc files (default output)
     if (ftype == 'default'):
         jobs=[]
@@ -280,45 +277,100 @@ for c in range(0,ncases):
                 yst=str(10000+y)[1:5]
                 for m in range(0,12):
                     mst=str(101+m)[1:3]
-                    myfile = os.path.abspath('./'+mycases[c]+'_'+mysites[c]+'_'+mycompsets[c]+".clm2."+hst+"."+yst+"-"+mst+".nc")
+                    myfile = os.path.abspath(mydir+'/'+mycases[c]+'_'+mysites[c]+'_'+mycompsets[c]+ \
+                                             ".clm2."+hst+"."+yst+"-"+mst+".nc")
                     #get units/long names from first file
-                    if (y == ystart and m == 0 and c == 0):
-                        nffile = netcdf.netcdf_file(myfile,"r")
-                        varout=nffile.variables[myvars[v]]
-                        var_long_names.append(varout.long_name)
-                        var_units.append(varout.units)
-                        nffile.close()
-                    x[nsteps] = y+m/12.0
-                    myvar_temp = getvar(myfile, myvars[v],npf,int(options.index), float(options.scale_factor))
-                    mydata[v,nsteps] = myvar_temp
-                    nsteps = nsteps + 1
+                    if (os.path.exists(myfile)):
+                        if (y == ystart and m == 0 and c == 0):
+                            nffile = netcdf.netcdf_file(myfile,"r")
+                            varout=nffile.variables[myvars[v]]
+                            var_long_names.append(varout.long_name)
+                            nffile.close()
+                            if (float(options.scale_factor) < -900):
+                                if ('gC/m^2/s' in varout.units):
+                                    myscalefactors.append(3600*24)
+                                    var_units.append('gC/m^2/day')
+                                else:
+                                    myscalefactors.append(1.0)
+                                    var_units.append(varout.units)
+                            else:
+                                myscalefactors.append(float(options.scale_factor))
+                                var_units.append(varout.units)
 
+                        x[nsteps] = y+m/12.0
+                        myvar_temp = getvar(myfile, myvars[v],npf,int(options.index), \
+                                            myscalefactors[v])
+                        mydata[v,nsteps] = myvar_temp
+                        nsteps = nsteps + 1
+    
     #read annual .nc files
     if (ftype == 'custom'):
         for v in range(0,nvar):
             jobs = []
             nsteps=0
             nfiles = (yend-ystart)/nypf
-            for y in range(0,nfiles+1):
-                yst=str(10000+ystart+y*nypf)[1:5]
-                if (mycases[c].strip() == ''):
-                    myfile = os.path.abspath('./'+mysites[c]+'_'+mycompsets[c]+".clm2."+hst+"."+yst+\
-                                             "-01-01-00000.nc")
+            nc=1
+            ylast=0
+            if (options.spinup):
+                nc=2
+            for n in range(0,nc):
+                if ((options.spinup)and n== 0):
+                    if (mycases[c] == ''):
+                        mydir = cesmdir+'/'+mysites[c]+'_'+mycompsets[c].replace('CNP','CN')+ \
+	                          '_ad_spinup/run/'
+                    else:
+                        mydir = cesmdir+'/'+mycases[c]+'_'+mysites[c]+'_'+ \
+                                mycompsets[c].replace('CNP','CN')+'_ad_spinup/run/'
+                    thiscompset = mycompsets[c].replace('CNP','CN')+'_ad_spinup'
                 else:
-                    myfile = os.path.abspath('./'+mycases[c]+"_"+mysites[c]+'_'+mycompsets[c]+".clm2."+hst+"."+yst+\
-                                             "-01-01-00000.nc")
-                if (y == 0 and c == 0):
-                    nffile = netcdf.netcdf_file(myfile,"r")
-                    varout=nffile.variables[myvars[v]]
-                    var_long_names.append(varout.long_name)
-                    var_units.append(varout.units)
-                    nffile.close()
-                myvar_temp = getvar(myfile,myvars[v],npf,int(options.index), \
-                                               float(options.scale_factor))
-                for i in range(0,npf):
-                  x[y*npf+i] = ystart+(y*nypf) + nypf*(i*1.0-0.5)/npf 
-                  mydata[v,y*npf+i] = myvar_temp[i]
-                  nsteps=nsteps+1
+                    if (mycases[c] == ''):
+                        mydir = cesmdir+'/'+mysites[c]+'_'+mycompsets[c]+'/run/'
+                    else:
+                        mydir = cesmdir+'/'+mycases[c]+'_'+mysites[c]+'_'+ \
+                                mycompsets[c]+'/run/'
+                    thiscompset = mycompsets[c]
+                for y in range(n,nfiles+1):   #skip first file on final spinup
+                    yst=str(10000+ystart+y*nypf)[1:5]
+                    if (mycases[c].strip() == ''):
+                        myfile = os.path.abspath(mydir+'/'+mycases[c]+'_'+thiscompset+".clm2."+hst+ \
+                                                 "."+yst+"-01-01-00000.nc")
+                    else:
+                        myfile = os.path.abspath(mydir+'/'+mycases[c]+"_"+mysites[c]+'_'+thiscompset+ \
+                                                 ".clm2."+hst+"."+yst+"-01-01-00000.nc")
+                    if (os.path.exists(myfile)):
+                        if (n == 0):
+                            ylast = y
+                        if (y == 0 and c == 0):
+                            nffile = netcdf.netcdf_file(myfile,"r")
+                            varout=nffile.variables[myvars[v]]
+                            var_long_names.append(varout.long_name)
+                            if (float(options.scale_factor) < -900):
+                                if ('gC/m^2/s' in varout.units):
+                                    if (npf >= 365):
+                                        myscalefactors.append(3600*24)
+                                        var_units.append('gC/m^2/day')
+                                    else:
+                                        myscalefactors.append(3600*24*365)
+                                        var_units.append('gC/m^2/yr')
+                                else:
+                                    myscalefactors.append(1.0)
+                                    var_units.append(varout.units)
+                            else:
+                                 myscalefactors.append(float(options.scale_factor))
+                                 var_units.append(varout.units)
+
+                            nffile.close()
+                        myvar_temp = getvar(myfile,myvars[v],npf,int(options.index), \
+                                            myscalefactors[v])
+                        for i in range(0,npf):
+                            if (n == 0):
+                                myind = y*npf+i
+                                x[myind] = ystart+(y*nypf) + nypf*(i*1.0-0.5)/npf
+                            else:
+                                myind = ylast*npf+y*npf+i
+                                x[myind] = ystart+(ylast*nypf+y*nypf) + nypf*(i*1.0-0.5)/npf
+                            mydata[v,myind] = myvar_temp[i]
+                            nsteps=nsteps+1
 
     #read obervation file, assumes it is in case directory (years must match!)
     #will work for NEE only!
@@ -333,7 +385,6 @@ for c in range(0,ncases):
             if (myvars[v] == 'NEE' or myvars[v] == 'GPP'):
                 nsteps=nstepslast
                 varout=nffile.variables[myvars[v]+'_filled']
-                print(npf)
                 indata = varout.getValue()[0:npf]*12/1e6
                 x[0:9]=ystart
                 for i in range(0,npf*24/npd):
@@ -349,7 +400,6 @@ for c in range(0,ncases):
     
     #perform averaging and write output files for gnuplot
     if (avtype == 'default'):
-        print(nsteps, avpd)
         for v in range(0,nvar):
             snum[c] = 0
             for s in range(0,int(nsteps/avpd)): 
@@ -393,8 +443,11 @@ for c in range(0,ncases):
 for v in range(0,len(myvars)):
     fig = plt.figure()
     ax = plt.subplot(111)
+    colors=['b','g','r','c','m','y','k','b','g','r','c','m','y','k','b','g','r','c','m','y','k']
+    styles=['-','-','-','-','-','-','-','--','--','--','--','--','--','--','-.','-.','-.','-.','-.','-.','-.']
     for c in range(0,ncases): 
-        ax.plot(x_toplot[c, 1:snum[c]], data_toplot[c,v,1:snum[c]], label=mytitles[c])
+        ax.plot(x_toplot[c, 1:snum[c]], (data_toplot[c,v,1:snum[c]]), label=mytitles[c], color=colors[c], \
+	  linestyle=styles[c], linewidth=3)
     if (avtype == 'seasonal'):
         plt.xlabel('Model Month')
     elif (avtype == 'diurnal'):
@@ -407,4 +460,5 @@ for v in range(0,len(myvars)):
     ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
     ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     plt.title(var_long_names[v])
+    #plt.yscale('log')
 plt.show()

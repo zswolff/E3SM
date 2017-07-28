@@ -150,28 +150,28 @@ class Frame(wx.Frame):
         box.Add(self.nyears,0,wx.ALL,3)
 
         #restart file entry (option to browse)
-        m_text6 = wx.StaticText(panel, -1, "Finidat file", style=wx.ALIGN_LEFT)
-        m_text6.SetFont(wx.Font(10, wx.SWISS, wx.NORMAL, wx.BOLD))
-        m_text6.SetSize(m_text4.GetBestSize())
-        box.Add(m_text6, 0, wx.ALL, 3)
-        self.m_finidat = wx.TextCtrl(panel, txtID, myfinidat)
-        self.m_finidat.Bind(wx.EVT_TEXT, self.OnFinidatText)
-        box.Add(self.m_finidat,0,wx.EXPAND)
-        browse_finidat = wx.Button(panel, -1, "Browse", (30,30))
-        browse_finidat.Bind(wx.EVT_BUTTON, self.OnFinidatOpen)
-        box.Add(browse_finidat, 0, wx.ALL, 3)
+        #m_text6 = wx.StaticText(panel, -1, "Finidat file", style=wx.ALIGN_LEFT)
+        #m_text6.SetFont(wx.Font(10, wx.SWISS, wx.NORMAL, wx.BOLD))
+        #m_text6.SetSize(m_text4.GetBestSize())
+        #box.Add(m_text6, 0, wx.ALL, 3)
+        #self.m_finidat = wx.TextCtrl(panel, txtID, myfinidat)
+        #self.m_finidat.Bind(wx.EVT_TEXT, self.OnFinidatText)
+        #box.Add(self.m_finidat,0,wx.EXPAND)
+        #browse_finidat = wx.Button(panel, -1, "Browse", (30,30))
+        #browse_finidat.Bind(wx.EVT_BUTTON, self.OnFinidatOpen)
+        #box.Add(browse_finidat, 0, wx.ALL, 3)
 
         #pft physiology file entry
-        m_text8 = wx.StaticText(panel, -1, "Custom parameter file", style=wx.ALIGN_LEFT)
-        m_text8.SetFont(wx.Font(10, wx.SWISS, wx.NORMAL, wx.BOLD))
-        m_text8.SetSize(m_text4.GetBestSize())
-        box.Add(m_text8, 0, wx.ALL, 3)
-        self.m_pftfile = wx.TextCtrl(panel, -1, mypftfile)
-        self.m_pftfile.Bind(wx.EVT_TEXT, self.OnPftfileText)
-        box.Add(self.m_pftfile,0,wx.EXPAND)
-        browse_finidat = wx.Button(panel, -1, "Browse", (20,20))
-        browse_finidat.Bind(wx.EVT_BUTTON, self.OnPftfileOpen)
-        box.Add(browse_finidat, 0, wx.ALL, 3)
+        #m_text8 = wx.StaticText(panel, -1, "Custom parameter file", style=wx.ALIGN_LEFT)
+        #m_text8.SetFont(wx.Font(10, wx.SWISS, wx.NORMAL, wx.BOLD))
+        #m_text8.SetSize(m_text4.GetBestSize())
+        #box.Add(m_text8, 0, wx.ALL, 3)
+        #self.m_pftfile = wx.TextCtrl(panel, -1, mypftfile)
+        #self.m_pftfile.Bind(wx.EVT_TEXT, self.OnPftfileText)
+        #box.Add(self.m_pftfile,0,wx.EXPAND)
+        #browse_finidat = wx.Button(panel, -1, "Browse", (20,20))
+        #browse_finidat.Bind(wx.EVT_BUTTON, self.OnPftfileOpen)
+        #box.Add(browse_finidat, 0, wx.ALL, 3)
  
 
         #-----------Box 2------------------------
@@ -283,7 +283,27 @@ class Frame(wx.Frame):
         edit_file = wx.Button(panel, -1, "View/Edit Files", (20,20))
         edit_file.Bind(wx.EVT_BUTTON, self.OnPftfileView)
         box3.Add(edit_file, 0, wx.ALL, 3)
+        
+        m_text34= wx.StaticText(panel, -1, "Plotting and Diagnostics", style=wx.ALIGN_LEFT)
+        m_text34.SetFont(wx.Font(10, wx.SWISS, wx.NORMAL, wx.BOLD))
+        m_text34.SetSize(m_text34.GetBestSize())
+        box3.Add(m_text34, 0, wx.ALL, 3)
 
+        #Variable selection
+        m_text35 = wx.StaticText(panel, -1, "Variables to plot", style=wx.ALIGN_LEFT)
+        m_text35.SetFont(wx.Font(10, wx.SWISS, wx.NORMAL, wx.BOLD))
+        m_text35.SetSize(m_text35.GetBestSize())
+        box3.Add(m_text35, 0, wx.ALL, 3)
+        self.pvars = wx.ListBox(panel, -1, choices = myplotvars, style=wx.LB_MULTIPLE)
+        self.pvars.Bind(wx.EVT_LISTBOX, self.OnPvarSelect)
+        box3.Add(self.pvars, 0, wx.ALL, 3)
+        self.makeplots = wx.Button(panel, -1, "Generate plots", (30,30))
+        self.makeplots.Bind(wx.EVT_BUTTON, self.OnMakePlots)
+        box3.Add(self.makeplots, 0, wx.ALL, 3)
+
+
+
+        
         hbox.Add(box,1,wx.EXPAND)
         hbox.Add(box2,1,wx.EXPAND)
         hbox.Add(box3,1,wx.EXPAND)
@@ -368,7 +388,7 @@ class Frame(wx.Frame):
     def OnFinidatText(self, event):
         myfinidat=event.GetString()
         print(myfinidat)
-
+        
     def OnSiteGroupSelect(self,event):
         index=event.GetSelection()
         mysitegroup_current=mysitegroups[index]
@@ -392,7 +412,80 @@ class Frame(wx.Frame):
         for site in mysites:
             self.m_site.Append(str(site))
         self.m_site.SetSelection(0)
+
+    def OnPvarSelect(self,event):
+        vars_toplot=self.pvars.GetSelections()
+
+    def OnMakePlots(self,event):
+        rundir=self.rundirtxt.GetValue()
+        vars_toplot=self.pvars.GetSelections()
+        #get the site group
+        indexsg = self.mysitegroup.GetSelection()
+        mysitegroup_current=mysitegroups[indexsg]
+        #load site information for selected group
+        ccsm_input=self.inputdirtxt.GetValue()
+        fname=ccsm_input+'/lnd/clm2/PTCLM/'+mysitegroup_current+"_sitedata.txt"
+        AFdatareader = csv.reader(open(fname,"rb"))
+        sites_toplot=self.m_site.GetSelections()
+        doall = False
+        for i in sites_toplot:
+	    if (i == 0): 
+                doall=True
+        thisrow=0
+        mysite=''
+        mysites=[]
+        for row in AFdatareader:
+            if thisrow > 0:
+                mysites.append(row[0])
+                if (doall):
+                    mysite=mysite+row[0]+','
+            thisrow=thisrow+1    
+        for i in sites_toplot:
+            if (i != 0):
+                mysite=mysite+mysites[i-1]+','
+        mycaseprefix=self.m_caseprefix.GetValue()
+        myindex=self.m_spinup.GetSelection()
+        myspmode=self.spmode.GetValue()
+        myeca=self.ecamode.GetValue()
+        mydecomp=self.decompmode.GetValue()
+        myconly=self.conly.GetValue()
+        mycnonly=self.cnonly.GetValue()
+        mycpl_bypass=self.cpl_bypass.GetValue()
+        cdate="1850"
+        if (myindex == 2):
+            cdate="20TR"
+        if (mycpl_bypass):
+            prefix='ICB'
+        else: 
+            prefix='I'
+        nutrient ='CNP'
+        if (mycnonly):
+          nutrient = 'CN'
+        if (myconly):
+          nutrient = 'C'
+        if (mydecomp):
+            decomp = 'CNT'
+        else:
+            decomp = 'CTC'
+        if (myeca):
+            nucom = nutrient+'ECA'+decomp+'BC'
+        else:
+            nucom = nutrient+'RD'+decomp+'BC'
+        if (myspmode):
+            compset="ICLM45"
+            if (mycpl_bypass):
+                compset="ICLM45CB"
+        else:
+            compset = prefix+cdate+nucom
+        myvar=''
+        for v in vars_toplot:
+            myvar=myvar+myplotvars[v]+','
         
+        #if len(mycaseprefix.split(',') > 1:
+           
+        os.system('python plotcase.py --case '+mycaseprefix+' --site '+mysite[:-1] \
+                  +' --compset '+compset+' --spinup'+' --vars '+myvar[:-1]+' --csmdir '+rundir)
+    
     def OnSiteSelect(self,event):
         #get the site group
         indexsg = self.mysitegroup.GetSelection()
@@ -507,8 +600,8 @@ class Frame(wx.Frame):
             thisrow=thisrow+1
         mynyears=self.nyears.GetValue()
         mycaseprefix=self.m_caseprefix.GetValue()
-        mypftfile=self.m_pftfile.GetValue()
-        myfinidat=self.m_finidat.GetValue()
+        mypftfile= '' #self.m_pftfile.GetValue()
+        myfinidat= '' #self.m_finidat.GetValue()
         if (doall):
             mysite='all,'
         else:
@@ -566,10 +659,10 @@ class Frame(wx.Frame):
         elif (myindex < 3):
             cmd = cmd+' --run_n '+str(mynyears)
         elif (myindex == 3):
-        #Full simulation
+        #Full simulation (with diagnostics for transient output)
             cmd = 'python site_fullrun.py --site '+mysite[:-1]+' --machine '+machine+' --ccsm_input '+ccsm_input+' --sitegroup '+ \
                 mysitegroup_current+' --nyears_ad_spinup '+str(mynyears)+' --nyears_final_spinup '+str(mynyears)+ \
-                ' --spinup_vars'
+                ' --spinup_vars --diags'
             if (mycpl_bypass):
                 cmd = cmd+' --cpl_bypass'
         if (mycaseprefix != 'none'):
@@ -643,13 +736,15 @@ mysiteindex=1
 mysites=['all']
 mylats=['all sites']
 mylons=['all sites']
+myplotvars=['GPP','NEE','NPP','TLAI','TOTSOMC','TOTVEGC']
 mysitegroups=[]
 mysitegroup_current="AmeriFlux"
 mypath=os.path.abspath("./")
 
 #get available site groups
 for filename in os.listdir("./"):
-    if Contains(filename,'sitedata.txt'):
+    if Contains(filename,'sitedata.txt') and str(filename)[0] != '.' \
+                and str(filename)[0] != '#':
         groupname, type = filename.split('_')
         isrepeat=False
         for g in mysitegroups:
@@ -670,7 +765,7 @@ for row in AFdatareader:
     nsites=nsites+1
 
 txtID=1
-mysite=mysites[mysiteindex]
+mysite='' #mysites[mysiteindex]
 mycaseprefix='none'     #default case name
 myfinidat='<none>'    #default finidat
 myspinup=''

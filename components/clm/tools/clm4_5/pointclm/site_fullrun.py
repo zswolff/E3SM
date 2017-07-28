@@ -234,6 +234,10 @@ for row in AFdatareader:
     if (row[0] in mysites) or ('all' in mysites and row[0] !='site_code' \
                                       and row[0] != ''):
         site      = row[0]
+        if (isfirstsite):
+            firstsite=site
+        site_lat  = row[3]
+        site_lon  = row[4]
         if (options.cruncep):
                 startyear = 1901
                 endyear = 1920
@@ -304,8 +308,8 @@ for row in AFdatareader:
             basecmd = basecmd+' --bulk_denitrif'
         if (options.vsoilc):
             basecmd = basecmd+' --vertsoilc'
-        #if (options.centbgc):
-        #    basecmd = basecmd+' --centbgc'
+        if (options.centbgc):
+            basecmd = basecmd+' --centbgc'
         if (options.cn_only):
             basecmd = basecmd+' --cn_only'
         if (options.CH4):
@@ -348,6 +352,7 @@ for row in AFdatareader:
 	    mymodel = nutrients+'ECA'+decomp_model
         else:
             mymodel = nutrients+'RD'+decomp_model
+        mymodel_adsp = mymodel.replace('CNP','CN')
 
         #AD spinup
         cmd_adsp = basecmd+' --ad_spinup --nyears_ad_spinup '+ \
@@ -361,11 +366,11 @@ for row in AFdatareader:
         if (not isfirstsite):
             cmd_adsp = cmd_adsp+' --exeroot '+ad_exeroot+' --no_build'
         if (options.cpl_bypass):
-            cmd_adsp = cmd_adsp+' --compset ICB1850'+mymodel+'BC'
-            ad_case = site+'_ICB1850'+mymodel+'BC'
+            cmd_adsp = cmd_adsp+' --compset ICB1850'+mymodel_adsp+'BC'
+            ad_case = site+'_ICB1850'+mymodel_adsp+'BC'
         else:
-            cmd_adsp = cmd_adsp+' --compset I1850'+mymodel+'BC'
-            ad_case = site+'_I1850'+mymodel+'BC'
+            cmd_adsp = cmd_adsp+' --compset I1850'+mymodel_adsp+'BC'
+            ad_case = site+'_I1850'+mymodel_adsp+'BC'
         if (options.noad == False):
 	    ad_case = ad_case+'_ad_spinup'
         if (options.makemet):
@@ -395,8 +400,8 @@ for row in AFdatareader:
             if (not isfirstsite):
                 cmd_fnsp = cmd_fnsp+' --exeroot '+ad_exeroot+' --no_build'
         else:
-            cmd_fnsp = basecmd+' --finidat_case '+basecase+'_ad_spinup '+ \
-                       '--finidat_year '+str(int(ny_ad)+1)+' --run_units nyears --run_n '+ \
+            cmd_fnsp = basecmd+' --finidat_case '+ad_case+ \
+                       ' --finidat_year '+str(int(ny_ad)+1)+' --run_units nyears --run_n '+ \
                        str(fsplen)+' --align_year '+str(year_align+1)+' --no_build' + \
                        ' --exeroot '+ad_exeroot+' --nopointdata'
         if (int(options.hist_mfilt_spinup) == -999):
@@ -454,31 +459,60 @@ for row in AFdatareader:
                 basecase = mycaseid+'_'+site
         os.system('mkdir -p temp')
 
-        #build cases
+        #If not the first site, create point data here
+        if ((not isfirstsite) and not options.nopointdata):
+                print 'Creating point data for '+site
+                ptcmd = 'python makepointdata.py --caseroot '+caseroot+ \
+                        ' --site '+site+' --sitegroup '+options.sitegroup+ \
+                        ' --csmdir '+csmdir+' --ccsm_input '+ccsm_input
+                os.system(ptcmd)
+
+        #Build Cases
         print('\nSetting up ad_spinup case\n')
         if (options.noad == False):
-            print cmd_adsp
-            os.system(cmd_adsp)
+            if (isfirstsite):
+                ad_case_firstsite = ad_case
+                os.system(cmd_adsp)
+            else:
+                ptcmd = 'python case_copy.py --runroot '+runroot+' --case_copy '+ \
+                        ad_case_firstsite+' --site_orig '+firstsite +\
+                        ' --site_new '+site+' --nyears '+str(ny_ad)+' --spin_cycle ' \
+                        +str(endyear-startyear+1)
+                os.system(ptcmd)
         print('\nSetting up final spinup case\n')
-        os.system(cmd_fnsp)
+        if (isfirstsite):
+            fin_case_firstsite = ad_case_firstsite.replace('_ad_spinup','')
+            if (nutrients == 'CNP'):
+                fin_case_firstsite = fin_case_firstsite.replace('1850CN','1850CNP')
+            os.system(cmd_fnsp)
+        else:
+            ptcmd = 'python case_copy.py --runroot '+runroot+' --case_copy '+ \
+                    fin_case_firstsite+' --site_orig '+firstsite +\
+                    ' --site_new '+site+' --nyears '+str(ny_fin)+' --finidat_year ' \
+                    +str(int(ny_ad)+1)+' --spin_cycle '+str(endyear-startyear+1)
+            os.system(ptcmd)
         if (options.notrans == False):
             print('\nSetting up transient case\n')
-            print cmd_trns
-            os.system(cmd_trns)
+            if (isfirstsite):
+                tr_case_firstsite = fin_case_firstsite.replace('1850','20TR')
+                os.system(cmd_trns)
+            else:
+                 ptcmd = 'python case_copy.py --runroot '+runroot+' --case_copy '+ \
+                        tr_case_firstsite+' --site_orig '+firstsite +\
+                        ' --site_new '+site+' --finidat_year '+str(int(ny_fin)+1)
+                 os.system(ptcmd)
             if (options.cruncep and not options.cpl_bypass):
                  print('\nSetting up transient case phase 2\n')
                  os.system(cmd_trns2)
-        
+
+                 
+        #Create a .PBS site fullrun script to launch the full job (all 3 cases)
         output = open('./temp/site_fullrun.pbs','w')
 
         mysubmit_type = 'qsub'
         if (options.machine == 'cori' or options.machine == 'edison'):
             mysubmit_type = 'sbatch'
-        #Create a .PBS site fullrun script to launch the full job (all 3 cases)
-        if (options.cpl_bypass):
-          input = open(caseroot+'/'+basecase+"_ICB1850"+mymodel+'BC/case.run')
-        else:
-          input = open(caseroot+'/'+basecase+"_I1850"+mymodel+'BC/case.run')
+        input = open(caseroot+'/'+ad_case_firstsite+'/case.run')
         for s in input:
             if ("perl" in s or "python" in s):
                 output.write("#!/bin/csh -f\n")
@@ -489,7 +523,7 @@ for row in AFdatareader:
                     if ('edison' in options.machine):
                         output.write('#SBATCH --partition=regular\n')
 	    elif ("#!" in s or "#PBS" in s or "#SBATCH" in s):
-                output.write(s)
+                output.write(s.replace(firstsite,site))
         input.close()
         output.write("\n")
         
@@ -521,27 +555,40 @@ for row in AFdatareader:
         if (mycaseid != ''):
                 basecase = mycaseid+'_'+site
         if (options.noad == False):
-            output.write("cd "+caseroot+'/'+basecase+"_"+modelst+"_ad_spinup/\n")
-            output.write("./case.submit --no-batch\n")
+            if (isfirstsite):
+                output.write("cd "+caseroot+'/'+basecase+"_"+modelst.replace('CNP','CN')+"_ad_spinup/\n")
+                output.write("./case.submit --no-batch\n")
+            else:
+                output.write("cd "+runroot+'/'+basecase+"_"+modelst.replace('CNP','CN')+"_ad_spinup/run\n")
+                output.write(runroot+'/'+ad_case_firstsite+'/bld/acme.exe\n')
             output.write("cd "+os.path.abspath(".")+'\n')
-            #if (options.bgc):
-            #    output.write("python adjust_restart.py --rundir "+os.path.abspath(runroot)+ \
-            #                 '/'+ad_case+'/run/ --casename '+ ad_case+' --restart_year '+ \
-            #                 str(int(ny_ad)+1)+' --BGC\n')
-            #else:
-            output.write("python adjust_restart.py --rundir "+os.path.abspath(runroot)+ \
+            if (options.centbgc):
+                output.write("python adjust_restart.py --rundir "+os.path.abspath(runroot)+ \
+                            '/'+ad_case+'/run/ --casename '+ ad_case+' --restart_year '+ \
+                             str(int(ny_ad)+1)+' --BGC\n')
+            else:
+                output.write("python adjust_restart.py --rundir "+os.path.abspath(runroot)+ \
                              '/'+ad_case+'/run/ --casename '+ad_case+' --restart_year '+ \
                              str(int(ny_ad)+1)+'\n')
             if (not options.cn_only):
                 output.write("python IniPPools.py --diricase "+os.path.abspath(runroot)+ \
                              '/'+ad_case+'/run/ --casename '+ad_case+' --restart_year '+ \
                              str(int(ny_ad)+1)+ ' --sitephos Site_PPools.txt' + \
-                             ' --casesite '+site+'\n')
-        output.write("cd "+caseroot+'/'+basecase+"_"+modelst+"\n")
-        output.write('./case.submit --no-batch\n')	
-        if (options.notrans == False):
-            output.write("cd "+caseroot+'/'+basecase+"_"+modelst.replace('1850','20TR')+"\n")
+                             ' --casesite '+site+' --site_lon '+str(site_lon)+' --site_lat '+ \
+                             str(site_lat)+' --acme_input '+ccsm_input+'\n')
+        if (isfirstsite):
+            output.write("cd "+caseroot+'/'+basecase+"_"+modelst+"\n")
             output.write('./case.submit --no-batch\n')
+        else:
+            output.write("cd "+runroot+'/'+basecase+"_"+modelst+"/run\n")
+            output.write(runroot+'/'+ad_case_firstsite+'/bld/acme.exe\n')
+        if (options.notrans == False):
+            if (isfirstsite):
+                output.write("cd "+caseroot+'/'+basecase+"_"+modelst.replace('1850','20TR')+"\n")
+                output.write('./case.submit --no-batch\n')
+            else:
+                output.write("cd "+runroot+'/'+basecase+"_"+modelst.replace('1850','20TR')+"/run\n")
+                output.write(runroot+'/'+ad_case_firstsite+'/bld/acme.exe\n')
         output.close()
 
         #if ensemble simulations requested, submit jobs created by pointclm.py in correct order
@@ -549,7 +596,7 @@ for row in AFdatareader:
             cases=[]
             #build list of cases for fullrun
             if (options.noad == False):
-                cases.append(basecase+'_'+modelst+'_ad_spinup')
+                cases.append(basecase+'_'+modelst.replace('CNP','CN')+'_ad_spinup')
             cases.append(basecase+'_'+modelst)
             if (options.notrans == False):
                 cases.append(basecase+'_'+modelst.replace('1850','20TR'))
@@ -560,3 +607,4 @@ for row in AFdatareader:
         else:  #submit single job
             job_fullrun = submit('temp/site_fullrun.pbs', submit_type=mysubmit_type)
         isfirstsite = False
+           
