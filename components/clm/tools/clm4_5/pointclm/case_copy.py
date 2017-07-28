@@ -43,7 +43,7 @@ print 'Copying from '+orig_dir+' to \n'+new_dir
 
 #copy files to new directory
 os.system('mkdir -p '+new_dir+'/timing/checkpoints')
-os.system('rm  '+newdir+'/*.nc')
+os.system('rm  '+new_dir+'/*.nc')
 os.system('cp  '+orig_dir+'/*_in* '+new_dir)
 os.system('cp  '+orig_dir+'/*nml '+new_dir)
 if (not ('ICB' in casename)):
