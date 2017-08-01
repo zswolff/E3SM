@@ -81,11 +81,11 @@ if diricase != dirocase:
 shutil.copy(fileinp, fileinp+".b")
 
 if site in solutionP.keys():
-   soultionP = solutionP[site]
-   labileP   = labileP[site]
-   secondP   = secondP[site]
-   occlP     = occlP[site]
-   primP     = primP[site]
+   mysolutionP = solutionP[site]
+   mylabileP   = labileP[site]
+   mysecondP   = secondP[site]
+   myocclP     = occlP[site]
+   myprimP     = primP[site]
 else:
   global_file = options.acme_input+'/lnd/clm2/rawdata/mksrf_soilphos_0.5x0.5_simyr1850.c170623.nc'
   #get corresponding 0.5x0.5 and 1.9x2.5 degree grid cells
@@ -115,15 +115,15 @@ else:
   tempphosfile = './temp/tempsitephos.nc'
   os.system('ncks -d lon,'+str(xgrid_min)+','+str(xgrid_max)+' -d lat,'+str(ygrid_min)+ \
                 ','+str(ygrid_max)+' '+global_file+' '+tempphosfile)
-  solutionP = 0.0015
-  labileP = getvar(tempphosfile, 'LABILE_P')
-  secondP = getvar(tempphosfile, 'SECONDARY_P')
-  occlP   = getvar(tempphosfile, 'OCCLUDED_P')
-  primP   = 10.
+  mysolutionP = 0.0015
+  mylabileP = getvar(tempphosfile, 'LABILE_P')
+  mysecondP = getvar(tempphosfile, 'SECONDARY_P')
+  myocclP   = getvar(tempphosfile, 'OCCLUDED_P')
+  myprimP   = getvar(tempphosfile, 'APATITE_P')
 
-putvar(fileout, 'solutionp_vr', solutionP)
-putvar(fileout, 'labilep_vr'  , labileP  )
-putvar(fileout, 'secondp_vr'  , secondP  )
-putvar(fileout, 'occlp_vr'    , occlP    )
-putvar(fileout, 'primp_vr'    , primP    )
+putvar(fileout, 'solutionp_vr', mysolutionP)
+putvar(fileout, 'labilep_vr'  , mylabileP  )
+putvar(fileout, 'secondp_vr'  , mysecondP  )
+putvar(fileout, 'occlp_vr'    , myocclP    )
+putvar(fileout, 'primp_vr'    , myprimP    )
 

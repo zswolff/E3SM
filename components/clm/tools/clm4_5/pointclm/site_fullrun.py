@@ -506,90 +506,146 @@ for row in AFdatareader:
                  os.system(cmd_trns2)
 
                  
-        #Create a .PBS site fullrun script to launch the full job (all 3 cases)
-        output = open('./temp/site_fullrun.pbs','w')
-
-        mysubmit_type = 'qsub'
-        if (options.machine == 'cori' or options.machine == 'edison'):
-            mysubmit_type = 'sbatch'
-        input = open(caseroot+'/'+ad_case_firstsite+'/case.run')
-        for s in input:
-            if ("perl" in s or "python" in s):
-                output.write("#!/bin/csh -f\n")
-                if (mysubmit_type == 'qsub'):
-                    output.write('#PBS -l walltime='+str(options.walltime)+':00:00\n')
-                else:
-                    output.write('#SBATCH --time='+str(options.walltime)+':00:00\n')
-                    if ('edison' in options.machine):
-                        output.write('#SBATCH --partition=regular\n')
-	    elif ("#!" in s or "#PBS" in s or "#SBATCH" in s):
-                output.write(s.replace(firstsite,site))
-        input.close()
-        output.write("\n")
-        
-        if (options.machine == 'eos'):
-            output.write('source $MODULESHOME/init/csh\n')
-            output.write('module load nco\n')
-            output.write('module unload python\n')
-            output.write('module load python/2.7.5\n')
-            output.write('module unload PrgEnv-intel\n')
-            output.write('module load PrgEnv-gnu\n')
-            output.write('module load python_numpy\n')
-            output.write('module load python_scipy\n')
-            output.write('module load python_mpi4py/2.0.0\n')
-            output.write('module unload PrgEnv-gnu\n')
-            output.write('module load PrgEnv-intel\n')
-        if (options.machine == 'titan'):
-            output.write('source $MODULESHOME/init/csh\n')
-            output.write('module load nco\n')
-            output.write('module load python\n')
-            output.write('module load python_numpy/1.9.2\n')
-            output.write('module load python_scipy/0.15.1\n')
-            output.write('module load python_mpi4py/2.0.0\n')
-
-        modelst = 'I1850'+mymodel+'BC'
-        if (options.cpl_bypass):
-            modelst = 'ICB1850'+mymodel+'BC'
-
-        basecase = site
-        if (mycaseid != ''):
-                basecase = mycaseid+'_'+site
+        #Create .pbs scripts
+        case_list = []
         if (options.noad == False):
-            if (isfirstsite):
-                output.write("cd "+caseroot+'/'+basecase+"_"+modelst.replace('CNP','CN')+"_ad_spinup/\n")
-                output.write("./case.submit --no-batch\n")
-            else:
-                output.write("cd "+runroot+'/'+basecase+"_"+modelst.replace('CNP','CN')+"_ad_spinup/run\n")
-                output.write(runroot+'/'+ad_case_firstsite+'/bld/acme.exe\n')
-            output.write("cd "+os.path.abspath(".")+'\n')
-            if (options.centbgc):
-                output.write("python adjust_restart.py --rundir "+os.path.abspath(runroot)+ \
-                            '/'+ad_case+'/run/ --casename '+ ad_case+' --restart_year '+ \
-                             str(int(ny_ad)+1)+' --BGC\n')
-            else:
-                output.write("python adjust_restart.py --rundir "+os.path.abspath(runroot)+ \
-                             '/'+ad_case+'/run/ --casename '+ad_case+' --restart_year '+ \
-                             str(int(ny_ad)+1)+'\n')
-            if (not options.cn_only):
-                output.write("python IniPPools.py --diricase "+os.path.abspath(runroot)+ \
-                             '/'+ad_case+'/run/ --casename '+ad_case+' --restart_year '+ \
-                             str(int(ny_ad)+1)+ ' --sitephos Site_PPools.txt' + \
-                             ' --casesite '+site+' --site_lon '+str(site_lon)+' --site_lat '+ \
-                             str(site_lat)+' --acme_input '+ccsm_input+'\n')
-        if (isfirstsite):
-            output.write("cd "+caseroot+'/'+basecase+"_"+modelst+"\n")
-            output.write('./case.submit --no-batch\n')
-        else:
-            output.write("cd "+runroot+'/'+basecase+"_"+modelst+"/run\n")
-            output.write(runroot+'/'+ad_case_firstsite+'/bld/acme.exe\n')
+            case_list.append('ad_spinup')
+            case_list.append('iniadjust')
+        case_list.append('fn_spinup')
+        case_list.append('spinup_diags')
         if (options.notrans == False):
+            case_list.append('transient')
+            case_list.append('trans_diags')
+        
+        for c in case_list:
+            
+            mysubmit_type = 'qsub'
+            if (options.machine == 'cori' or options.machine == 'edison'):
+                mysubmit_type = 'sbatch'
             if (isfirstsite):
-                output.write("cd "+caseroot+'/'+basecase+"_"+modelst.replace('1850','20TR')+"\n")
-                output.write('./case.submit --no-batch\n')
+                input = open(caseroot+'/'+ad_case_firstsite+'/case.run')
+                output = open('./temp/'+c+'.pbs','w')
+                for s in input:
+                    if ("perl" in s or "python" in s):
+                        output.write("#!/bin/csh -f\n")
+                        if (mysubmit_type == 'qsub'):
+                            output.write('#PBS -l walltime='+str(options.walltime)+':00:00\n')
+                        else:
+                            output.write('#SBATCH --time='+str(options.walltime)+':00:00\n')
+                            if ('edison' in options.machine):
+                                output.write('#SBATCH --partition=regular\n')
+                    elif ("#" in s and "ppn" in s):
+                        if ('cades' in options.machine):
+                            if ('diags' in c or 'iniadjust' in c):
+                                output.write("#PBS -l nodes=1:ppn=1\n")
+                            else:
+                                output.write("#PBS -l nodes=1:ppn=32\n")
+                        else:
+                            output.write("#PBS -l nodes=1\n")
+                    elif ("#!" in s or "#PBS" in s or "#SBATCH" in s):
+                        output.write(s.replace(firstsite,site))
+                input.close()
+                output.write("\n")
+        
+                if (options.machine == 'eos'):
+                    output.write('source $MODULESHOME/init/csh\n')
+                    output.write('module load nco\n')
+                    output.write('module unload python\n')
+                    output.write('module load python/2.7.5\n')
+                    output.write('module unload PrgEnv-intel\n')
+                    output.write('module load PrgEnv-gnu\n')
+                    output.write('module load python_numpy\n')
+                    output.write('module load python_scipy\n')
+                    output.write('module load python_mpi4py/2.0.0\n')
+                    output.write('module unload PrgEnv-gnu\n')
+                    output.write('module load PrgEnv-intel\n')
+                if (options.machine == 'titan'):
+                    output.write('source $MODULESHOME/init/csh\n')
+                    output.write('module load nco\n')
+                    output.write('module load python\n')
+                    output.write('module load python_numpy/1.9.2\n')
+                    output.write('module load python_scipy/0.15.1\n')
+                    output.write('module load python_mpi4py/2.0.0\n')
             else:
+                output = open('./temp/'+c+'.pbs','a')   
+                
+            modelst = 'I1850'+mymodel+'BC'
+            if (options.cpl_bypass):
+                modelst = 'ICB1850'+mymodel+'BC'
+
+            basecase = site
+            if (mycaseid != ''):
+                basecase = mycaseid+'_'+site
+            if (isfirstsite and 'ad_spinup' in c):
+                output.write("cd "+caseroot+'/'+basecase+"_"+modelst.replace('CNP','CN')+"_ad_spinup/\n")
+                output.write("./case.submit --no-batch &\n")
+            elif ('ad_spinup' in c):
+                output.write("cd "+runroot+'/'+basecase+"_"+modelst.replace('CNP','CN')+"_ad_spinup/run\n")
+                output.write(runroot+'/'+ad_case_firstsite+'/bld/acme.exe &\n')
+            if ('iniadjust' in c):
+                output.write("cd "+os.path.abspath(".")+'\n')
+                if (options.centbgc):
+                    output.write("python adjust_restart.py --rundir "+os.path.abspath(runroot)+ \
+                                 '/'+ad_case+'/run/ --casename '+ ad_case+' --restart_year '+ \
+                                 str(int(ny_ad)+1)+' --BGC\n')
+                else:
+                    output.write("python adjust_restart.py --rundir "+os.path.abspath(runroot)+ \
+                                 '/'+ad_case+'/run/ --casename '+ad_case+' --restart_year '+ \
+                                 str(int(ny_ad)+1)+'\n')
+                if (not options.cn_only):
+                    output.write("python IniPPools.py --diricase "+os.path.abspath(runroot)+ \
+                                 '/'+ad_case+'/run/ --casename '+ad_case+' --restart_year '+ \
+                                 str(int(ny_ad)+1)+ ' --sitephos Site_PPools.txt' + \
+                                 ' --casesite '+site+' --site_lon '+str(site_lon)+' --site_lat '+ \
+                                 str(site_lat)+' --acme_input '+ccsm_input+'\n')
+            if ('spinup_diags' in c):
+                 if (options.cpl_bypass):
+                     mycompset = 'ICB1850'+mymodel+'BC'
+                 else:
+                     mycompset = 'I1850'+mymodel+'BC'
+                 output.write("cd "+os.path.abspath(".")+'\n')
+                 output.write("python plotcase.py --site "+site+" --spinup --compset "+mycompset \
+                               +" --case "+mycaseid+" --vars NEE --ylog --csmdir "+os.path.abspath(runroot)+ \
+                               " --pdf\n")
+                 output.write("python plotcase.py --site "+site+" --spinup --compset "+mycompset \
+                               +" --case "+mycaseid+" --vars TLAI,NPP,GPP,TOTVEGC,TOTSOMC " \
+	                       +" --csmdir "+os.path.abspath(runroot)+" --pdf\n")
+                 output.write("scp -r ./plots/"+mycaseid+" acme-webserver.ornl.gov:~/www/single_point/plots\n")
+            if (isfirstsite and 'fn_spinup' in c):
+                output.write("cd "+caseroot+'/'+basecase+"_"+modelst+"\n")
+                output.write('./case.submit --no-batch &\n')
+            elif ('fn_spinup' in c):
+                output.write("cd "+runroot+'/'+basecase+"_"+modelst+"/run\n")
+                output.write(runroot+'/'+ad_case_firstsite+'/bld/acme.exe &\n')
+            if (isfirstsite and 'transient' in c):
+                output.write("cd "+caseroot+'/'+basecase+"_"+modelst.replace('1850','20TR')+"\n")
+                output.write('./case.submit --no-batch &\n')
+            elif ('transient' in c):
                 output.write("cd "+runroot+'/'+basecase+"_"+modelst.replace('1850','20TR')+"/run\n")
-                output.write(runroot+'/'+ad_case_firstsite+'/bld/acme.exe\n')
-        output.close()
+                output.write(runroot+'/'+ad_case_firstsite+'/bld/acme.exe &\n')
+            if ('trans_diags' in c):
+                 if (options.cpl_bypass):
+                     mycompset = 'ICB20TR'+mymodel+'BC'
+                 else:
+                     mycompset = 'I20TR'+mymodel+'BC'
+                 #Average seasonal cycle
+                 output.write("cd "+os.path.abspath(".")+'\n')
+                 output.write("python plotcase.py --site "+site+" --compset "+mycompset \
+                               +" --case "+mycaseid+" --vars NEE,GPP,EFLX_LH_TOT,FSH,FPG,FPG_P,"+ \
+                               "FPI,FPI_P,NPP,QOVER --csmdir "+os.path.abspath(runroot)+ \
+                               " --obs --seasonal --pdf\n")
+                 #Interannual variability
+                 output.write("python plotcase.py --site "+site+" --compset "+mycompset \
+                               +" --case "+mycaseid+" --vars NEE,GPP,EFLX_LH_TOT,FSH --csmdir "+ \
+                               os.path.abspath(runroot)+" --obs --h4 --pdf\n")
+                 #1850-present
+                 output.write("python plotcase.py --site "+site+" --compset "+mycompset \
+                               +" --case "+mycaseid+" --vars TOTLITC,CWDC,TOTVEGC,TOTSOMC_1m --csmdir " \
+                               +os.path.abspath(runroot)+" --ystart 1850 --h4 --pdf\n")
+                 output.write("scp -r ./plots/"+mycaseid+" acme-webserver.ornl.gov:~/www/single_point/plots\n")
+
+            output.write('sleep 1\n')
+            output.close()
 
         #if ensemble simulations requested, submit jobs created by pointclm.py in correct order
         if (options.ensemble_file != ''):
@@ -604,7 +660,16 @@ for row in AFdatareader:
             for thiscase in cases:
                 job_depend_run = submit('temp/ensemble_run_'+thiscase+'.pbs',job_depend= \
                                         job_depend_run, submit_type=mysubmit_type)
-        else:  #submit single job
-            job_fullrun = submit('temp/site_fullrun.pbs', submit_type=mysubmit_type)
+        #else:  #submit single job
+        #    job_fullrun = submit('temp/site_fullrun.pbs', submit_type=mysubmit_type)
         isfirstsite = False
-           
+
+#Submit PBS scripts for multi-site simualtions on 1 node
+if (options.ensemble_file == ''):
+    job_depend_run=''
+    for thiscase in case_list:
+        output = open('./temp/'+thiscase+'.pbs','a')
+        output.write('wait\n')
+        output.close()
+        job_depend_run = submit('temp/'+thiscase+'.pbs',job_depend= \
+                                job_depend_run, submit_type=mysubmit_type)

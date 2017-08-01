@@ -483,6 +483,8 @@ class Frame(wx.Frame):
         
         #if len(mycaseprefix.split(',') > 1:
            
+        print 'python plotcase.py --case '+mycaseprefix+' --site '+mysite[:-1] \
+                  +' --compset '+compset+' --spinup'+' --vars '+myvar[:-1]+' --csmdir '+rundir
         os.system('python plotcase.py --case '+mycaseprefix+' --site '+mysite[:-1] \
                   +' --compset '+compset+' --spinup'+' --vars '+myvar[:-1]+' --csmdir '+rundir)
     

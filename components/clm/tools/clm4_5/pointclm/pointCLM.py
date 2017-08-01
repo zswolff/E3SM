@@ -259,10 +259,12 @@ else:
     cpl_bypass = False
 
 surfdir = 'surfdata_map'
-pftphys_stamp = '_c160711' #'c160711_root'
+#pftphys_stamp = '_c160711' #'c160711_root'
+pftphys_stamp = '_c160711_test170303'
 if ('ECA' in compset):
     pftphys_stamp = '.c160709'
-CNPstamp = 'c131108'
+#CNPstamp = 'c131108'
+CNPstamp = 'c170306'
 
 #check consistency of options
 if ('20TR' in compset):
@@ -841,25 +843,30 @@ for i in range(1,int(options.ninst)+1):
         output.write(h0varst)
 
     if ('20TR' in compset and options.diags):
-        output.write(" hist_dov2xy = .true., .true., .true., .false.\n")
-        output.write(" hist_mfilt = 1, 8760, 365, 365\n")
-        output.write(" hist_nhtfrq = 0, -1, -24, -24\n")
+        output.write(" hist_dov2xy = .true., .true., .true., .false., .true.\n")
+        output.write(" hist_mfilt = 1, 8760, 365, 365, 1\n")
+        output.write(" hist_nhtfrq = 0, -1, -24, -24, -8760\n")
         h1varst = " hist_fincl2 = "
         h2varst = " hist_fincl3 = "
         h3varst = " hist_fincl4 = "
+        h4varst = " hist_fincl5 = "
         for v in var_list_hourly:
             h1varst = h1varst+"'"+v+"',"
             h2varst = h2varst+"'"+v+"',"
+            h4varst = h4varst+"'"+v+"',"
         for v in var_list_daily:
             h2varst = h2varst+"'"+v+"',"
+            h4varst = h4varst+"'"+v+"',"
         for v in var_list_pft:
             h3varst = h3varst+"'"+v+"',"
         h1varst = h1varst[:-1]+"\n"
         h2varst = h2varst[:-1]+"\n"
         h3varst = h3varst[:-1]+"\n"
+        h4varst = h4varst[:-1]+"\n"
         output.write(h1varst)
         output.write(h2varst)
         output.write(h3varst)
+        output.write(h4varst)
     elif ('20TR' in compset and (options.trans_varlist != '' or options.ilambvars)):
 	trans_varlist = options.trans_varlist.split(',')
         if (options.ilambvars):
