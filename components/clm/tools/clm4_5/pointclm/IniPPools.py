@@ -120,6 +120,7 @@ else:
   mysecondP = getvar(tempphosfile, 'SECONDARY_P')
   myocclP   = getvar(tempphosfile, 'OCCLUDED_P')
   myprimP   = getvar(tempphosfile, 'APATITE_P')
+  os.system('rm ./temp/tempsitephos.nc')
 
 putvar(fileout, 'solutionp_vr', mysolutionP)
 putvar(fileout, 'labilep_vr'  , mylabileP  )

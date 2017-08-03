@@ -523,7 +523,7 @@ for v in range(0,len(myvars)):
     plt.ylabel(myvars[v]+' ('+var_units[v]+')')
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
-    ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    ax.legend(loc='center left', bbox_to_anchor=(1, 0.5),prop={'size': 10})
     plt.title(var_long_names[v])
     if (options.ylog):
         plt.yscale('log')
@@ -537,6 +537,8 @@ for v in range(0,len(myvars)):
             fig_filename = fig_filename+'_diurnal_'+str(options.dstart)+'_'+str(options.dend)
         elif (options.myseasonal):
             fig_filename = fig_filename+'_seasonal'
+        elif (mytstep == 'annual' and obs):
+            fig_filename = fig_filename+'_internannual'
         fig.savefig(fig_filename+'.pdf')
 
 if (not options.pdf):

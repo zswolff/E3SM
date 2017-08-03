@@ -236,8 +236,8 @@ for row in AFdatareader:
         site      = row[0]
         if (isfirstsite):
             firstsite=site
-        site_lat  = row[3]
-        site_lon  = row[4]
+        site_lat  = row[4]
+        site_lon  = row[3]
         if (options.cruncep):
                 startyear = 1901
                 endyear = 1920
@@ -640,7 +640,7 @@ for row in AFdatareader:
                                os.path.abspath(runroot)+" --obs --h4 --pdf\n")
                  #1850-present
                  output.write("python plotcase.py --site "+site+" --compset "+mycompset \
-                               +" --case "+mycaseid+" --vars TOTLITC,CWDC,TOTVEGC,TOTSOMC_1m --csmdir " \
+                               +" --case "+mycaseid+" --vars TOTLITC,CWDC,TOTVEGC,TOTSOMC --csmdir " \
                                +os.path.abspath(runroot)+" --ystart 1850 --h4 --pdf\n")
                  output.write("scp -r ./plots/"+mycaseid+" acme-webserver.ornl.gov:~/www/single_point/plots\n")
 
