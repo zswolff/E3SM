@@ -89,6 +89,8 @@ parser.add_option("--no_dynroot", dest="no_dynroot", default=False, \
                   help = 'Turn off dynamic root distribution', action="store_true")
 parser.add_option("--vertsoilc", dest="vsoilc", default=False, \
                   help = 'To turn on CN with multiple soil layers, excluding CENTURY C module (CLM4ME on as well)', action="store_true")
+parser.add_option("--ECA", action="store_true", dest="eca", default=False, \
+                  help = 'Use ECA compset')
 parser.add_option("--centbgc", dest="centbgc", default=False, \
                   help = 'To turn on CN with multiple soil layers, CENTURY C module (CLM4ME on as well)', action="store_true")
 parser.add_option("--CH4", dest="CH4", default=False, \
@@ -170,7 +172,7 @@ def get_regional_bounds(myregion):
         bounds = [-180,180,-90,90]   #global
     return bounds
 
-#ILAMB diagnostic variables
+#ILAMB diagnostic variables and other required variables for analysis
 ilamb_outputs = ['FAREA_BURNED', 'CWDC', 'LEAFC', 'TOTLITC', 'STORVEGC', 'LIVESTEMC', 'DEADSTEMC', \
                  'TOTPRODC', 'FROOTC', 'LIVECROOTC', 'DEADCROOTC', 'SOIL1C', 'SOIL2C', 'SOIL3C', \
                  'SOIL4C', 'TOTSOMC', 'TOTVEGC', 'WOODC', 'QSOIL', 'QVEGE', 'COL_FIRE_CLOSS', \
@@ -180,7 +182,7 @@ ilamb_outputs = ['FAREA_BURNED', 'CWDC', 'LEAFC', 'TOTLITC', 'STORVEGC', 'LIVEST
                  'AR', 'GR', 'HR', 'MR', 'FSNO', 'SNOWDP', 'QMELT', 'H2OSNO', 'SNOWBCMSL', \
                  'SNODSTMSL', 'SNOOCMSL', 'QVEGT', 'TSOI', 'WIND', 'EFLX_LH_TOT', 'FCTR', \
                  'FCEV', 'FGEV', 'FSH', 'RH2M', 'Q2M', 'RAIN', 'SNOW', 'PBOT', 'FLDS', 'FIRE', \
-                 'FSDS', 'FSR', 'TSA']
+                 'FSDS', 'FSR', 'TSA', 'CPOOL', 'NPOOL','FPI','FPG','FPI_P','FPG_P','TOTSOMC_1m']
 
 #----------------------------------------------------------
 if (options.ccsm_input != ''):
@@ -193,7 +195,7 @@ elif (options.machine == 'edison' or options.machine == 'cori'):
     ccsm_input = '/project/projectdirs/acme/inputdata'
 
 if (options.compiler != ''):
-    if (options.machine == 'titan'):
+    if (options.machine == 'titan' or options.machine == 'metis'):
         options.compiler = 'pgi'
     if (options.machine == 'eos' or options.machine == 'edison'):
         options.compiler = 'intel'
@@ -291,6 +293,9 @@ if (options.clean_build):
     basecmd = basecmd+' --clean_build '
 if (options.metdir !='none'):
     basecmd = basecmd+' --metdir '+options.metdir
+if (not isregional):
+    print 'TEST'
+    basecmd = basecmd+' --nopointdata '
 if (options.C13):
     basecmd = basecmd+' --C13 '
 if (options.C13):

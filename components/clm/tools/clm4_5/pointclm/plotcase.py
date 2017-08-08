@@ -493,7 +493,7 @@ for c in range(0,ncases):
             for s in range(0,snum[c]):
                 if (mycount_obs[s] > 0):
                     mysum_obs[s] = mysum_obs[s]/mycount_obs[s]
-                x_toplot[c,s] = s+0.5
+                x_toplot[c,s] = s+1.5
                 obs_toplot[c,v,s]  = mysum_obs[s]
                 data_toplot[c,v,s] = mysum[s]
 
@@ -506,12 +506,12 @@ for v in range(0,len(myvars)):
     styles=['-','-','-','-','-','-','-','--','--','--','--','--','--','--','-.','-.','-.','-.','-.','-.','-.']
     for c in range(0,ncases): 
         if (options.ylog):
-            ax.plot(x_toplot[c, 1:snum[c]], abs(data_toplot[c,v,1:snum[c]]), label=mytitles[c], color=colors[c], \
+            ax.plot(x_toplot[c, 0:snum[c]], abs(data_toplot[c,v,0:snum[c]]), label=mytitles[c], color=colors[c], \
               linestyle=styles[c], linewidth=3)
         else:
-            ax.plot(x_toplot[c, 1:snum[c]], (data_toplot[c,v,1:snum[c]]), label=mytitles[c], color=colors[c], \
+            ax.plot(x_toplot[c, 0:snum[c]], (data_toplot[c,v,0:snum[c]]), label=mytitles[c], color=colors[c], \
 	      linestyle=styles[c], linewidth=3)
-            ax.errorbar(x_toplot[c, 1:snum[c]], obs_toplot[c,v,1:snum[c]], yerr = err_toplot[c,v,1:snum[c]], \
+            ax.errorbar(x_toplot[c, 0:snum[c]], obs_toplot[c,v,0:snum[c]], yerr = err_toplot[c,v,0:snum[c]], \
                         color=colors[c], fmt='o')
     if (avtype == 'seasonal'):
         plt.xlabel('Model Month')
