@@ -455,8 +455,10 @@ contains
 
          evergreen  => ecophyscon%evergreen     , & ! Input:  [real(r8) (:) ]  binary flag for evergreen leaf habit (0 or 1)     
          leaf_long  => ecophyscon%leaf_long     , & ! Input:  [real(r8) (:) ]  leaf longevity (yrs)                              
-         
-         bglfr      => cnstate_vars%bglfr_patch , & ! Output: [real(r8) (:) ]  background litterfall rate (1/s)                  
+         froot_long => ecophyscon%froot_long    , & ! Input:  [real(r8) (:) ]  fine root longevity (yrs)         
+
+         bglfr_leaf  => cnstate_vars%bglfr_leaf_patch ,  & ! Output: [real(r8) (:) ]  background litterfall rate (1/s)                  
+         bglfr_froot => cnstate_vars%bglfr_froot_patch , & ! Output: [real(r8) (:) ]  background litterfall rate (1/s)           
          bgtr       => cnstate_vars%bgtr_patch  , & ! Output: [real(r8) (:) ]  background transfer growth rate (1/s)             
          lgsf       => cnstate_vars%lgsf_patch    & ! Output: [real(r8) (:) ]  long growing season factor [0-1]                  
          )
@@ -466,7 +468,8 @@ contains
       do fp = 1,num_soilp
          p = filter_soilp(fp)
          if (evergreen(ivt(p)) == 1._r8) then
-            bglfr(p) = 1._r8/(leaf_long(ivt(p)) * dayspyr * secspday)
+            bglfr_leaf(p)  = 1._r8/(leaf_long(ivt(p)) * dayspyr * secspday)
+            bglfr_froot(p) = 1._r8/(froot_long(ivt(p)) * dayspyr * secspday) 
             bgtr(p)  = 0._r8
             lgsf(p)  = 0._r8
          end if
@@ -534,7 +537,8 @@ contains
          onset_gdd                           =>    cnstate_vars%onset_gdd_patch                          , & ! Output: [real(r8)  (:)   ]  onset growing degree days                         
          offset_flag                         =>    cnstate_vars%offset_flag_patch                        , & ! Output: [real(r8)  (:)   ]  offset flag                                       
          offset_counter                      =>    cnstate_vars%offset_counter_patch                     , & ! Output: [real(r8)  (:)   ]  offset counter (seconds)                          
-         bglfr                               =>    cnstate_vars%bglfr_patch                              , & ! Output: [real(r8)  (:)   ]  background litterfall rate (1/s)                  
+         bglfr_leaf                          =>    cnstate_vars%bglfr_leaf_patch                         , & ! Output: [real(r8)  (:)   ]  background litterfall rate (1/s)                  
+         bglfr_froot                         =>    cnstate_vars%bglfr_froot_patch                        , & ! Output: [real(r8)  (:)   ]  background litterfall rate (1/s)   
          bgtr                                =>    cnstate_vars%bgtr_patch                               , & ! Output: [real(r8)  (:)   ]  background transfer growth rate (1/s)             
          lgsf                                =>    cnstate_vars%lgsf_patch                               , & ! Output: [real(r8)  (:)   ]  long growing season factor [0-1]                  
          
@@ -633,7 +637,8 @@ contains
 
             ! set background litterfall rate, background transfer rate, and
             ! long growing season factor to 0 for seasonal deciduous types
-            bglfr(p) = 0._r8
+            bglfr_leaf(p) = 0._r8
+            bglfr_froot(p) = 0._r8
             bgtr(p) = 0._r8
             lgsf(p) = 0._r8
 
@@ -884,6 +889,7 @@ contains
          dayl                                =>    grc%dayl                                              , & ! Input:  [real(r8)  (:)   ]  daylength (s)
          
          leaf_long                           =>    ecophyscon%leaf_long                                  , & ! Input:  [real(r8)  (:)   ]  leaf longevity (yrs)                              
+         froot_long                          =>    ecophyscon%froot_long                                 , & ! Input:  [real(r8)  (:)   ]  leaf longevity (yrs)       
          woody                               =>    ecophyscon%woody                                      , & ! Input:  [real(r8)  (:)   ]  binary flag for woody lifeform (1=woody, 0=not woody)
          stress_decid                        =>    ecophyscon%stress_decid                               , & ! Input:  [real(r8)  (:)   ]  binary flag for stress-deciduous leaf habit (0 or 1)
          
@@ -904,7 +910,8 @@ contains
          offset_fdd                          =>    cnstate_vars%offset_fdd_patch                         , & ! Output:  [real(r8) (:)   ]  offset freezing degree days counter               
          offset_swi                          =>    cnstate_vars%offset_swi_patch                         , & ! Output:  [real(r8) (:)   ]  offset soil water index                           
          lgsf                                =>    cnstate_vars%lgsf_patch                               , & ! Output:  [real(r8) (:)   ]  long growing season factor [0-1]                  
-         bglfr                               =>    cnstate_vars%bglfr_patch                              , & ! Output:  [real(r8) (:)   ]  background litterfall rate (1/s)                  
+         bglfr_leaf                          =>    cnstate_vars%bglfr_leaf_patch                         , & ! Output:  [real(r8) (:)   ]  background litterfall rate (1/s)                  
+         bglfr_froot                         =>    cnstate_vars%bglfr_froot_patch                        , & ! Output:  [real(r8) (:)   ]  background litterfall rate (1/s)    
          bgtr                                =>    cnstate_vars%bgtr_patch                               , & ! Output:  [real(r8) (:)   ]  background transfer growth rate (1/s)             
          annavg_t2m                          =>    cnstate_vars%annavg_t2m_patch                         , & ! Output:  [real(r8) (:)   ]  annual average 2m air temperature (K)             
      
@@ -1255,12 +1262,14 @@ contains
 
             ! set background litterfall rate, when not in the phenological offset period
             if (offset_flag(p) == 1._r8) then
-               bglfr(p) = 0._r8
+               bglfr_leaf(p)  = 0._r8
+               bglfr_froot(p) = 0._r8
             else
                ! calculate the background litterfall rate (bglfr)
                ! in units 1/s, based on leaf longevity (yrs) and correction for long growing season
 
-               bglfr(p) = (1._r8/(leaf_long(ivt(p))*dayspyr*secspday))*lgsf(p)
+               bglfr_leaf(p)  = (1._r8/(leaf_long(ivt(p))*dayspyr*secspday))*lgsf(p)
+               bglfr_froot(p) = (1._r8/(froot_long(ivt(p))*dayspyr*secspday))*lgsf(p)
             end if
 
             ! set background transfer rate when active but not in the phenological onset period
@@ -1368,6 +1377,7 @@ contains
          ivt               =>    pft%itype                               , & ! Input:  [integer  (:) ]  pft vegetation type                                
          
          leaf_long         =>    ecophyscon%leaf_long                    , & ! Input:  [real(r8) (:) ]  leaf longevity (yrs)                              
+         froot_long        =>    ecophyscon%froot_long                   , & ! Input:  [real(r8) (:) ]  fine root longevity (yrs)  
          leafcn            =>    ecophyscon%leafcn                       , & ! Input:  [real(r8) (:) ]  leaf C:N (gC/gN)                                  
          fertnitro         =>    ecophyscon%fertnitro                    , & ! Input:  [real(r8) (:) ]  max fertilizer to be applied in total (kgN/m2)    
          
@@ -1393,7 +1403,8 @@ contains
          cumvd             =>    cnstate_vars%cumvd_patch                , & ! Output: [real(r8) (:) ]  cumulative vernalization d?ependence?             
          hdidx             =>    cnstate_vars%hdidx_patch                , & ! Output: [real(r8) (:) ]  cold hardening index?                             
          vf                =>    cnstate_vars%vf_patch                   , & ! Output: [real(r8) (:) ]  vernalization factor                              
-         bglfr             =>    cnstate_vars%bglfr_patch                , & ! Output: [real(r8) (:) ]  background litterfall rate (1/s)                  
+         bglfr_leaf        =>    cnstate_vars%bglfr_leaf_patch           , & ! Output: [real(r8) (:) ]  background litterfall rate (1/s)                  
+         bglfr_froot       =>    cnstate_vars%bglfr_froot_patch          , & ! Output: [real(r8) (:) ]  background litterfall rate (1/s)  
          bgtr              =>    cnstate_vars%bgtr_patch                 , & ! Output: [real(r8) (:) ]  background transfer growth rate (1/s)             
          lgsf              =>    cnstate_vars%lgsf_patch                 , & ! Output: [real(r8) (:) ]  long growing season factor [0-1]                  
          onset_flag        =>    cnstate_vars%onset_flag_patch           , & ! Output: [real(r8) (:) ]  onset flag                                        
@@ -1431,7 +1442,8 @@ contains
 
          ! background litterfall and transfer rates; long growing season factor
 
-         bglfr(p) = 0._r8 ! this value changes later in a crop's life cycle
+         bglfr_leaf(p)  = 0._r8 ! this value changes later in a crop's life cycle
+         bglfr_froot(p) = 0._r8
          bgtr(p)  = 0._r8
          lgsf(p)  = 0._r8
 
@@ -1767,7 +1779,8 @@ contains
                ! Use CN's simple formula at least as a place holder (slevis)
 
             else if (hui(p) >= huigrain(p)) then
-               bglfr(p) = 1._r8/(leaf_long(ivt(p))*dayspyr*secspday)
+               bglfr_leaf(p)  = 1._r8/(leaf_long(ivt(p))*dayspyr*secspday)
+               bglfr_froot(p) = 1._r8/(froot_long(ivt(p))*dayspyr*secspday)
             end if
 
             ! continue fertilizer application while in phase 2;
@@ -2497,7 +2510,8 @@ contains
          lflitcp           =>    ecophyscon%lflitcp                        , & ! Input:  [real(r8) (:) ]  leaf litter C:P (gC/gP)                           
          frootcp           =>    ecophyscon%frootcp                        , & ! Input:  [real(r8) (:) ]  fine root C:P (gC/gP)                             
 
-         bglfr             =>    cnstate_vars%bglfr_patch                  , & ! Input:  [real(r8) (:) ]  background litterfall rate (1/s)                  
+         bglfr_leaf        =>    cnstate_vars%bglfr_leaf_patch             , & ! Input:  [real(r8) (:) ]  background litterfall rate (1/s)                  
+         bglfr_froot       =>    cnstate_vars%bglfr_froot_patch            , & ! Input:  [real(r8) (:) ]  background litterfall rate (1/s) 
 
          leafc             =>    carbonstate_vars%leafc_patch              , & ! Input:  [real(r8) (:) ]  (gC/m2) leaf C                                    
          frootc            =>    carbonstate_vars%frootc_patch             , & ! Input:  [real(r8) (:) ]  (gC/m2) fine root C                               
@@ -2524,10 +2538,10 @@ contains
          p = filter_soilp(fp)
 
          ! only calculate these fluxes if the background litterfall rate is non-zero
-         if (bglfr(p) > 0._r8) then
+         if (bglfr_leaf(p) > 0._r8) then
             ! units for bglfr are already 1/s
-            leafc_to_litter(p)  = bglfr(p) * leafc(p)
-            frootc_to_litter(p) = bglfr(p) * frootc(p)
+            leafc_to_litter(p)  = bglfr_leaf(p) * leafc(p)
+            frootc_to_litter(p) = bglfr_froot(p) * frootc(p)
 
             if ( nu_com .eq. 'RD') then
                ! calculate the leaf N litterfall and retranslocation
@@ -2545,18 +2559,18 @@ contains
                frootp_to_litter(p) = frootc_to_litter(p) / frootcp(ivt(p))
             else
                ! calculate the leaf N litterfall and retranslocation
-               leafn_to_litter(p)   = bglfr(p) * leafn(p) * 0.38_r8 ! 62% N resorption rate; LEONARDUS VERGUTZ 2012 Ecological Monographs 82(2) 205-220.
-               leafn_to_retransn(p) = bglfr(p) * leafn(p) - leafn_to_litter(p)
+               leafn_to_litter(p)   = bglfr_leaf(p) * leafn(p) * 0.38_r8 ! 62% N resorption rate; LEONARDUS VERGUTZ 2012 Ecological Monographs 82(2) 205-220.
+               leafn_to_retransn(p) = bglfr_leaf(p) * leafn(p) - leafn_to_litter(p)
 
                ! calculate fine root N litterfall (no retranslocation of fine root N)
-               frootn_to_litter(p) = bglfr(p) * frootn(p)
+               frootn_to_litter(p) = bglfr_froot(p) * frootn(p)
 
                ! calculate the leaf P litterfall and retranslocation
-               leafp_to_litter(p)   = bglfr(p) * leafp(p) * 0.35_r8 ! 65% P resorption rate; LEONARDUS VERGUTZ 2012 Ecological Monographs 82(2) 205-220.
-               leafp_to_retransp(p) = bglfr(p) * leafp(p) - leafp_to_litter(p)
+               leafp_to_litter(p)   = bglfr_leaf(p) * leafp(p) * 0.35_r8 ! 65% P resorption rate; LEONARDUS VERGUTZ 2012 Ecological Monographs 82(2) 205-220.
+               leafp_to_retransp(p) = bglfr_leaf(p) * leafp(p) - leafp_to_litter(p)
 
                ! calculate fine root P litterfall (no retranslocation of fine root P)
-               frootp_to_litter(p) = bglfr(p) * frootp(p) ! fine root P retranslocation occur (but not N retranslocation), why not include it here
+               frootp_to_litter(p) = bglfr_froot(p) * frootp(p) ! fine root P retranslocation occur (but not N retranslocation), why not include it here
             end if
          end if
       end do

@@ -260,7 +260,8 @@ else:
 
 surfdir = 'surfdata_map'
 #pftphys_stamp = '_c160711' #'c160711_root'
-pftphys_stamp = '_c160711_test170303'
+#pftphys_stamp = '_c160711_test170303'
+pftphys_stamp = '_c170808'
 if ('ECA' in compset):
     pftphys_stamp = '.c160709'
 #CNPstamp = 'c131108'
@@ -532,7 +533,7 @@ if (options.parm_file != ''):
     input.close()
 if (options.parm_vals != ''):
     pftfile = tmpdir+'/clm_params.nc'
-    parms = options.parm_vals.split()
+    parms = options.parm_vals.split('/')
     nparms = len(parms)
     for n in range(0,nparms):
 	parm_data=parms[n].split(',')

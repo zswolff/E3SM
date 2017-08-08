@@ -438,6 +438,9 @@ for row in AFdatareader:
             cmd_trns = cmd_trns + ' --postproc_file '+options.postproc_file
         if (options.diags):
             cmd_trns = cmd_trns + ' --diags'
+        if (not options.nofire):
+            #Turn wildfire off in transient simulations (disturbances are known)
+            cmd_trns = cmd_trns + ' --nofire'
         #transient phase 2 (CRU-NCEP only, without coupler bypass)
         if (options.cruncep and not options.cpl_bypass):
             basecase=basecase.replace('1850','20TR')+'_phase1'

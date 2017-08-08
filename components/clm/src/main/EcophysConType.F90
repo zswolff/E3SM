@@ -61,6 +61,7 @@ module EcophysConType
      real(r8), allocatable :: fr_fcel       (:)   ! fine root litter cellulose fraction
      real(r8), allocatable :: fr_flig       (:)   ! fine root litter lignin fraction
      real(r8), allocatable :: leaf_long     (:)   ! leaf longevity (yrs)
+     real(r8), allocatable :: froot_long    (:)   ! fine root longevity (yrs)
      real(r8), allocatable :: evergreen     (:)   ! binary flag for evergreen leaf habit (0 or 1)
      real(r8), allocatable :: stress_decid  (:)   ! binary flag for stress-deciduous leaf habit (0 or 1)
      real(r8), allocatable :: season_decid  (:)   ! binary flag for seasonal-deciduous leaf habit (0 or 1)
@@ -132,6 +133,7 @@ module EcophysConType
      real(r8), allocatable :: bbbopt(:)           !Ball-Berry stomatal conductance intercept
      real(r8), allocatable :: mbbopt(:)           !Ball-Berry stomatal conductance slope
      real(r8), allocatable :: nstor(:)            !Nitrogen storage pool timescale 
+     real(r8), allocatable :: br_xr(:)            !Base rate of excess C respiration
      real(r8)              :: tc_stress           !Critial temperature for moisture stress
 
 
@@ -151,7 +153,7 @@ contains
     use pftvarcon , only : c3psn, slatop, dsladlai, leafcn, flnr, woody
     use pftvarcon , only : lflitcn, frootcn, livewdcn, deadwdcn, froot_leaf, stem_leaf, croot_stem
     use pftvarcon , only : flivewd, fcur, lf_flab, lf_fcel, lf_flig, fr_flab, fr_fcel, fr_flig
-    use pftvarcon , only : leaf_long, evergreen, stress_decid, season_decid
+    use pftvarcon , only : leaf_long, froot_long, evergreen, stress_decid, season_decid
     use pftvarcon , only : fertnitro, graincn, fleafcn, ffrootcn, fstemcn, dwood
     use pftvarcon , only : presharv, convfact, fyield
     use pftvarcon , only : leafcp,lflitcp, frootcp, livewdcp, deadwdcp,graincp
@@ -166,7 +168,7 @@ contains
     use pftvarcon , only : leafcp_obs, frootcp_obs, livewdcp_obs, deadwdcp_obs
     use pftvarcon , only : fnr, act25, kcha, koha, cpha, vcmaxha, jmaxha, tpuha
     use pftvarcon , only : lmrha, vcmaxhd, jmaxhd, tpuhd, lmrse, qe, theta_cj
-    use pftvarcon , only : bbbopt, mbbopt, nstor, tc_stress, lmrhd 
+    use pftvarcon , only : bbbopt, mbbopt, nstor, tc_stress, lmrhd, br_xr 
     !
     ! !LOCAL VARIABLES:
     integer :: m, ib, j
@@ -211,6 +213,7 @@ contains
     allocate(ecophyscon%fr_fcel       (0:numpft))        ; ecophyscon%fr_fcel      (:)   =nan
     allocate(ecophyscon%fr_flig       (0:numpft))        ; ecophyscon%fr_flig      (:)   =nan
     allocate(ecophyscon%leaf_long     (0:numpft))        ; ecophyscon%leaf_long    (:)   =nan
+    allocate(ecophyscon%froot_long    (0:numpft))        ; ecophyscon%froot_long   (:)   =nan
     allocate(ecophyscon%evergreen     (0:numpft))        ; ecophyscon%evergreen    (:)   =nan
     allocate(ecophyscon%stress_decid  (0:numpft))        ; ecophyscon%stress_decid (:)   =nan
     allocate(ecophyscon%season_decid  (0:numpft))        ; ecophyscon%season_decid (:)   =nan
@@ -263,6 +266,7 @@ contains
     allocate( ecophyscon%bbbopt(0:numpft))                             ; ecophyscon%bbbopt(:)                =nan
     allocate( ecophyscon%mbbopt(0:numpft))                             ; ecophyscon%mbbopt(:)                =nan
     allocate( ecophyscon%nstor(0:numpft))                              ; ecophyscon%nstor(:)                 =nan
+    allocate( ecophyscon%br_xr(0:numpft))                              ; ecophyscon%br_xr(:)                 =nan
 
     do m = 0,numpft
 
@@ -309,6 +313,7 @@ contains
        ecophyscon%fr_fcel(m)      = fr_fcel(m)
        ecophyscon%fr_flig(m)      = fr_flig(m)
        ecophyscon%leaf_long(m)    = leaf_long(m)
+       ecophyscon%froot_long(m)   = froot_long(m)
        ecophyscon%evergreen(m)    = evergreen(m)
        ecophyscon%stress_decid(m) = stress_decid(m)
        ecophyscon%season_decid(m) = season_decid(m)
@@ -346,6 +351,7 @@ contains
        ecophyscon%bbbopt(m)       = bbbopt(m)
        ecophyscon%mbbopt(m)       = mbbopt(m)
        ecophyscon%nstor(m)        = nstor(m)
+       ecophyscon%br_xr(m)        = br_xr(m)
 
     end do
     

@@ -20,6 +20,7 @@ module CNMRespMod
   use TemperatureType     , only : temperature_type
   use PhotosynthesisType  , only : photosyns_type
   use CNCarbonFluxType    , only : carbonflux_type
+  use CNCarbonStateType   , only : carbonstate_type
   use CNNitrogenStateType , only : nitrogenstate_type
   use PatchType           , only : pft                
   !
@@ -32,7 +33,8 @@ module CNMRespMod
   public :: readCNMRespParams
 
   type, private :: CNMRespParamsType
-     real(r8):: br        !base rate for maintenance respiration(gC/gN/s)
+     real(r8):: br_mr        !base rate for maintenance respiration(gC/gN/s)
+     real(r8):: br_xr        !base rate for excess C respiration (gC/gC/s)
   end type CNMRespParamsType
 
   type(CNMRespParamsType),private ::  CNMRespParamsInst
@@ -64,7 +66,13 @@ contains
     tString='br_mr'
     call ncd_io(varname=trim(tString),data=tempr, flag='read', ncid=ncid, readvar=readv)
     if ( .not. readv ) call endrun(msg=trim(errCode)//trim(tString)//errMsg(__FILE__, __LINE__))
-    CNMRespParamsInst%br=tempr
+    CNMRespParamsInst%br_mr=tempr
+
+    tString='br_xr'
+    call ncd_io(varname=trim(tString),data=tempr, flag='read', ncid=ncid, readvar=readv)
+    if ( .not. readv ) call endrun(msg=trim(errCode)//trim(tString)//errMsg(__FILE__, __LINE__))
+    CNMRespParamsInst%br_xr=tempr
+
 
   end subroutine readCNMRespParams
 
@@ -74,7 +82,7 @@ contains
   subroutine CNMResp(bounds, &
        num_soilc, filter_soilc, num_soilp, filter_soilp, &
        canopystate_vars, soilstate_vars, temperature_vars, photosyns_vars, &
-       carbonflux_vars, nitrogenstate_vars)
+       carbonflux_vars, carbonstate_vars, nitrogenstate_vars)
     !
     ! !DESCRIPTION:
     !
@@ -91,13 +99,15 @@ contains
     type(temperature_type)   , intent(in)    :: temperature_vars
     type(photosyns_type)     , intent(in)    :: photosyns_vars
     type(carbonflux_type)    , intent(inout) :: carbonflux_vars
+    type(carbonstate_type)   , intent(in)    :: carbonstate_vars
     type(nitrogenstate_type) , intent(in)    :: nitrogenstate_vars
     !
     ! !LOCAL VARIABLES:
     integer :: c,p,j ! indices
     integer :: fp    ! soil filter patch index
     integer :: fc    ! soil filter column index
-    real(r8):: br    ! base rate (gC/gN/s)
+    real(r8):: br_mr    ! base rate for maintenance R (gC/gN/s)
+    real(r8):: br_xr    ! base rate for excess C (gC/gC/s)
     real(r8):: q10   ! temperature dependence
     real(r8):: tc    ! temperature correction, 2m air temp (unitless)
     real(r8):: tcsoi(bounds%begc:bounds%endc,nlevgrnd) ! temperature correction by soil layer (unitless)
@@ -119,11 +129,14 @@ contains
          lmrsun         =>    photosyns_vars%lmrsun_patch           , & ! Input:  [real(r8) (:)   ]  sunlit leaf maintenance respiration rate (umol CO2/m**2/s)
          lmrsha         =>    photosyns_vars%lmrsha_patch           , & ! Input:  [real(r8) (:)   ]  shaded leaf maintenance respiration rate (umol CO2/m**2/s)
 
-         leaf_mr        =>    carbonflux_vars%leaf_mr_patch         , & ! Output: [real(r8) (:)   ]                                                    
-         froot_mr       =>    carbonflux_vars%froot_mr_patch        , & ! Output: [real(r8) (:)   ]                                                    
-         livestem_mr    =>    carbonflux_vars%livestem_mr_patch     , & ! Output: [real(r8) (:)   ]                                                    
-         livecroot_mr   =>    carbonflux_vars%livecroot_mr_patch    , & ! Output: [real(r8) (:)   ]                                                    
-         grain_mr       =>    carbonflux_vars%grain_mr_patch        , & ! Output: [real(r8) (:)   ]                                                    
+         cpool          =>    carbonstate_vars%cpool_patch          , & ! Input:  [real(r8) (:)   ]   plant carbon pool (gC m-2)
+
+         leaf_mr        =>    carbonflux_vars%leaf_mr_patch          , & ! Output: [real(r8) (:)   ]                                                    
+         froot_mr       =>    carbonflux_vars%froot_mr_patch         , & ! Output: [real(r8) (:)   ]                                                    
+         livestem_mr    =>    carbonflux_vars%livestem_mr_patch      , & ! Output: [real(r8) (:)   ]                                                    
+         livecroot_mr   =>    carbonflux_vars%livecroot_mr_patch     , & ! Output: [real(r8) (:)   ]                                                    
+         grain_mr       =>    carbonflux_vars%grain_mr_patch         , & ! Output: [real(r8) (:)   ]                                                    
+         xr             =>    carbonflux_vars%xr_patch               , & ! Output: [real(r8) (:)   ]  (gC/m2) respiration of excess C
 
          frootn         =>    nitrogenstate_vars%frootn_patch       , & ! Input:  [real(r8) (:)   ]  (gN/m2) fine root N                               
          livestemn      =>    nitrogenstate_vars%livestemn_patch    , & ! Input:  [real(r8) (:)   ]  (gN/m2) live stem N                               
@@ -137,8 +150,8 @@ contains
       ! Original expression is br = 0.0106 molC/(molN h)
       ! Conversion by molecular weights of C and N gives 2.525e-6 gC/(gN s)
       ! set constants
-      br = CNMRespParamsInst%br
-
+      br_mr = CNMRespParamsInst%br_mr
+      br_xr = CNMRespParamsInst%br_xr
       ! Peter Thornton: 3/13/09 
       ! Q10 was originally set to 2.0, an arbitrary choice, but reduced to 1.5 as part of the tuning
       ! to improve seasonal cycle of atmospheric CO2 concentration in global
@@ -180,12 +193,17 @@ contains
          end if
 
          if (woody(ivt(p)) == 1) then
-            livestem_mr(p) = livestemn(p)*br*tc
-            livecroot_mr(p) = livecrootn(p)*br*tc
+            livestem_mr(p) = livestemn(p)*br_mr*tc
+            livecroot_mr(p) = livecrootn(p)*br_mr*tc
          else if (ivt(p) >= npcropmin) then
-            livestem_mr(p) = livestemn(p)*br*tc
-            grain_mr(p) = grainn(p)*br*tc
+            livestem_mr(p) = livestemn(p)*br_mr*tc
+            grain_mr(p) = grainn(p)*br_mr*tc
          end if
+         if (br_xr .gt. 0) then
+            xr(p) = cpool(p) * br_xr * tc
+         else
+            xr(p) = 0._r8
+         end if 
       end do
 
       ! soil and patch loop for fine root
@@ -202,7 +220,7 @@ contains
             ! to estimate the total fine root maintenance respiration as a
             ! function of temperature and N content.
 
-            froot_mr(p) = froot_mr(p) + frootn(p)*br*tcsoi(c,j)*rootfr(p,j)
+            froot_mr(p) = froot_mr(p) + frootn(p)*br_mr*tcsoi(c,j)*rootfr(p,j)
          end do
       end do
 

@@ -228,6 +228,7 @@ module CNCarbonFluxType
      real(r8), pointer :: gpp_patch                                 (:)     ! (gC/m2/s) gross primary production 
      real(r8), pointer :: gpp_before_downreg_patch                  (:)     ! (gC/m2/s) gross primary production before down regulation
      real(r8), pointer :: mr_patch                                  (:)     ! (gC/m2/s) maintenance respiration
+     real(r8), pointer :: xr_patch                                  (:)     ! (gC/m2/s) excess carbon respiration
      real(r8), pointer :: current_gr_patch                          (:)     ! (gC/m2/s) growth resp for new growth displayed in this timestep
      real(r8), pointer :: transfer_gr_patch                         (:)     ! (gC/m2/s) growth resp for transfer growth displayed in this timestep
      real(r8), pointer :: storage_gr_patch                          (:)     ! (gC/m2/s) growth resp for growth sent to storage for later display
@@ -605,6 +606,7 @@ contains
         allocate(this%livestemc_to_deadstemc_patch              (begp:endp)) ; this%livestemc_to_deadstemc_patch              (:) = nan
         allocate(this%livecrootc_to_deadcrootc_patch            (begp:endp)) ; this%livecrootc_to_deadcrootc_patch            (:) = nan
         allocate(this%mr_patch                                  (begp:endp)) ; this%mr_patch                                  (:) = nan
+        allocate(this%xr_patch                                  (begp:endp)) ; this%xr_patch                                  (:) = nan
         allocate(this%current_gr_patch                          (begp:endp)) ; this%current_gr_patch                          (:) = nan
         allocate(this%transfer_gr_patch                         (begp:endp)) ; this%transfer_gr_patch                         (:) = nan
         allocate(this%storage_gr_patch                          (begp:endp)) ; this%storage_gr_patch                          (:) = nan
@@ -1526,6 +1528,11 @@ contains
        call hist_addfld1d (fname='MR', units='gC/m^2/s', &
             avgflag='A', long_name='maintenance respiration', &
             ptr_patch=this%mr_patch)
+
+      this%mr_patch(begp:endp) = spval
+       call hist_addfld1d (fname='XR', units='gC/m^2/s', &
+            avgflag='A', long_name='Excess C respiration', &
+            ptr_patch=this%xr_patch)
 
        this%current_gr_patch(begp:endp) = spval
        call hist_addfld1d (fname='CURRENT_GR', units='gC/m^2/s', &
@@ -4130,6 +4137,7 @@ contains
           this%gpp_patch(i)                                 = value_patch
           this%gpp_before_downreg_patch(i)                  = value_patch
           this%mr_patch(i)                                  = value_patch
+          this%xr_patch(i)                                  = value_patch
           this%current_gr_patch(i)                          = value_patch
           this%transfer_gr_patch(i)                         = value_patch
           this%storage_gr_patch(i)                          = value_patch
@@ -4482,6 +4490,7 @@ contains
           this%ar_patch(p) = &
                this%mr_patch(p) + &
                this%gr_patch(p) + &
+               this%xr_patch(p) + &
                this%xsmrpool_to_atm_patch(p) ! xsmr... is -ve (slevis)
           if (nu_com .ne. 'RD' ) then
              this%ar_patch(p) = this%ar_patch(p) + &
@@ -4490,7 +4499,8 @@ contains
        else
           this%ar_patch(p) = &
                this%mr_patch(p) + &
-               this%gr_patch(p)
+               this%gr_patch(p) + &
+               this%xr_patch(p)
           if (nu_com .ne. 'RD' ) then
              this%ar_patch(p) = this%ar_patch(p) + &
                   this%xsmrpool_turnover_patch(p)
