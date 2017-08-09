@@ -273,8 +273,8 @@ if (options.region != ''):
 else:
     lat_bounds = options.lat_bounds.split(',')
     lon_bounds = options.lon_bounds.split(',')
-[float(l) for l in lat_bounds]
-[float(l) for l in lon_bounds]
+lat_bounds = [float(l) for l in lat_bounds]
+lon_bounds = [float(l) for l in lon_bounds]
 if (lon_bounds[0] > -180 or lon_bounds[1] < 180 or lat_bounds[0] > -90 or \
         lat_bounds[1] < 90):
     isregional=True
@@ -337,24 +337,40 @@ basecmd = basecmd+' --lon_bounds '+str(lon_bounds[0])+','+str(lon_bounds[1])
 
 #----------------------- build commands for runCLM.py -----------------------------
 
+#ECA or CTC
+if (options.cn_only):
+    nutrients = 'CN'
+else:
+    nutrients = 'CNP'
+if (options.centbgc):
+    decomp_model = 'CNT'
+else:
+    decomp_model = 'CTC'
+if (options.eca):
+    mymodel = nutrients+'ECA'+decomp_model
+else:
+    mymodel = nutrients+'RD'+decomp_model
+if (options.cpl_bypass):
+    compset_type = 'ICB'
+else:
+    compset_type = 'I'
+mymodel_fnsp = compset_type+'1850'+mymodel+'BC'
+mymodel_adsp = mymodel_fnsp.replace('CNP','CN')
+mymodel_trns = mymodel_fnsp.replace('1850','20TR')
+
 #AD spinup
 res=options.res
 cmd_adsp = basecmd+' --ad_spinup --nyears_ad_spinup '+ \
     str(ny_ad)+' --align_year '+str(year_align+1)
 if (int(options.hist_mfilt_spinup) == -999):
     cmd_adsp = cmd_adsp+' --hist_mfilt 1 --hist_nhtfrq -'+ \
-        str((endyear-startyear+1)*8760)
+        str((endyear-startyear+1)*8760)+' --compset '+mymodel_adsp
 else:
     cmd_adsp = cmd_adsp+' --hist_mfilt '+str(options.hist_mfilt_spinup) \
-        +' --hist_nhtfrq '+str(options.hist_nhtfrq_spinup)
-if (options.cpl_bypass):
-    cmd_adsp = cmd_adsp+' --compset I1850CLM45CB'+mybgc
-    ad_case = res+'_I1850CLM45CB'+mybgc
-else:
-    cmd_adsp = cmd_adsp+' --compset I1850CLM45'+mybgc
-    ad_case = res+'_I1850CLM45'+mybgc
-if (options.noad == False):
-    ad_case = ad_case+'_ad_spinup'
+        +' --hist_nhtfrq '+str(options.hist_nhtfrq_spinup)+' --compset '+ \
+        mymodel_adsp
+ad_case = mymodel_adsp+'_ad_spinup'
+
 if (options.spinup_vars):
     cmd_adsp = cmd_adsp+' --spinup_vars'
 if (mycaseid != ''):
@@ -364,15 +380,9 @@ ad_exeroot = os.path.abspath(runroot+'/'+ad_case+'/bld')
 #final spinup
 if mycaseid !='':
     basecase=mycaseid+'_'+res
-    if (options.cpl_bypass):
-        basecase = basecase+'_I1850CLM45CB'+mybgc
-    else: 
-        basecase = basecase+'_I1850CLM45'+mybgc
+    basecase = basecase+'_'+mymodel_fnsp
 else:
-    if (options.cpl_bypass):
-        basecase=res+'_I1850CLM45CB'+mybgc
-    else:
-        basecase=res+'_I1850CLM45'+mybgc
+    basecase=res+'_'+mymodel_fnsp
 if (options.noad):
     cmd_fnsp = basecmd+' --run_units nyears --run_n '+str(fsplen)+' --align_year '+ \
         str(year_align+1)+' --coldstart'
@@ -383,14 +393,11 @@ else:
         ' --exeroot '+ad_exeroot+' --nopointdata'
 if (int(options.hist_mfilt_spinup) == -999):
     cmd_fnsp = cmd_fnsp+' --hist_mfilt 1 --hist_nhtfrq -'+ \
-        str((endyear-startyear+1)*8760)
+        str((endyear-startyear+1)*8760)+' --compset '+mymodel_fnsp
 else:
     cmd_fnsp = cmd_fnsp+' --hist_mfilt '+str(options.hist_mfilt_spinup) \
-        +' --hist_nhtfrq '+str(options.hist_nhtfrq_spinup)
-if (options.cpl_bypass):
-    cmd_fnsp = cmd_fnsp+' --compset I1850CLM45CB'+mybgc
-else:
-    cmd_fnsp = cmd_fnsp+' --compset I1850CLM45'+mybgc
+        +' --hist_nhtfrq '+str(options.hist_nhtfrq_spinup)+' --compset ' \
+        +mymodel_fnsp
 if (options.spinup_vars):
     cmd_fnsp = cmd_fnsp+' --spinup_vars'
 
@@ -400,11 +407,7 @@ cmd_trns = basecmd+' --finidat_case '+basecase+ \
     +' --run_n '+str(translen)+' --align_year '+ \
     str(year_align+1850)+' --hist_nhtfrq '+ \
     options.hist_nhtfrq+' --hist_mfilt '+options.hist_mfilt+' --no_build' + \
-    ' --exeroot '+ad_exeroot+' --nopointdata'
-if (options.cpl_bypass):
-    cmd_trns = cmd_trns+' --compset I20TRCLM45CB'+mybgc
-else:
-    cmd_trns = cmd_trns+' --compset I20TRCLM45'+mybgc
+    ' --exeroot '+ad_exeroot+' --nopointdata --compset '+mymodel_trns
 if (options.trans_varlist != ''):
     cmd_trns = cmd_trns + ' --trans_varlist '+options.trans_varlist
 if (options.ilambvars):
@@ -419,7 +422,7 @@ if (options.cruncep and not options.cpl_bypass):
         +' --run_n '+str(thistranslen)+' --align_year 1921'+ \
         ' --hist_nhtfrq '+options.hist_nhtfrq+' --hist_mfilt '+ \
         options.hist_mfilt+' --no_build'+' --exeroot '+ad_exeroot + \
-        ' --compset I20TRCLM45'+mybgc+' --nopointdata'
+        ' --compset '+mymodel_trns+' --nopointdata'
     print(cmd_trns2)
 
 #---------------------------------------------------------------------------------
@@ -448,18 +451,12 @@ if mycaseid !='':
     basecase=mycaseid+'_'+res
 else:
     basecase=res
-if (options.cpl_bypass):
-    if (options.noad == False):
-        cases.append(basecase+'_I1850CLM45CB'+mybgc+'_ad_spinup')
-    cases.append(basecase+'_I1850CLM45CB'+mybgc)
-    if (options.notrans == False):
-        cases.append(basecase+'_I20TRCLM45CB'+mybgc)
-else:
-    if (options.noad == False):
-        cases.append(basecase+'_I1850CLM45'+mybgc+'_ad_spinup')
-    cases.append(basecase+'_I1850CLM45'+mybgc)
-    if (options.notrans == False):
-        cases.append(basecase+'_I20TRCLM45'+mybgc)
+
+if (options.noad == False):
+    cases.append(basecase+'_'+mymodel_adsp+'_ad_spinup')
+cases.append(basecase+'_'+mymodel_fnsp)
+if (options.notrans == False):
+    cases.append(basecase+'_'+mymodel_trns)
 
 for c in cases:
     model_startdate = 1
@@ -550,10 +547,10 @@ for c in cases:
                                  '/'+ad_case+'/run/ --casename '+ad_case+' --restart_year '+ \
                                  str(int(ny_ad)+1)+'\n')
             #if (not options.cn_only):
-            #    output.write("python IniPPools.py --diricase "+os.path.abspath(runroot)+ \
-            #                 '/'+ad_case+'/run/ --casename '+ad_case+' --restart_year '+ \
-            #                 str(int(ny_ad)+1)+ ' --sitephos Site_PPools.txt' + \
-            #                 ' --casesite '+site+'\n')
+            #       output.write("python IniPPools.py --diricase "+os.path.abspath(runroot)+ \
+            #                     '/'+ad_case+'/run/ --casename '+ad_case+' --restart_year '+ \
+            #                     str(int(ny_ad)+1)+ ' --regional\n')
+            #                     str(site_lat)+' --acme_input '+ccsm_input+'\n')
         output.close()
 
         job_depend_run = submit('temp/global_'+c+'_'+str(n)+'.pbs',job_depend=job_depend_run, \
