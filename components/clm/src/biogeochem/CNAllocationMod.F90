@@ -3253,9 +3253,10 @@ contains
 
                      plant_palloc(p) = plant_nalloc(p) * (p_allometry(p)/n_allometry(p))
 
-                     sminp_to_ppool(p) = max(plant_palloc(p) - retransp_to_ppool(p),0.0_r8) ! in case of strong N limitation, and plant_palloc(p) < retransp_to_ppool(p)
-                     
+                     sminp_to_ppool(p) = max(plant_palloc(p) - retransp_to_ppool(p),0.0_r8) ! in case of strong N limitation, and plant_palloc(p) < retransp_to_ppool(p)                    
                      retransp_to_ppool(p) = min(plant_palloc(p) , retransp_to_ppool(p)) ! in case of strong N limitation, and plant_palloc(p) < retransp_to_ppool(p)
+
+
                  else
                      plant_calloc(p) = plant_palloc(p) * (c_allometry(p)/p_allometry(p))
 

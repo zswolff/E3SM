@@ -105,7 +105,7 @@ contains
          do l = 1, ndecomp_pools
             if ( spinup_state .eq. 1) then
                ! speed up radioactive decay by the same factor as decomposition so tat SOM ages prematurely in all respects
-               spinup_term = spinup_factor(l) 
+               spinup_term = spinup_factor(l)   !DMR need to adjust for scalaravg 
             else
                spinup_term = 1.
             endif

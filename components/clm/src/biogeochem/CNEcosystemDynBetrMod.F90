@@ -244,7 +244,8 @@ module CNEcosystemDynBetrMod
     call t_startf('CNPhenology')
     call CNPhenology(num_soilc, filter_soilc, num_soilp, filter_soilp,                   &
          num_pcropp, filter_pcropp, doalb,                                               &
-         waterstate_vars, temperature_vars, crop_vars, canopystate_vars, soilstate_vars, &
+         waterstate_vars, temperature_vars, atm2lnd_vars,                                &
+         crop_vars, canopystate_vars, soilstate_vars,                                    &
          dgvs_vars, cnstate_vars, carbonstate_vars, carbonflux_vars,                     &
          nitrogenstate_vars, nitrogenflux_vars,                                          &
          phosphorusstate_vars, phosphorusflux_vars)

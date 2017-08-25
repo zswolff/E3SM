@@ -214,6 +214,7 @@ contains
          if (ivt(p) < npcropmin) then
             nitrogenflux_vars%m_retransn_to_litter_patch(p) = nitrogenstate_vars%retransn_patch(p) * m
          end if
+         nitrogenflux_vars%m_npool_to_litter_patch(p)       = nitrogenstate_vars%npool_patch(p) * m
 
          if (spinup_state >= 1) then
            nitrogenflux_vars%m_deadstemn_to_litter_patch(p)         = nitrogenstate_vars%deadstemn_patch(p)  * m * spinup_mortality_factor
@@ -362,6 +363,8 @@ contains
          m_livecrootn_to_litter              =>    nitrogenflux_vars%m_livecrootn_to_litter_patch         , & ! Input:  [real(r8) (:)   ]                                                    
          m_deadcrootn_to_litter              =>    nitrogenflux_vars%m_deadcrootn_to_litter_patch         , & ! Input:  [real(r8) (:)   ]                                                    
          m_retransn_to_litter                =>    nitrogenflux_vars%m_retransn_to_litter_patch           , & ! Input:  [real(r8) (:)   ]                                                    
+         m_npool_to_litter                   =>    nitrogenflux_vars%m_npool_to_litter_patch              , & ! Input:  [real(r8) (:)   ]
+
          m_leafn_storage_to_litter           =>    nitrogenflux_vars%m_leafn_storage_to_litter_patch      , & ! Input:  [real(r8) (:)   ]                                                    
          m_frootn_storage_to_litter          =>    nitrogenflux_vars%m_frootn_storage_to_litter_patch     , & ! Input:  [real(r8) (:)   ]                                                    
          m_livestemn_storage_to_litter       =>    nitrogenflux_vars%m_livestemn_storage_to_litter_patch  , & ! Input:  [real(r8) (:)   ]                                                    
@@ -489,6 +492,8 @@ contains
                      ! retranslocated N pool gap mortality fluxes
                      gap_mortality_n_to_litr_met_n(c,j) = gap_mortality_n_to_litr_met_n(c,j) + &
                           m_retransn_to_litter(p) * wtcol(p) * leaf_prof(p,j)
+                     gap_mortality_n_to_litr_met_n(c,j) = gap_mortality_n_to_litr_met_n(c,j) + &
+                          m_npool_to_litter(p) * wtcol(p) * leaf_prof(p,j)
 
                      ! storage gap mortality nitrogen fluxes
                      gap_mortality_n_to_litr_met_n(c,j)      = gap_mortality_n_to_litr_met_n(c,j)      + &

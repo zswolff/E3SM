@@ -31,6 +31,8 @@ parser.add_option("--hist_nhtfrq_spinup", dest="hist_nhtfrq_spinup", default="-9
                   help = 'output file timestep (transient only)')
 parser.add_option("--hist_nhtfrq_trans", dest="hist_nhtfrq", default="0", \
                   help = 'output file timestep (transient only)')
+parser.add_option("--point_list", dest="point_list", default='', \
+                  help = 'File containing list of points to run')
 parser.add_option("--lat_bounds", dest="lat_bounds", default='-90,90', \
                   help = 'latitude range for regional run')
 parser.add_option("--lon_bounds", dest="lon_bounds", default='-180,180', \
@@ -43,8 +45,12 @@ parser.add_option("--noad", action="store_true", dest="noad", default=False, \
                   help='Do not perform ad spinup simulation')
 parser.add_option("--nofire", dest="nofire", default=False, \
                   action="store_true", help='Turn off fire algorithms')
+parser.add_option("--nofn", action="store_true", dest="nofn", default=False, \
+                  help="Do not perform final spinup simulation")
 parser.add_option("--notrans", action="store_true", dest="notrans", default=False, \
                   help='Do not perform transient simulation (spinup only)')
+parser.add_option("--nopointdata", action="store_true", dest="nopointdata", \
+                  default=False, help="do not generate point data")
 parser.add_option("--nyears_final_spinup", dest="nyears_final_spinup", default='200', \
                   help="base no. of years for final spinup")
 parser.add_option('--region', dest="region", default='', \
@@ -81,6 +87,8 @@ parser.add_option("--C14", dest="C14", default=False, \
                   help = 'Use C14 as C13 (no decay)', action="store_true")
 parser.add_option("--BGC", action="store_true", dest="bgc", default=False, \
                   help = 'Use BGC compset')
+parser.add_option("--SP", dest="sp", default=False, \
+                 action="store_true", help="Use satellite phenology")
 parser.add_option("--harvmod", action="store_true", dest='harvmod', default=False, \
                     help="turn on harvest modification:  All harvest at first timestep")
 parser.add_option("--bulk_denitrif", dest="bulk_denitrif", default=False, \
@@ -97,6 +105,10 @@ parser.add_option("--CH4", dest="CH4", default=False, \
                   help = 'To turn on CN with CLM4me', action="store_true")
 parser.add_option("--cruncep", dest="cruncep", default=True, \
                   action="store_true", help = 'Use CRU-NCEP meteorology')
+parser.add_option("--gswp3", dest="gswp3", default=False, \
+                  action="store_true", help = 'Use GSWP3 meteorology')
+parser.add_option("--livneh", dest="livneh", default=False, \
+                  action="store_true", help = "Livneh correction to CRU precip (CONUS only)")
 parser.add_option("--cpl_bypass", dest = "cpl_bypass", default=False, \
                   help = "Bypass coupler", action="store_true")
 parser.add_option("--spinup_vars", dest = "spinup_vars", default=False, \
@@ -135,6 +147,8 @@ def get_regional_bounds(myregion):
         bounds = [-170.25,-60.25,49.75,79.75]
     elif (myregion == 'tena'):  #Temperate North America
         bounds = [-125.25,-66.25,30.25,49.75]
+    elif (myregion == 'conus'):  #CONUS
+        bounds = [-125.25,-66.25,23.25,54.75]
     elif (myregion == 'columbia'):   #Columbia river watershed
         bounds = [-125, -108, 40.0, 55.0]
     elif (myregion == 'ceam'):  #Central America
@@ -235,10 +249,14 @@ else:
     caseroot = os.path.abspath(options.caseroot)
 
 
-if (options.cruncep):
+if (options.cruncep or options.gswp3):
     startyear = 1901
     endyear = 1920
     site_endyear = 2010
+    if (options.livneh):
+        startyear = 1950
+        endyear = 1969
+        site_endyear = 2013
 else:
     #Qian input data
     startyear = 1948
@@ -256,10 +274,13 @@ if (int(options.nyears_final_spinup) % ncycle !=0):
 
 if (translen == -1):
     translen = endyear-1850+1        #length of transient run
-    if (options.cpl_bypass and options.cruncep):
-        translen = min(site_endyear,2010)-1850+1
+    if (options.cpl_bypass and (options.cruncep or options.gswp3)):
+        translen = site_endyear-1850+1
 
 fsplen = int(ny_fin)
+if (options.sp):
+    #no spinup, just run over 
+    fsplen = site_endyear-startyear+1
  
 #get align_year
 year_align = (endyear-1850+1) % ncycle
@@ -282,20 +303,26 @@ if (lon_bounds[0] > -180 or lon_bounds[1] < 180 or lat_bounds[0] > -90 or \
 basecmd = 'python pointCLM.py --ccsm_input '+ \
     os.path.abspath(ccsm_input)+' --rmold --no_submit --machine ' \
     +options.machine+' --res '+options.res
+if (options.point_list != ''):
+    basecmd = basecmd+' --point_list '+options.point_list
+    lat_bounds = [-999,-999]
+    lon_bounds = [-999,-999]
 if (srcmods != ''):
     srcmods    = os.path.abspath(srcmods)
     basecmd = basecmd+' --srcmods_loc '+srcmods
 if (mycaseid != ''):
     basecmd = basecmd+' --caseidprefix '+mycaseid
+if (options.nopointdata):
+    basecmd = basecmd+' --nopointdata'
 if (options.parm_vals != ''):
     basecmd = basecmd+' --parm_vals '+options.parm_vals
 if (options.clean_build):
     basecmd = basecmd+' --clean_build '
 if (options.metdir !='none'):
     basecmd = basecmd+' --metdir '+options.metdir
-if (not isregional):
-    print 'TEST'
-    basecmd = basecmd+' --nopointdata '
+#if (not isregional):
+#    print 'TEST'
+#    basecmd = basecmd+' --nopointdata '
 if (options.C13):
     basecmd = basecmd+' --C13 '
 if (options.C13):
@@ -318,8 +345,12 @@ if (options.cn_only):
     basecmd = basecmd+' --cn_only'
 if (options.CH4):
     basecmd = basecmd+' --CH4'
-if (options.cruncep):
+if (options.cruncep and not options.gswp3):
     basecmd = basecmd+' --cruncep'
+    if (options.livneh):
+        basecmd = basecmd+' --livneh'
+if (options.gswp3):
+    basecmd = basecmd+' --gswp3'
 if (options.archiveroot !=''):
     basecmd = basecmd+' --archiveroot '+options.archiveroot
 if (options.mod_parm_file !=''):
@@ -357,6 +388,10 @@ else:
 mymodel_fnsp = compset_type+'1850'+mymodel+'BC'
 mymodel_adsp = mymodel_fnsp.replace('CNP','CN')
 mymodel_trns = mymodel_fnsp.replace('1850','20TR')
+if (options.sp):
+    mymodel_fnsp = 'ICLM45CB'
+    options.noad = True
+    options.notrans = True
 
 #AD spinup
 res=options.res
@@ -369,7 +404,7 @@ else:
     cmd_adsp = cmd_adsp+' --hist_mfilt '+str(options.hist_mfilt_spinup) \
         +' --hist_nhtfrq '+str(options.hist_nhtfrq_spinup)+' --compset '+ \
         mymodel_adsp
-ad_case = mymodel_adsp+'_ad_spinup'
+ad_case = res+'_'+mymodel_adsp+'_ad_spinup'
 
 if (options.spinup_vars):
     cmd_adsp = cmd_adsp+' --spinup_vars'
@@ -384,10 +419,14 @@ if mycaseid !='':
 else:
     basecase=res+'_'+mymodel_fnsp
 if (options.noad):
-    cmd_fnsp = basecmd+' --run_units nyears --run_n '+str(fsplen)+' --align_year '+ \
-        str(year_align+1)+' --coldstart'
+    if (options.sp):
+        cmd_fnsp = basecmd+' --run_units nyears --run_n '+str(fsplen)+' --align_year '+ \
+            str(year_align+1)+' --coldstart --run_startyear '+str(startyear)
+    else:
+        cmd_fnsp = basecmd+' --run_units nyears --run_n '+str(fsplen)+' --align_year '+ \
+            str(year_align+1)+' --coldstart'
 else:
-    cmd_fnsp = basecmd+' --finidat_case '+basecase+'_ad_spinup '+ \
+    cmd_fnsp = basecmd+' --finidat_case '+ad_case+' '+ \
         '--finidat_year '+str(int(ny_ad)+1)+' --run_units nyears --run_n '+ \
         str(fsplen)+' --align_year '+str(year_align+1)+' --no_build' + \
         ' --exeroot '+ad_exeroot+' --nopointdata'
@@ -414,7 +453,7 @@ if (options.ilambvars):
     cmd_trns = cmd_trns + ' --ilambvars'
         
 #transient phase 2 (CRU-NCEP only, without coupler bypass)
-if (options.cruncep and not options.cpl_bypass):
+if ((options.cruncep or options.gswp3) and not options.cpl_bypass):
     basecase=basecase.replace('1850','20TR')+'_phase1'
     thistranslen = site_endyear - 1921 + 1
     cmd_trns2 = basecmd+' --trans2 --finidat_case '+basecase+ \
@@ -430,17 +469,16 @@ if (options.cruncep and not options.cpl_bypass):
 os.system('mkdir -p temp')
 
 #build cases
-print('\nSetting up ad_spinup case\n')
 if (options.noad == False):
-    print cmd_adsp
+    print('\nSetting up ad_spinup case\n')
     os.system(cmd_adsp)
-print('\nSetting up final spinup case\n')
-os.system(cmd_fnsp)
+if (options.nofn == False):
+    print('\nSetting up final spinup case\n')
+    os.system(cmd_fnsp)
 if (options.notrans == False):
     print('\nSetting up transient case\n')
-    print cmd_trns
     os.system(cmd_trns)
-if (options.cruncep and not options.cpl_bypass):
+if ((options.cruncep or options.gswp3) and not options.cpl_bypass):
     print('\nSetting up transient case phase 2\n')
     os.system(cmd_trns2)
         
@@ -454,7 +492,8 @@ else:
 
 if (options.noad == False):
     cases.append(basecase+'_'+mymodel_adsp+'_ad_spinup')
-cases.append(basecase+'_'+mymodel_fnsp)
+if (options.nofn == False):
+    cases.append(basecase+'_'+mymodel_fnsp)
 if (options.notrans == False):
     cases.append(basecase+'_'+mymodel_trns)
 
@@ -467,6 +506,8 @@ for c in cases:
     elif ('20TR' in c):
         run_n_total = int(translen)
         model_startdate = 1850
+    else:
+        run_n_total = int(fsplen)
     runblock =  min(int(options.runblock), run_n_total)
     n_submits = int(math.ceil(run_n_total / float(runblock)))
 
@@ -546,11 +587,17 @@ for c in cases:
                 output.write("python adjust_restart.py --rundir "+os.path.abspath(runroot)+ \
                                  '/'+ad_case+'/run/ --casename '+ad_case+' --restart_year '+ \
                                  str(int(ny_ad)+1)+'\n')
-            #if (not options.cn_only):
-            #       output.write("python IniPPools.py --diricase "+os.path.abspath(runroot)+ \
-            #                     '/'+ad_case+'/run/ --casename '+ad_case+' --restart_year '+ \
-            #                     str(int(ny_ad)+1)+ ' --regional\n')
-            #                     str(site_lat)+' --acme_input '+ccsm_input+'\n')
+
+            if (not options.cn_only):
+                if ('f19' in options.res):
+                    output.write('bash\n')
+                    output.write("/home/dmricciuto/anaconda2/bin/python ini_LORES.py --diricase "+os.path.abspath(runroot)+ \
+                                 '/'+ad_case+'/run/ --casename '+ad_case+' --restart_year '+ \
+                                 str(int(ny_ad)+1)+ ' --acme_input '+ccsm_input+'\n')
+                else:
+                   output.write("python IniPPools.py --diricase "+os.path.abspath(runroot)+ \
+                                 '/'+ad_case+'/run/ --casename '+ad_case+' --restart_year '+ \
+                                 str(int(ny_ad)+1)+ ' --acme_input '+ccsm_input+'\n')
         output.close()
 
         job_depend_run = submit('temp/global_'+c+'_'+str(n)+'.pbs',job_depend=job_depend_run, \

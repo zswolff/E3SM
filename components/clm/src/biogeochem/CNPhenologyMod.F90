@@ -35,7 +35,7 @@ module CNPhenologyMod
   use PhosphorusFluxType  , only : phosphorusflux_type
   use PhosphorusStateType , only : phosphorusstate_type
   use clm_varctl          , only : nu_com 
-  
+  use atm2lndType         , only : atm2lnd_type  
   !
   implicit none
   save
@@ -179,7 +179,7 @@ contains
   !-----------------------------------------------------------------------
   subroutine CNPhenology (num_soilc, filter_soilc, num_soilp, filter_soilp, &
        num_pcropp, filter_pcropp, doalb, &
-       waterstate_vars, temperature_vars, crop_vars, canopystate_vars, soilstate_vars, &
+       waterstate_vars, temperature_vars, atm2lnd_vars, crop_vars, canopystate_vars, soilstate_vars, &
        dgvs_vars, cnstate_vars, carbonstate_vars, carbonflux_vars, &
        nitrogenstate_vars,nitrogenflux_vars,phosphorusstate_vars,phosphorusflux_vars)
     !
@@ -197,6 +197,7 @@ contains
     logical                  , intent(in)    :: doalb           ! true if time for sfc albedo calc
     type(waterstate_type)    , intent(in)    :: waterstate_vars
     type(temperature_type)   , intent(inout) :: temperature_vars
+    type(atm2lnd_type)       , intent(in)    :: atm2lnd_vars
     type(crop_type)          , intent(inout)    :: crop_vars
     type(canopystate_type)   , intent(in)    :: canopystate_vars
     type(soilstate_type)     , intent(in)    :: soilstate_vars
@@ -226,7 +227,7 @@ contains
          phosphorusstate_vars,phosphorusflux_vars)
 
     call CNStressDecidPhenology(num_soilp, filter_soilp,   &
-         soilstate_vars, temperature_vars, cnstate_vars, &
+         soilstate_vars, temperature_vars, atm2lnd_vars, cnstate_vars, &
          carbonstate_vars, nitrogenstate_vars, carbonflux_vars, nitrogenflux_vars,&
          phosphorusstate_vars,phosphorusflux_vars)
 
@@ -841,7 +842,7 @@ contains
 
   !-----------------------------------------------------------------------
   subroutine CNStressDecidPhenology (num_soilp, filter_soilp , &                                            
-       soilstate_vars, temperature_vars, cnstate_vars        , &
+       soilstate_vars, temperature_vars, atm2lnd_vars, cnstate_vars           ,&
        carbonstate_vars, nitrogenstate_vars, carbonflux_vars,nitrogenflux_vars,&
        phosphorusstate_vars,phosphorusflux_vars)
     !
@@ -866,6 +867,7 @@ contains
     integer                  , intent(in)    :: filter_soilp(:) ! filter for soil patches
     type(soilstate_type)     , intent(in)    :: soilstate_vars
     type(temperature_type)   , intent(in)    :: temperature_vars
+    type(atm2lnd_type)       , intent(in)    :: atm2lnd_vars
     type(cnstate_type)       , intent(inout) :: cnstate_vars
     type(carbonstate_type)   , intent(inout) :: carbonstate_vars
     type(nitrogenstate_type) , intent(inout) :: nitrogenstate_vars
@@ -873,9 +875,10 @@ contains
     type(nitrogenflux_type)  , intent(inout) :: nitrogenflux_vars
     type(phosphorusstate_type) , intent(inout) :: phosphorusstate_vars
     type(phosphorusflux_type)  , intent(inout) :: phosphorusflux_vars
+ 
     !
     ! !LOCAL VARIABLES:
-    real(r8),parameter :: secspqtrday = secspday / 4  ! seconds per quarter day
+    real(r8),parameter :: secspqtrday = secspday / 2 - 7200  ! DMR - change from 1/4d to 10h
     integer :: g,c,p           ! indices
     integer :: fp              ! lake filter pft index
     real(r8):: dayspyr         ! days per year
@@ -897,6 +900,7 @@ contains
          
          t_soisno                            =>    temperature_vars%t_soisno_col                         , & ! Input:  [real(r8)  (:,:) ]  soil temperature (Kelvin)  (-nlevsno+1:nlevgrnd)
          
+         prec10                              =>    atm2lnd_vars%prec10_patch                             , & ! Input:  [real(r8) (:)    ]  10-day running mean precipitation
          dormant_flag                        =>    cnstate_vars%dormant_flag_patch                       , & ! Output:  [real(r8) (:)   ]  dormancy flag                                     
          days_active                         =>    cnstate_vars%days_active_patch                        , & ! Output:  [real(r8) (:)   ]  number of days since last dormancy                
          onset_flag                          =>    cnstate_vars%onset_flag_patch                         , & ! Output:  [real(r8) (:)   ]  onset flag                                        
@@ -1141,6 +1145,11 @@ contains
 
                ! only allow onset if dayl > 6hrs
                if (onset_flag(p) == 1._r8 .and. dayl(g) <= secspqtrday) then
+                  onset_flag(p) = 0._r8
+               end if
+               ! Also require precip over last 10 days to exceed 20 mm
+               ! Dahlin et al., Biogeosciences 2015.
+               if (prec10(p) * 86400._r8 * 10._r8 < 20._r8) then
                   onset_flag(p) = 0._r8
                end if
 

@@ -92,6 +92,11 @@
   </compset>
 
   <compset>
+    <alias>ICLM45CB</alias>
+    <lname>2000_SATM%QIA_CLM45%SP_SICE_SOCN_RTM_SGLC_SWAV</lname>
+  </compset>
+
+  <compset>
     <alias>ICLM45BC</alias>
     <lname>2000_DATM%QIA_CLM45%SPBC_SICE_SOCN_RTM_SGLC_SWAV</lname>
   </compset>

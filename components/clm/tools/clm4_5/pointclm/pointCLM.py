@@ -39,6 +39,8 @@ parser.add_option("--ilambvars", dest="ilambvars", default=False, \
                  action="store_true", help="Write special outputs for diagnostics")
 parser.add_option("--res", dest="res", default="CLM_USRDAT", \
                       help='Resoultion for global simulation')
+parser.add_option("--point_list", dest="point_list", default='', \
+                  help = 'File containing list of points to run')
 parser.add_option("--site", dest="site", default='none', \
                   help = '6-character FLUXNET code to run (required)')
 parser.add_option("--sitegroup", dest="sitegroup", default="AmeriFlux", \
@@ -51,6 +53,10 @@ parser.add_option("--compset", dest="compset", default='I1850CNPRDCTCBC', \
                          "Currently supports ONLY *CLM45(CN) compsets")
 parser.add_option("--cruncep", dest="cruncep", default=False, \
                   help = "use cru-ncep data", action="store_true")
+parser.add_option("--gswp3", dest="gswp3", default=False, \
+                  help= "use GSWP3 forcing", action="store_true")
+parser.add_option("--livneh", dest="livneh", default=False, \
+                  action="store_true", help = "Livneh correction to CRU precip (CONUS only)")
 parser.add_option("--machine", dest="machine", default = 'oic2', \
                   help = "machine to use (default = oic2)\n")
 parser.add_option("--compiler", dest="compiler", default='gnu', \
@@ -253,7 +259,7 @@ if (options.site == 'none'):
     isglobal = True
     options.site=options.res
 
-if ('CBCN' in compset or 'ICB' in compset):
+if ('CBCN' in compset or 'ICB' in compset or 'CLM45CB' in compset):
     cpl_bypass = True
 else:
     cpl_bypass = False
@@ -282,7 +288,7 @@ if ('20TR' in compset):
 finidat=''
 finidat_year=int(options.finidat_year)
 
-if ('CN' in compset or 'ECA' in compest):
+if ('CN' in compset or 'ECA' in compset):
   mybgc = 'CN'
 elif ('ED' in compset):
   mybgc = 'ED'
@@ -349,11 +355,11 @@ if (options.mycaseid != ""):
     casename = options.mycaseid+'_'+casename
 
 #CRU-NCEP 2 transient phases
-if ('CRU' in compset or options.cruncep):
-    use_cruncep = True
+if ('CRU' in compset or options.cruncep or options.gswp3):
+    use_reanalysis = True
 else:
-    use_cruncep = False
-if ('20TR' in compset and use_cruncep and (not cpl_bypass)):
+    use_reanalysis = False
+if ('20TR' in compset and use_reanalysis and (not cpl_bypass)):
     if options.trans2:
         casename = casename+'_phase2'
     else:
@@ -404,11 +410,17 @@ if (options.rmold):
     os.system('rm -rf '+rundir)
 
 #------Make domain, surface data and pftdyn files ------------------
+mysimyr=1850
+if ('1850' not in compset and '20TR' not in compset):
+    mysimyr=2000
+print compset, mysimyr
+
 if (options.nopointdata == False):
     ptcmd = 'python makepointdata.py --caseroot '+caseroot+ \
         ' --site '+options.site+' --sitegroup '+options.sitegroup+ \
         ' --csmdir '+csmdir+' --ccsm_input '+options.ccsm_input+ \
-        ' --lat_bounds '+options.lat_bounds+' --lon_bounds '+options.lon_bounds
+        ' --lat_bounds '+options.lat_bounds+' --lon_bounds '+ \
+        options.lon_bounds+' --mysimyr '+str(mysimyr)
     if (options.metdir != 'none'):
         ptcmd = ptcmd + ' --metdir '+options.metdir
     if (options.makemet):
@@ -421,7 +433,9 @@ if (options.nopointdata == False):
         ptcmd = ptcmd + ' --nopftdyn'
     if (isglobal):
         ptcmd = ptcmd + ' --res '+options.res
-
+        if (options.point_list != ''):
+            ptcmd = ptcmd+' --point_list '+options.point_list
+                           
     print('Creating surface and domain data')
     if (options.machine == 'eos' or options.machine == 'titan'):
         os.system('rm temp/*.nc')
@@ -469,7 +483,7 @@ if (isglobal == False):
     AFdatareader = csv.reader(open(options.sitegroup+'_sitedata.txt',"rb"))
     for row in AFdatareader:
         if row[0] == options.site:
-            if (use_cruncep):
+            if (use_reanalysis):
                 if ('CN' in compset or 'BGC' in compset):
                     if (options.trans2):
                         startyear = 1921
@@ -487,7 +501,7 @@ if (isglobal == False):
             numxpts=1
             numypts=1
 else:
-    if (use_cruncep):
+    if (use_reanalysis):
         startyear=1901
         if ('20TR' in compset):
             endyear = 2010
@@ -507,10 +521,6 @@ else:
 if (isglobal == False):
     ptstr = str(numxpts)+'x'+str(numypts)+'pt'
 os.chdir(csmdir+'/cime/scripts')
-#get simyr
-mysimyr=1850
-if (options.compset == 'ICLM45CN' or options.compset == 'ICLM45BGC' or '2000' in compset):
-    mysimyr=2000
 
 #parameter (pft-phys) modifications if desired
 tmpdir = csmdir+'/components/clm/tools/clm4_5/pointclm/temp'
@@ -638,7 +648,7 @@ os.system('./xmlchange -file env_run.xml -id LND_DOMAIN_FILE ' \
 os.system('./xmlchange -file env_run.xml -id DOUT_S ' \
                   +' -val "FALSE"') 
 #datm options
-if (use_cruncep):
+if (use_reanalysis):
     os.system('./xmlchange -file env_run.xml -id ' \
                   +'DATM_MODE -val CLMCRUNCEP') 
 else:
@@ -765,7 +775,7 @@ for i in range(1,int(options.ninst)+1):
             'QFLX_SUB_SNOW', 'QFLX_DEW_GRND', 'QH2OSFC', 'H2OSOI', 'CPOOL_TO_LIVESTEMC', 'TOTLITC', \
             'TOTSOMC', 'ZWT', 'SNOWDP', 'TLAI']
     var_list_daily = ['TOTLITC', 'TOTSOMC', 'CWDC', 'LITR1C_vr', 'LITR2C_vr', 'LITR3C_vr', 'SOIL1C_vr', \
-                      'SOIL2C_vr', 'SOIL3C_vr', 'H2OSFC', 'ZWT', 'SNOWDP', 'TLAI']
+                      'SOIL2C_vr', 'SOIL3C_vr', 'H2OSFC', 'ZWT', 'SNOWDP', 'TLAI', 'CPOOL','NPOOL','PPOOL']
     var_list_pft = ['GPP', 'NPP', 'LEAFC_ALLOC', 'AGNPP', 'CPOOL_TO_DEADSTEMC', \
                     'LIVECROOTC_XFER_TO_LIVECROOTC', 'DEADCROOTC_XFER_TO_DEADCROOTC', \
                     'CPOOL_TO_LIVECROOTC', 'CPOOL_TO_DEADCROOTC', 'FROOTC_ALLOC', 'AR', 'MR', \
@@ -782,12 +792,12 @@ for i in range(1,int(options.ninst)+1):
                     'CPOOL_TO_DEADCROOTC_STORAGE', 'CPOOL_TO_LIVECROOTC_STORAGE', \
                     'FROOTC_STORAGE', 'LEAFC_STORAGE', 'LEAFC_XFER', 'FROOTC_XFER', 'LIVESTEMC_XFER', \
                     'DEADSTEMC_XFER', 'LIVECROOTC_XFER', 'DEADCROOTC_XFER', 'TLAI', 'CPOOL_TO_LIVESTEMC']
-    var_list_spinup = ['NPOOL', 'EFLX_LH_TOT', 'RETRANSN', 'PCO2', 'PBOT', 'NDEP_TO_SMINN', 'OCDEP', \
+    var_list_spinup = ['PPOOL', 'EFLX_LH_TOT', 'RETRANSN', 'PCO2', 'PBOT', 'NDEP_TO_SMINN', 'OCDEP', \
                        'BCDEP', 'COL_FIRE_CLOSS', 'HDM', 'LNFM', 'NEE', 'GPP', 'FPSN', 'AR', 'HR', \
                        'MR', 'GR', 'ER', 'NPP', 'TLAI', 'SOIL3C', 'TOTSOMC', 'LEAFC', \
                        'DEADSTEMC', 'DEADCROOTC', 'FROOTC', 'LIVESTEMC', 'LIVECROOTC', 'TOTVEGC', \
                        'TOTCOLC', 'TOTLITC', 'BTRAN', 'CWDC', 'QVEGE', 'QVEGT', 'QSOIL', 'QDRAI', \
-                       'QRUNOFF', 'FPI', 'FPG']
+                       'QRUNOFF', 'FPI', 'FPG', 'FPI_P','FPG_P', 'CPOOL','NPOOL', 'SMINN', 'HR_vr']
     #ILAMB diagnostic variables
     ilamb_outputs = ['FAREA_BURNED', 'CWDC', 'LEAFC', 'TOTLITC', 'STORVEGC', 'LIVESTEMC', 'DEADSTEMC', \
                      'TOTPRODC', 'FROOTC', 'LIVECROOTC', 'DEADCROOTC', 'SOIL1C', 'SOIL2C', 'SOIL3C', \
@@ -954,11 +964,21 @@ for i in range(1,int(options.ninst)+1):
             output.write(" nyears_ad_carbon_only = 25\n")
             output.write(" spinup_mortality_factor = 10\n")
     if (cpl_bypass):
-        if (use_cruncep):
-            output.write(" metdata_type = 'cru-ncep'\n")
-            output.write(" metdata_bypass = '"+options.ccsm_input+"/atm/datm7/" \
-                             +"atm_forcing.datm7.cruncep.0.5d.V4.c111104/cpl_bypass_full'\n")
-#                             +"atm_forcing.datm7.cruncep.0.5d._v4_c110920.ornl/cpl_bypass_full'\n")
+        if (use_reanalysis):
+            if (options.livneh):
+                output.write(" metdata_type = 'livneh'\n")
+                output.write(" metdata_bypass = '"+options.ccsm_input+"/atm/datm7/" \
+                         +"atm_forcing.datm7.cruncep_qianFill.0.5d.V5.c140715_Livneh" + \
+                         "/cpl_bypass_full'\n")
+            elif (options.cruncep):
+                output.write(" metdata_type = 'cru-ncep'\n")
+                output.write(" metdata_bypass = '"+options.ccsm_input+"/atm/datm7/" \
+                         +"atm_forcing.datm7.cruncep.0.5d.V4.c111104/cpl_bypass_full'\n")
+#                         +"atm_forcing.datm7.cruncep.0.5d._v4_c110920.ornl/cpl_bypass_full'\n")
+            elif (options.gswp3):
+                output.write(" metdata_type = 'gswp3'\n")
+                output.write(" metdata_bypass = '"+options.ccsm_input+"/atm/datm7/" \
+                         +"atm_forcing.datm7.GSWP3.0.5d.v1.c170516/cpl_bypass_full'\n")
         else:
             output.write("metdata_type = 'site'\n")
             output.write(" metdata_bypass = '"+options.ccsm_input+"/atm/datm7/" \

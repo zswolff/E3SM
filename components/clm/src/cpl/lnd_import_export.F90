@@ -66,11 +66,11 @@ contains
     real(r8) :: swndf, swndr, swvdf, swvdr, ratio_rvrf, frac, q
     real(r8) :: thiscosz, avgcosz, szenith
     real(r8) :: timetemp(2)
-    real(r8) :: latixy(200000), longxy(200000)
+    real(r8) :: latixy(500000), longxy(500000)
     integer ::  ierr, varid, dimid, yr, mon, day, tod, nindex(2), caldaym(13)
     integer ::  ncid, met_ncids(8), mask_ncid, thisncid, ng, tm
     integer ::  aindex(2), tindex(8,2), starti(3), counti(3)
-    integer ::  grid_map(200000), zone_map(200000)
+    integer ::  grid_map(500000), zone_map(500000)
     integer ::  nyears_spinup, nyears_trans, starti_site, endi_site
     real(r8) :: smap05_lat(360), smap05_lon(720)
     real(r8) :: smapt62_lat(94), smapt62_lon(192)
@@ -84,7 +84,7 @@ contains
     real(r8) :: ndep1(144,96,1), ndep2(144,96,1)
     real(r8) :: aerodata(14,144,96,14)
     integer  :: var_month_count(12)
-    integer*2 :: temp(1,200000)
+    integer*2 :: temp(1,500000)
     integer :: xtoget, ytoget, thisx, thisy, calday_start
     character(len=200) metsource_str, thisline
     character(len=32), parameter :: sub = 'lnd_import_mct'
@@ -203,6 +203,10 @@ contains
             atm2lnd_vars%metsource  = 1   !0 = qian , 1 = cruncep, 2 = Site forcing
           else if (metdata_type(1:4) == 'site') then 
             atm2lnd_vars%metsource  = 2
+          else if (metdata_type(1:6) == 'livneh') then 
+            atm2lnd_vars%metsource = 3
+          else if (metdata_type(1:4) == 'gswp') then
+            atm2lnd_vars%metsource = 4
           else
             call endrun( sub//' ERROR: Invalid met data source for cpl_bypass' )
           end if
@@ -239,6 +243,17 @@ contains
             ierr = nf90_close(ncid)
             atm2lnd_vars%endyear_met_trans = atm2lnd_vars%endyear_met_spinup
           endif
+         if (atm2lnd_vars%metsource == 3) then
+            metsource_str = 'livneh'
+            atm2lnd_vars%startyear_met      = 1950
+            atm2lnd_vars%endyear_met_spinup = 1969
+            atm2lnd_vars%endyear_met_trans  = 2013
+         end if
+         if (atm2lnd_Vars%metsource == 4) then 
+            atm2lnd_vars%startyear_met      = 1901
+            atm2lnd_vars%endyear_met_spinup = 1920
+            atm2lnd_Vars%endyear_met_trans  = 2010
+         end if
 
           nyears_spinup = atm2lnd_vars%endyear_met_spinup - &
                              atm2lnd_vars%startyear_met + 1
@@ -258,7 +273,7 @@ contains
 
           if (atm2lnd_vars%metsource .ne. 2) then 
             ng = 0     !number of points
-            do v=1,200000
+            do v=1,500000
               read(13,*, end=10), longxy(v), latixy(v), zone_map(v), grid_map(v)
               ng = ng + 1
             end do
@@ -308,6 +323,12 @@ contains
                        '_1901-2010_z' // zst(2:3) // '.nc', NF90_NOWRITE, met_ncids(v))
             else if (atm2lnd_vars%metsource == 2) then 
               ierr = nf90_open(trim(metdata_bypass) // '/all_hourly.nc', NF90_NOWRITE, met_ncids(v))
+            else if (atm2lnd_vars%metsource == 3) then
+              ierr = nf90_open(trim(metdata_bypass) // '/cruncep.V5_' // trim(metvars(v)) // &
+                     '_1950-2013_z' // zst(2:3) // '.nc', NF90_NOWRITE, met_ncids(v))
+            else if (atm2lnd_vars%metsource == 4) then 
+              ierr = nf90_open(trim(metdata_bypass) // '/GSWP3.v1_' // trim(metvars(v)) // &
+                     '_1901-2010_z' // zst(2:3) // '.nc', NF90_NOWRITE, met_ncids(v))
             end if
             if (ierr .ne. 0) call endrun(msg=' ERROR: Failed to open cpl_bypass input meteorology file' )
        

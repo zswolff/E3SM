@@ -3559,8 +3559,8 @@ contains
                  nstep,c,errch4(c)
             g = col%gridcell(c)
             write(iulog,*)'Latdeg,Londeg=',grc%latdeg(g),grc%londeg(g)
-            call endrun(msg=' ERROR: CH4 Conservation Error in CH4Mod during diffusion'//&
-                 errMsg(__FILE__, __LINE__))
+            !call endrun(msg=' ERROR: CH4 Conservation Error in CH4Mod during diffusion'//&
+            !     errMsg(__FILE__, __LINE__))
          end if
       end do
 

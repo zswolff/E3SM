@@ -21,8 +21,6 @@ parser.add_option('--restart_year', dest='restart_year', default="", \
                     help='Year of restart file to modify')
 parser.add_option('--acme_input', dest='acme_input', default="", \
                   help='acme input data directory')
-parser.add_option('--site_lat', dest='site_lat', default=-999.)
-parser.add_option('--site_lon', dest='site_lon', default=-999.)
 (options, args) = parser.parse_args()
 
 
@@ -43,6 +41,7 @@ if (options.restart_year == ''):
         restart_file = glob.glob(diricase+'/'+casename+'.clm2.r.*.nc')
         restart_file_last = restart_file[-1]
         year = int(restart_file_last[-19:-15])
+        print 'Restart year not provided.  Using year '+str(year)
 else:
         year = int(options.restart_year)
 
@@ -57,21 +56,23 @@ secondP   = {}
 occlP     = {}
 primP     = {}
 
-with open(sitephos) as f:
-     lines = f.readlines()
-     contents = [x.rstrip('\n') for x in lines]
-     for content in contents[1:]:
-         print not content.strip()
-         if content.strip():
-            sl = content.split(',')
-            sitename = sl[0]
-            solutionP[sitename]=float(sl[1])
-            labileP  [sitename]=float(sl[2])
-            secondP  [sitename]=float(sl[3])
-            occlP    [sitename]=float(sl[4])
-            primP    [sitename]=float(sl[5])
-            #print sitename, solutionP[sitename], labileP  [sitename], secondP  [sitename], occlP    [sitename], primP    [sitename]
-f.close()
+
+if (sitephos != ''):
+    with open(sitephos) as f:
+         lines = f.readlines()
+         contents = [x.rstrip('\n') for x in lines]
+         for content in contents[1:]:
+             print not content.strip()
+             if content.strip():
+                sl = content.split(',')
+                sitename = sl[0]
+                solutionP[sitename]=float(sl[1])
+                labileP  [sitename]=float(sl[2])
+                secondP  [sitename]=float(sl[3])
+                occlP    [sitename]=float(sl[4])
+                primP    [sitename]=float(sl[5])
+                #print sitename, solutionP[sitename], labileP  [sitename], secondP  [sitename], occlP    [sitename], primP    [sitename]
+    f.close()
 
 fileinp = diricase + '/' + casename + ".clm2.r."+ str(10000+year)[1:] + "-01-01-00000.nc"
 fileout = dirocase + '/' + casename + ".clm2.r."+ str(10000+year)[1:] + "-01-01-00000.nc"
@@ -91,40 +92,45 @@ else:
   #get corresponding 0.5x0.5 and 1.9x2.5 degree grid cells
   longxy = getvar(global_file, 'LONGXY')
   latixy = getvar(global_file, 'LATIXY')
-  xgrid_min = -1
-  ygrid_min = -1
-  lon_bounds = [float(options.site_lon), float(options.site_lon)]
-  lat_bounds = [float(options.site_lat), float(options.site_lat)]
 
-  for i in range(0,longxy.shape[1]):
-      if (longxy[0,i] >= lon_bounds[0] and xgrid_min == -1):
-          xgrid_min = i
-          xgrid_max = i
-      elif (longxy[0,i] <= lon_bounds[1]):
-          xgrid_max = i
-  if (lon_bounds[0] == 180 and lon_bounds[1] == 180):  #global
-      xgrid_min = 0
-      xgrid_max = longxy.shape[1]-1
+  cols1d_lon = getvar(fileinp, 'cols1d_lon')
+  cols1d_lat = getvar(fileinp, 'cols1d_lat')
 
-  for i in range(0,latixy.shape[0]):
-      if (latixy[i,0] >= lat_bounds[0] and ygrid_min == -1):
-          ygrid_min = i
-          ygrid_max = i
-      elif (latixy[i,0] <= lat_bounds[1]):
-          ygrid_max = i
-  tempphosfile = './temp/tempsitephos.nc'
-  os.system('ncks -d lon,'+str(xgrid_min)+','+str(xgrid_max)+' -d lat,'+str(ygrid_min)+ \
-                ','+str(ygrid_max)+' '+global_file+' '+tempphosfile)
-  mysolutionP = 0.0015
-  mylabileP = getvar(tempphosfile, 'LABILE_P')
-  mysecondP = getvar(tempphosfile, 'SECONDARY_P')
-  myocclP   = getvar(tempphosfile, 'OCCLUDED_P')
-  myprimP   = getvar(tempphosfile, 'APATITE_P')
-  os.system('rm ./temp/tempsitephos.nc')
+  restsolutionP = getvar(fileinp, 'solutionp_vr')
+  restlabileP   = getvar(fileinp, 'labilep_vr')
+  restsecondP   = getvar(fileinp, 'secondp_vr')
+  restocclP     = getvar(fileinp, 'occlp_vr')
+  restprimP     = getvar(fileinp, 'primp_vr')
 
-putvar(fileout, 'solutionp_vr', mysolutionP)
-putvar(fileout, 'labilep_vr'  , mylabileP  )
-putvar(fileout, 'secondp_vr'  , mysecondP  )
-putvar(fileout, 'occlp_vr'    , myocclP    )
-putvar(fileout, 'primp_vr'    , myprimP    )
+  obssolutionP  = 0.0015
+  obslabileP    = getvar(global_file, 'LABILE_P')
+  obssecondP    = getvar(global_file, 'SECONDARY_P')
+  obsocclP      = getvar(global_file, 'OCCLUDED_P')
+  obsprimP      = getvar(global_file, 'APATITE_P')
+
+  for i in range(0,len(cols1d_lon)):
+     mylon = cols1d_lon[i]
+     if (mylon < 0):
+         mylon = mylon+360.
+     mylat = cols1d_lat[i]
+     for j in range(0,longxy.shape[1]):
+         lon_data = longxy[0,j]
+         if (lon_data < 0):
+             lon_data = lon_data+360.
+         if (mylon >= lon_data-0.25 and mylon < lon_data+0.25):
+            lon_ind = j
+            for k in range(0,latixy.shape[0]):
+                if (mylat >= latixy[k,0]-0.25 and mylat < latixy[k,0]+0.25):
+                    lat_ind = k
+     restsolutionP[i,:] = obssolutionP
+     restlabileP[i,:]   = obslabileP[lat_ind,lon_ind]
+     restsecondP[i,:]   = obssecondP[lat_ind,lon_ind]
+     restocclP[i,:]     = obsocclP[lat_ind,lon_ind]
+     restprimP[i,:]     = obsprimP[lat_ind,lon_ind]
+
+putvar(fileout, 'solutionp_vr', restsolutionP)
+putvar(fileout, 'labilep_vr'  , restlabileP  )
+putvar(fileout, 'secondp_vr'  , restsecondP  )
+putvar(fileout, 'occlp_vr'    , restocclP    )
+putvar(fileout, 'primp_vr'    , restprimP    )
 

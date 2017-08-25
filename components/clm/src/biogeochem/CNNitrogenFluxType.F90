@@ -43,6 +43,7 @@ module CNNitrogenFluxType
      real(r8), pointer :: m_livecrootn_to_litter_patch              (:)     ! patch live coarse root N mortality (gN/m2/s)
      real(r8), pointer :: m_deadcrootn_to_litter_patch              (:)     ! patch dead coarse root N mortality (gN/m2/s)
      real(r8), pointer :: m_retransn_to_litter_patch                (:)     ! patch retranslocated N pool mortality (gN/m2/s)
+     real(r8), pointer :: m_npool_to_litter_patch                   (:)     ! patch npool storage mortality (gN/m2/s)
 
      ! harvest fluxes
      real(r8), pointer :: hrv_leafn_to_litter_patch                 (:)     ! patch leaf N harvest mortality (gN/m2/s)
@@ -103,6 +104,7 @@ module CNNitrogenFluxType
      real(r8), pointer :: m_deadcrootn_storage_to_fire_patch        (:)     ! patch (gN/m2/s) fire N emissions from deadcrootn_storage  
      real(r8), pointer :: m_deadcrootn_xfer_to_fire_patch           (:)     ! patch (gN/m2/s) fire N emissions from deadcrootn_xfer
      real(r8), pointer :: m_retransn_to_fire_patch                  (:)     ! patch (gN/m2/s) fire N emissions from retransn
+     real(r8), pointer :: m_npool_to_fire_patch                     (:)     ! patch (gN/m2/s) fire N emission from npool
      real(r8), pointer :: m_leafn_to_litter_fire_patch              (:)     ! patch (gN/m2/s) from leafn to litter N  due to fire               
      real(r8), pointer :: m_leafn_storage_to_litter_fire_patch      (:)     ! patch (gN/m2/s) from leafn_storage to litter N  due to fire                              
      real(r8), pointer :: m_leafn_xfer_to_litter_fire_patch         (:)     ! patch (gN/m2/s) from leafn_xfer to litter N  due to fire                              
@@ -124,6 +126,7 @@ module CNNitrogenFluxType
      real(r8), pointer :: m_deadcrootn_storage_to_litter_fire_patch (:)     ! patch (gN/m2/s) from deadcrootn_storage to deadcrootn due to fire                                                        
      real(r8), pointer :: m_deadcrootn_xfer_to_litter_fire_patch    (:)     ! patch (gN/m2/s) from deadcrootn_xfer to deadcrootn due to fire                                                         
      real(r8), pointer :: m_retransn_to_litter_fire_patch           (:)     ! patch (gN/m2/s) from retransn to deadcrootn due to fire                                                         
+     real(r8), pointer :: m_npool_to_litter_fire_patch              (:)     ! patch (gC/m2/s) from npool to litter due to fire
      real(r8), pointer :: fire_nloss_patch                          (:)     ! patch total pft-level fire N loss (gN/m2/s) 
      real(r8), pointer :: fire_nloss_col                            (:)     ! col total column-level fire N loss (gN/m2/s)
      real(r8), pointer :: fire_nloss_p2c_col                        (:)     ! col patch2col column-level fire N loss (gN/m2/s) (p2c)
@@ -452,6 +455,7 @@ contains
     allocate(this%m_livecrootn_to_litter_patch              (begp:endp)) ; this%m_livecrootn_to_litter_patch              (:) = nan
     allocate(this%m_deadcrootn_to_litter_patch              (begp:endp)) ; this%m_deadcrootn_to_litter_patch              (:) = nan
     allocate(this%m_retransn_to_litter_patch                (begp:endp)) ; this%m_retransn_to_litter_patch                (:) = nan
+    allocate(this%m_npool_to_litter_patch                   (begp:endp)) ; this%m_npool_to_litter_patch                   (:) = nan
     allocate(this%hrv_leafn_to_litter_patch                 (begp:endp)) ; this%hrv_leafn_to_litter_patch                 (:) = nan
     allocate(this%hrv_frootn_to_litter_patch                (begp:endp)) ; this%hrv_frootn_to_litter_patch                (:) = nan
     allocate(this%hrv_leafn_storage_to_litter_patch         (begp:endp)) ; this%hrv_leafn_storage_to_litter_patch         (:) = nan
@@ -496,6 +500,7 @@ contains
     allocate(this%m_deadcrootn_storage_to_fire_patch        (begp:endp)) ; this%m_deadcrootn_storage_to_fire_patch        (:) = nan
     allocate(this%m_deadcrootn_xfer_to_fire_patch           (begp:endp)) ; this%m_deadcrootn_xfer_to_fire_patch           (:) = nan
     allocate(this%m_retransn_to_fire_patch                  (begp:endp)) ; this%m_retransn_to_fire_patch                  (:) = nan
+    allocate(this%m_npool_to_fire_patch                     (begp:endp)) ; this%m_npool_to_fire_patch                     (:) = nan
 
     allocate(this%m_leafn_to_litter_fire_patch              (begp:endp)) ; this%m_leafn_to_litter_fire_patch              (:) = nan
     allocate(this%m_leafn_storage_to_litter_fire_patch      (begp:endp)) ; this%m_leafn_storage_to_litter_fire_patch      (:) = nan
@@ -518,6 +523,7 @@ contains
     allocate(this%m_deadcrootn_storage_to_litter_fire_patch (begp:endp)) ; this%m_deadcrootn_storage_to_litter_fire_patch (:) = nan
     allocate(this%m_deadcrootn_xfer_to_litter_fire_patch    (begp:endp)) ; this%m_deadcrootn_xfer_to_litter_fire_patch    (:) = nan
     allocate(this%m_retransn_to_litter_fire_patch           (begp:endp)) ; this%m_retransn_to_litter_fire_patch           (:) = nan
+    allocate(this%m_npool_to_litter_fire_patch              (begp:endp)) ; this%m_npool_to_litter_fire_patch              (:) = nan
 
     allocate(this%leafn_xfer_to_leafn_patch                 (begp:endp)) ; this%leafn_xfer_to_leafn_patch                 (:) = nan
     allocate(this%frootn_xfer_to_frootn_patch               (begp:endp)) ; this%frootn_xfer_to_frootn_patch               (:) = nan
@@ -2295,6 +2301,7 @@ contains
        this%m_livecrootn_to_litter_patch(i)              = value_patch
        this%m_deadcrootn_to_litter_patch(i)              = value_patch
        this%m_retransn_to_litter_patch(i)                = value_patch
+       this%m_npool_to_litter_patch(i)                   = value_patch
        this%hrv_leafn_to_litter_patch(i)                 = value_patch             
        this%hrv_frootn_to_litter_patch(i)                = value_patch            
        this%hrv_leafn_storage_to_litter_patch(i)         = value_patch     
@@ -2339,7 +2346,7 @@ contains
        this%m_deadcrootn_storage_to_fire_patch(i)        = value_patch
        this%m_deadcrootn_xfer_to_fire_patch(i)           = value_patch
        this%m_retransn_to_fire_patch(i)                  = value_patch
-
+       this%m_npool_to_fire_patch(i)                     = value_patch
 
        this%m_leafn_to_litter_fire_patch(i)              = value_patch
        this%m_leafn_storage_to_litter_fire_patch(i)      = value_patch
@@ -2362,6 +2369,7 @@ contains
        this%m_deadcrootn_storage_to_litter_fire_patch(i) = value_patch
        this%m_deadcrootn_xfer_to_litter_fire_patch(i)    = value_patch
        this%m_retransn_to_litter_fire_patch(i)           = value_patch
+       this%m_npool_to_litter_fire_patch(i)              = value_patch
 
        this%leafn_xfer_to_leafn_patch(i)                 = value_patch
        this%frootn_xfer_to_frootn_patch(i)               = value_patch
@@ -2749,7 +2757,8 @@ contains
             this%m_deadcrootn_to_fire_patch(p)          + &
             this%m_deadcrootn_storage_to_fire_patch(p)  + &
             this%m_deadcrootn_xfer_to_fire_patch(p)     + &
-            this%m_retransn_to_fire_patch(p)
+            this%m_retransn_to_fire_patch(p)            + &
+            this%m_npool_to_fire_patch(p)
 
     end do
 

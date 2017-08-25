@@ -98,6 +98,8 @@ parser.add_option("--makemetdata", action="store_true", dest="makemet", default=
                     help="generate site meteorology")
 parser.add_option("--cruncep", dest="cruncep", default=False, \
                   action="store_true", help = 'Use CRU-NCEP meteorology')
+parser.add_option("--gswp3", dest="gswp3", default=False, \
+                  action="store_true", help = 'Use GSWP3 meteorology')
 parser.add_option("--surfdata_grid", dest="surfdata_grid", default=False, \
                   help = 'Use gridded surface data instead of site data', action="store_true")
 parser.add_option("--siteparms",dest = "siteparms", default=False, \
@@ -238,7 +240,7 @@ for row in AFdatareader:
             firstsite=site
         site_lat  = row[4]
         site_lon  = row[3]
-        if (options.cruncep):
+        if (options.cruncep or options.gswp3):
                 startyear = 1901
                 endyear = 1920
         else:
@@ -257,7 +259,7 @@ for row in AFdatareader:
 
         if (translen == -1):
           translen = endyear-1850+1        #length of transient run
-	  if (options.cpl_bypass and options.cruncep):
+	  if (options.cpl_bypass and (options.cruncep or options.gswp3)):
  	    translen = min(site_endyear,2010)-1850+1
 
         #use site parameter file if it exists
@@ -316,6 +318,8 @@ for row in AFdatareader:
             basecmd = basecmd+' --CH4'
         if (options.cruncep):
             basecmd = basecmd+' --cruncep'
+        if (options.gswp3):
+            basecmd = basecmd+' --gswp3'
         if (options.surfdata_grid):
             basecmd = basecmd+' --surfdata_grid'
         if (options.ensemble_file != ''):   
@@ -442,7 +446,7 @@ for row in AFdatareader:
             #Turn wildfire off in transient simulations (disturbances are known)
             cmd_trns = cmd_trns + ' --nofire'
         #transient phase 2 (CRU-NCEP only, without coupler bypass)
-        if (options.cruncep and not options.cpl_bypass):
+        if ((options.cruncep or options.gswp3) and not options.cpl_bypass):
             basecase=basecase.replace('1850','20TR')+'_phase1'
             thistranslen = site_endyear - 1921 + 1
             cmd_trns2 = basecmd+' --trans2 --finidat_case '+basecase+ \
@@ -504,7 +508,7 @@ for row in AFdatareader:
                         tr_case_firstsite+' --site_orig '+firstsite +\
                         ' --site_new '+site+' --finidat_year '+str(int(ny_fin)+1)
                  os.system(ptcmd)
-            if (options.cruncep and not options.cpl_bypass):
+            if ((options.cruncep or options.gswp3) and not options.cpl_bypass):
                  print('\nSetting up transient case phase 2\n')
                  os.system(cmd_trns2)
 
@@ -636,7 +640,7 @@ for row in AFdatareader:
                  output.write("python plotcase.py --site "+site+" --compset "+mycompset \
                                +" --case "+mycaseid+" --vars NEE,GPP,EFLX_LH_TOT,FSH,FPG,FPG_P,"+ \
                                "FPI,FPI_P,NPP,QOVER --csmdir "+os.path.abspath(runroot)+ \
-                               " --obs --seasonal --pdf\n")
+                               " --obs --seasonal --pdf --yend "+str(site_endyear)+"\n")
                  #Interannual variability
                  output.write("python plotcase.py --site "+site+" --compset "+mycompset \
                                +" --case "+mycaseid+" --vars NEE,GPP,EFLX_LH_TOT,FSH --csmdir "+ \

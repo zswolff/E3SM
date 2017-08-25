@@ -274,7 +274,7 @@ for c in range(0,ncases):
             if mysites[c] in f and '.csv' in f:
                 myobsfile = myobsdir+'/'+mytstep+'/'+f
         print myobsfile
-        if (os.path.exists(myobsfile) and yend > 3000):
+        if (os.path.exists(myobsfile) and ystart < 1900):
             print ('Getting start and end year information from observation file')
             thisrow=0
             myobs_input = open(myobsfile)
@@ -282,7 +282,7 @@ for c in range(0,ncases):
                 if thisrow == 1:
                     ystart = int(s[0:4])
                 elif (thisrow > 1):
-                    yend = int(s[0:4])
+                    yend = min(int(s[0:4]), int(options.myyend))
                 thisrow=thisrow+1
             myobs_input.close
         print ystart, yend
@@ -519,7 +519,9 @@ for v in range(0,len(myvars)):
         plt.xlabel('Model Hour (UTC)')
     else:
         plt.xlabel('Model Year')
-
+ 
+    print var_units
+    print myvars
     plt.ylabel(myvars[v]+' ('+var_units[v]+')')
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
