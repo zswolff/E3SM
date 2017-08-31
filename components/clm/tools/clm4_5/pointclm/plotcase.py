@@ -499,12 +499,28 @@ for c in range(0,ncases):
 
                 
 #matplotlib plot
+rmse = numpy.zeros([len(myvars),ncases],numpy.float)
+bias = numpy.zeros([len(myvars),ncases],numpy.float)
+corr = numpy.zeros([len(myvars),ncases],numpy.float)
+
 for v in range(0,len(myvars)):
     fig = plt.figure()
     ax = plt.subplot(111)
     colors=['b','g','r','c','m','y','k','b','g','r','c','m','y','k','b','g','r','c','m','y','k']
     styles=['-','-','-','-','-','-','-','--','--','--','--','--','--','--','-.','-.','-.','-.','-.','-.','-.']
-    for c in range(0,ncases): 
+    for c in range(0,ncases):
+        gind=[]
+        for i in range(0,snum[c]):
+            if (obs_toplot[c,v,i] < -900):
+                obs_toplot[c,v,i] = numpy.nan
+            else:
+                gind.append(i)
+                rmse[v,c] = rmse[v,c] + (data_toplot[c,v,i]-obs_toplot[c,v,i])**2.0
+                bias[v,c] = bias[v,c] + (data_toplot[c,v,i]-obs_toplot[c,v,i])
+        rmse[v,c] = (rmse[v,c]/len(gind))**0.5
+        bias[v,c] = bias[v,c]/len(gind)
+        corr[v,c] = numpy.corrcoef(data_toplot[c,v,gind],obs_toplot[c,v,gind])[1,0]
+
         if (options.ylog):
             ax.plot(x_toplot[c, 0:snum[c]], abs(data_toplot[c,v,0:snum[c]]), label=mytitles[c], color=colors[c], \
               linestyle=styles[c], linewidth=3)
@@ -513,6 +529,8 @@ for v in range(0,len(myvars)):
 	      linestyle=styles[c], linewidth=3)
             ax.errorbar(x_toplot[c, 0:snum[c]], obs_toplot[c,v,0:snum[c]], yerr = err_toplot[c,v,0:snum[c]], \
                         color=colors[c], fmt='o')
+        print v,c, rmse[v,c], bias[v,c], corr[v,c]
+
     if (avtype == 'seasonal'):
         plt.xlabel('Model Month')
     elif (avtype == 'diurnal'):
@@ -520,8 +538,6 @@ for v in range(0,len(myvars)):
     else:
         plt.xlabel('Model Year')
  
-    print var_units
-    print myvars
     plt.ylabel(myvars[v]+' ('+var_units[v]+')')
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
@@ -534,14 +550,60 @@ for v in range(0,len(myvars)):
         os.system('mkdir -p ./plots/'+mycases[c])
         fig_filename = './plots/'+mycases[c]+'/'+mysites[c]+'_'+myvars[v]
         if (options.spinup):
-            fig_filename = fig_filename+'_spinup'
+            fig_filename = fig_type+'spinup'
         elif (options.mydiurnal):
-            fig_filename = fig_filename+'_diurnal_'+str(options.dstart)+'_'+str(options.dend)
+            fig_type = 'diurnalcycle_'+str(options.dstart)+'_'+str(options.dend)
         elif (options.myseasonal):
-            fig_filename = fig_filename+'_seasonal'
+            fig_type = 'seasonalcycle'
+        elif (mytstep == 'monthly' and obs):
+            fig_type = 'monthly'
         elif (mytstep == 'annual' and obs):
-            fig_filename = fig_filename+'_internannual'
+            fig_type='internannual'
+        fig_filename = fig_filename+'_'+fig_type
+
         fig.savefig(fig_filename+'.pdf')
 
 if (not options.pdf):
     plt.show()
+
+outdata = open('./plots/'+mycases[c]+'/'+mysites[c]+'_summary_'+fig_type+'.txt','w')
+outdata.write(mysites[c]+'\n')
+outdata.write('RMSE\n')
+varst='               '
+for v in range(0,len(myvars)):
+   varst = varst+'  '+myvars[v]
+outdata.write(varst+'\n')
+for c in range(0,ncases):
+    varst = mycases[c]
+    for v in range(0,len(myvars)):
+        varst = varst+' '+str(rmse[v,c])
+    outdata.write(varst+'\n')
+
+outdata.write('BIAS\n')
+varst='               '
+for v in range(0,len(myvars)):
+   varst = varst+'  '+myvars[v]
+outdata.write(varst+'\n')
+for c in range(0,ncases):
+    varst = mycases[c]
+    for v in range(0,len(myvars)):
+        varst = varst+' '+str(bias[v,c])
+    outdata.write(varst+'\n')
+
+outdata.write('CORR\n')
+varst='               '
+for v in range(0,len(myvars)):
+   varst = varst+'  '+myvars[v]
+outdata.write(varst+'\n')
+for c in range(0,ncases):
+    varst = mycases[c]
+    for v in range(0,len(myvars)):
+        varst = varst+' '+str(corr[v,c])
+    outdata.write(varst+'\n')
+outdata.close()
+
+
+
+
+
+

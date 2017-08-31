@@ -20,6 +20,8 @@ parser.add_option("--lat_bounds", dest="lat_bounds", default='-999,-999', \
                   help = 'latitude range for regional run')
 parser.add_option("--lon_bounds", dest="lon_bounds", default='-999,-999', \
                   help = 'longitude range for regional run')
+parser.add_option("--pft", dest="mypft", default=-1, \
+                  help = 'Replace all gridcell PFT with this value')
 parser.add_option("--csmdir", dest="csmdir", default='../../..', \
                   help = "base CESM directory (default = ../../..)")
 parser.add_option("--point_list", dest="point_list", default='', \
@@ -101,6 +103,7 @@ elif (options.point_list != ''):
         else:
              data = s.split()
              dnum=0
+             point_pfts.append(-1)
              for d in data:
                  if ('lon' in header[dnum]): 
                       mylon = float(d)
@@ -110,7 +113,9 @@ elif (options.point_list != ''):
                  elif ('lat' in header[dnum]):
                       lat.append(float(d))
                  elif ('pft' in header[dnum]):
-                      point_pfts.append(int(d))
+                      point_pfts[n_grids-1] = int(d)
+                 if (int(options.mypft) >= 0):    #overrides info in file
+                     point_pfts[n_grids-1] = options.mypft
                  dnum=dnum+1
         n_grids=n_grids+1
     input_file.close()
@@ -133,11 +138,17 @@ else:
 
 #get corresponding 0.5x0.5 and 1.9x2.5 degree grid cells
 if (options.res == 'hcru_hcru'):
-     longxy = numpy.cumsum(numpy.ones([720])*0.5)-0.25
-     latixy = numpy.cumsum(numpy.ones([360])*0.5)-90.25
+     longxy = (numpy.cumsum(numpy.ones([721]))-1)*0.5
+     latixy = (numpy.cumsum(numpy.ones([361]))-1)*0.5 -90.0
 elif (options.res == 'f19_f19'):
-    longxy = (numpy.cumsum(numpy.ones([144]))-1)*2.5
-    latixy = (numpy.cumsum(numpy.ones([96]))-1)*(180.0/95) - 90.0
+    longxy = (numpy.cumsum(numpy.ones([145]))-1)*2.5-1.25
+    latixy_centers = (numpy.cumsum(numpy.ones([96]))-1)*(180.0/95) - 90.0
+    latixy = numpy.zeros([97], numpy.float)
+    longxy[0]   = 0
+    latixy[0]   =  -90
+    latixy[96]  =  90
+    for i in range(1,96):
+        latixy[i] = (latixy_centers[i-1]+latixy_centers[i])/2.0
 else:
     longxy = nffun.getvar(surffile_orig, 'LONGXY')
     latixy = nffun.getvar(surffile_orig, 'LATIXY')
@@ -154,20 +165,20 @@ for n in range(0,n_grids):
     xgrid_max.append(-1)
     ygrid_min.append(-1)
     ygrid_max.append(-1)
-    for i in range(0,longxy.shape[0]):
-        if (longxy[i] >= lon_bounds[0] and xgrid_min[n] == -1):
+    for i in range(0,longxy.shape[0]-1):
+        if (lon_bounds[0] >= longxy[i]):
             xgrid_min[n] = i
             xgrid_max[n] = i
-        elif (longxy[i] <= lon_bounds[1]):
+        elif (lon_bounds[1] >= longxy[i+1]):
             xgrid_max[n] = i
     if (lon_bounds[0] == 180 and lon_bounds[1] == 180):  #global
         xgrid_min[n] = 0
-        xgrid_max[n] = longxy.shape[0]-1
-    for i in range(0,latixy.shape[0]):
-        if (latixy[i] >= lat_bounds[0] and ygrid_min[n] == -1):
+        xgrid_max[n] = longxy.shape[0]-2
+    for i in range(0,latixy.shape[0]-1):
+        if (lat_bounds[0] >= latixy[i]):
             ygrid_min[n] = i
             ygrid_max[n] = i
-        elif (latixy[i] <= lat_bounds[1]):
+        elif (lat_bounds[1] >= latixy[i+1]):
             ygrid_max[n] = i
     #print n, lat[n], lon[n], xgrid_max[n], ygrid_max[n]
 if (n_grids > 1):       #remove duplicate points
@@ -177,28 +188,40 @@ if (n_grids > 1):       #remove duplicate points
   ygrid_min_uniq = [ygrid_min[0]]
   lon_uniq = [lon[0]]
   lat_uniq = [lat[0]]
+  point_pfts_uniq = [point_pfts[0]]
+  point_index = [1]
+  myoutput = open('point_list_output.txt','w')
+  myoutput.write(str(lon[0])+','+str(lat[0])+','+str(point_index[0])+'\n')
   for n in range (1,n_grids):
       is_unique = True
-      for m in range(0,n):
-          if (xgrid_min[n] == xgrid_min[m] and ygrid_min[n] == ygrid_min[m]):
+      for m in range(0,n_grids_uniq):
+          if (xgrid_min[n] == xgrid_min_uniq[m] and ygrid_min[n] == ygrid_min_uniq[m] \
+              and point_pfts[n] == point_pfts_uniq[m]):
                n_dups = n_dups+1
                is_unique = False
+               point_index.append(m+1)
       if (is_unique):
           xgrid_min_uniq.append(xgrid_min[n])
-          ygrid_min_uniq.append(ygrid_min[n])      
+          ygrid_min_uniq.append(ygrid_min[n])
+          point_pfts_uniq.append(point_pfts[n])      
           lon_uniq.append(lon[n])
           lat_uniq.append(lat[n])
           n_grids_uniq = n_grids_uniq+1
+          point_index.append(n_grids_uniq)
+      myoutput.write(str(lon[n])+','+str(lat[n])+','+str(point_index[n])+'\n')
+  myoutput.close()
   xgrid_min = xgrid_min_uniq
   xgrid_max = xgrid_min_uniq
   ygrid_min = ygrid_min_uniq
   ygrid_max = ygrid_min_uniq
   lon = lon_uniq
   lat = lat_uniq
+  point_pfts = point_pfts_uniq
   n_grids = n_grids_uniq
   print n_grids, ' Unique points'
   print n_dups, ' duplicate points removed'
-
+  print len(point_index)
+  print point_index
 #---------------------Create domain data --------------------------------------------------
 
 print('Creating domain data')
@@ -208,8 +231,6 @@ domainfile_list=''
 for n in range(0,n_grids):
     nst = str(100000+n)[1:]
     domainfile_new = csmdir+'/components/clm/tools/clm4_5/pointclm/temp/domain'+nst+'.nc'
-    print 'ncks -d ni,'+str(xgrid_min[n])+','+str(xgrid_max[n])+' -d nj,'+str(ygrid_min[n])+ \
-              ','+str(ygrid_max[n])+' '+domainfile_orig+' '+domainfile_new
     os.system('ncks -d ni,'+str(xgrid_min[n])+','+str(xgrid_max[n])+' -d nj,'+str(ygrid_min[n])+ \
               ','+str(ygrid_max[n])+' '+domainfile_orig+' '+domainfile_new)
 
@@ -224,39 +245,43 @@ for n in range(0,n_grids):
 
         frac = 1.0
         mask = 1
-        xc= lon[n]
-        yc = lat[n]
-        xv[0][0][0] = lon[n]-resx/2
-        xv[0][0][1] = lon[n]+resx/2
-        xv[0][0][2] = lon[n]-resx/2
-        xv[0][0][3] = lon[n]+resx/2
-        yv[0][0][0] = lat[n]-resy/2
-        yv[0][0][1] = lat[n]-resy/2
-        yv[0][0][2] = lat[n]+resy/2
-        yv[0][0][3] = lat[n]+resy/2
-        area = resx*resy*math.pi/180*math.pi/180
-            
+        if (options.site != ''):
+            xc= lon[n]
+            yc = lat[n]
+            xv[0][0][0] = lon[n]-resx/2
+            xv[0][0][1] = lon[n]+resx/2
+            xv[0][0][2] = lon[n]-resx/2
+            xv[0][0][3] = lon[n]+resx/2
+            yv[0][0][0] = lat[n]-resy/2
+            yv[0][0][1] = lat[n]-resy/2
+            yv[0][0][2] = lat[n]+resy/2
+            yv[0][0][3] = lat[n]+resy/2
+            area = resx*resy*math.pi/180*math.pi/180
+            ierr = nffun.putvar(domainfile_new, 'xc', xc)
+            ierr = nffun.putvar(domainfile_new, 'yc', yc)
+            ierr = nffun.putvar(domainfile_new, 'xv', xv)
+            ierr = nffun.putvar(domainfile_new, 'yv', yv)
+            ierr = nffun.putvar(domainfile_new, 'area', area)
+ 
         ierr = nffun.putvar(domainfile_new, 'frac', frac)
         ierr = nffun.putvar(domainfile_new, 'mask', mask)
-        ierr = nffun.putvar(domainfile_new, 'xc', xc)
-        ierr = nffun.putvar(domainfile_new, 'yc', yc)
-        ierr = nffun.putvar(domainfile_new, 'xv', xv)
-        ierr = nffun.putvar(domainfile_new, 'yv', yv)
-        ierr = nffun.putvar(domainfile_new, 'area', area)
+        os.system('ncks -O --mk_rec_dim nj '+domainfile_new+' '+domainfile_new)
     domainfile_list = domainfile_list+' '+domainfile_new
 domainfile_new = csmdir+'/components/clm/tools/clm4_5/pointclm/temp/domain.nc'
 if (os.path.isfile(domainfile_new)):
     print('Warning:  Removing existing domain file')
     os.system('rm -rf '+domainfile_new)
 if (n_grids > 1):
-    os.system('ncecat '+domainfile_list+' '+domainfile_new)
-    os.system('nccopy -3 -u '+domainfile_new+' '+domainfile_new+'.tmp')
-    os.system('ncpdq -a ni,record '+domainfile_new+'.tmp '+domainfile_new+'.tmp1')
-    os.system('ncwa -O -a ni -d ni,0,0 '+domainfile_new+'.tmp1 '+domainfile_new+'.tmp2')
-    os.system('ncrename -h -O -d record,ni '+domainfile_new+'.tmp2 '+domainfile_new+'.tmp3')
+    os.system('ncrcat '+domainfile_list+' '+domainfile_new)
+    os.system('nccopy -u -O '+domainfile_new+' '+domainfile_new)
+    os.system('ncpdq -O -a ni,nj '+domainfile_new+' '+domainfile_new)
+    #os.system('ncwa -O -a ni -d ni,0,0 '+domainfile_new+'.tmp1 '+domainfile_new+'.tmp2')
+    os.system('ncrename -h -O -d ni,ni_temp '+domainfile_new+' '+domainfile_new+' ')
+    os.system('ncrename -h -O -d nj,ni '+domainfile_new+' '+domainfile_new+' ')
+    os.system('ncrename -h -O -d ni_temp,nj '+domainfile_new+' '+domainfile_new+' ')
     os.system('rm '+csmdir+'/components/clm/tools/clm4_5/pointclm/temp/domain?????.nc*')
-    os.system('mv '+domainfile_new+'.tmp3 '+domainfile_new)
-    os.system('rm '+domainfile_new+'.tmp*')
+    #os.system('mv '+domainfile_new+'.tmp3 '+domainfile_new)
+    #os.system('rm '+domainfile_new+'.tmp*')
 else:
     os.system('mv '+domainfile_list+' '+domainfile_new)
 
@@ -268,9 +293,6 @@ for n in range(0,n_grids):
     print n
     nst = str(100000+n)[1:]
     surffile_new =  csmdir+'/components/clm/tools/clm4_5/pointclm/temp/surfdata'+nst+'.nc'
-
-    print 'ncks --fix_rec_dmn time -d lsmlon,'+str(xgrid_min[n])+','+str(xgrid_max[n])+ \
-             ' -d lsmlat,'+str(ygrid_min[n])+','+str(ygrid_max[n])+' '+surffile_orig+' '+surffile_new
     os.system('ncks --fix_rec_dmn time -d lsmlon,'+str(xgrid_min[n])+','+str(xgrid_max[n])+ \
              ' -d lsmlat,'+str(ygrid_min[n])+','+str(ygrid_max[n])+' '+surffile_orig+' '+surffile_new)
 
@@ -304,7 +326,7 @@ for n in range(0,n_grids):
         mypft_frac=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
         mypct_sand = 0.0 
         mypct_clay = 0.0
-        if (options.surfdata_grid == False and n_grids == 1):
+        if (options.surfdata_grid == False and options.site != ''):
             AFdatareader = csv.reader(open(options.sitegroup+'_pftdata.txt','rb'))
             for row in AFdatareader:
                 if row[0] == options.site:
@@ -322,14 +344,17 @@ for n in range(0,n_grids):
             if (mypct_sand == 0.0 and mypct_clay == 0.0):
                 print('*** Warning:  Soil data NOT found.  Using gridded data ***')
 
-        elif (n_grids > 1 and point_pfts != []):
+        elif (point_pfts[n] > 0):
             mypft_frac[point_pfts[n]] = 100.0
 
         landfrac_pft[0][0] = 1.0
         pftdata_mask[0][0] = 1
-        longxy[0][0] = lon[n]
-        latixy[0][0] = lat[n]
-        area = 111.2*resy*111.321*math.cos((lon[n]*resx)*math.pi/180)*resx
+
+        if (options.site != ''):
+            longxy[0][0] = lon[n]
+            latixy[0][0] = lat[n]
+            area = 111.2*resy*111.321*math.cos((lon[n]*resx)*math.pi/180)*resx
+
         if (not options.surfdata_grid):
             pct_wetland[0][0] = 0.0
             pct_lake[0][0]    = 0.0
@@ -436,7 +461,7 @@ if (options.nopftdyn == False):
         #read file for site-specific PFT information
         dynexist = False
         mypft_frac=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-        if (options.surfdata_grid == False and n_grids ==1):
+        if (options.surfdata_grid == False and options.site != ''):
             AFdatareader = csv.reader(open(options.sitegroup+'_pftdata.txt','rb'))
             for row in AFdatareader:
                 #print(row[0], row[1], options.site)
@@ -464,9 +489,10 @@ if (options.nopftdyn == False):
 
         landfrac_pft[0][0] = 1.0
         pftdata_mask[0][0] = 1
-        longxy[0][0] = lon[n]
-        latixy[0][0] = lat[n]
-        area[0][0] = 111.2*resy*111.321*math.cos((lon[n]*resx)*math.pi/180)*resx
+        if (options.site != ''):
+            longxy[0][0] = lon[n]
+            latixy[0][0] = lat[n]
+            area[0][0] = 111.2*resy*111.321*math.cos((lon[n]*resx)*math.pi/180)*resx
         thisrow = 0
         for t in range(0,251):     
             if (options.surfdata_grid == False):
@@ -552,7 +578,7 @@ if (options.nopftdyn == False):
   if (n_grids > 1):
       os.system('ncecat '+pftdyn_list+' '+pftdyn_new)
 
-      os.system('rm '+csmdir+'/components/clm/tools/clm4_5/pointclm/temp/surfdata?????.nc*')
+      os.system('rm '+csmdir+'/components/clm/tools/clm4_5/pointclm/temp/surfdata.pftdyn?????.nc*')
       #remove ni dimension
       os.system('ncwa -O -a lsmlat -d lsmlat,0,0 '+pftdyn_new+' '+pftdyn_new+'.tmp')
       os.system('nccopy -3 -u '+pftdyn_new+'.tmp'+' '+pftdyn_new+'.tmp2')

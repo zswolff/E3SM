@@ -41,7 +41,7 @@ parser.add_option("--res", dest="res", default="CLM_USRDAT", \
                       help='Resoultion for global simulation')
 parser.add_option("--point_list", dest="point_list", default='', \
                   help = 'File containing list of points to run')
-parser.add_option("--site", dest="site", default='none', \
+parser.add_option("--site", dest="site", default='', \
                   help = '6-character FLUXNET code to run (required)')
 parser.add_option("--sitegroup", dest="sitegroup", default="AmeriFlux", \
                   help = "site group to use (default AmeriFlux)")
@@ -255,7 +255,7 @@ else:
 
 compset = options.compset
 isglobal = False
-if (options.site == 'none'):
+if (options.site == ''):
     isglobal = True
     options.site=options.res
 
@@ -417,7 +417,6 @@ print compset, mysimyr
 
 if (options.nopointdata == False):
     ptcmd = 'python makepointdata.py --caseroot '+caseroot+ \
-        ' --site '+options.site+' --sitegroup '+options.sitegroup+ \
         ' --csmdir '+csmdir+' --ccsm_input '+options.ccsm_input+ \
         ' --lat_bounds '+options.lat_bounds+' --lon_bounds '+ \
         options.lon_bounds+' --mysimyr '+str(mysimyr)
@@ -435,7 +434,9 @@ if (options.nopointdata == False):
         ptcmd = ptcmd + ' --res '+options.res
         if (options.point_list != ''):
             ptcmd = ptcmd+' --point_list '+options.point_list
-                           
+    else:
+        ptcmd = ptcmd + ' --site '+options.site+' --sitegroup '+options.sitegroup       
+
     print('Creating surface and domain data')
     if (options.machine == 'eos' or options.machine == 'titan'):
         os.system('rm temp/*.nc')

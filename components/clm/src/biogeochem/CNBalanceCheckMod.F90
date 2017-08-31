@@ -254,7 +254,7 @@ contains
             write(iulog,*)'begcb       = ',col_begcb(c)
             write(iulog,*)'endcb       = ',col_endcb(c),carbonstate_vars%totsomc_col(c)
             write(iulog,*)'delta store = ',col_endcb(c)-col_begcb(c)
-            call endrun(msg=errMsg(__FILE__, __LINE__))
+            !call endrun(msg=errMsg(__FILE__, __LINE__))
          end if
       end if !use_ed
 
