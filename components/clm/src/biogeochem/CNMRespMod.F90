@@ -193,9 +193,6 @@ contains
          end if
          if (br_xr(ivt(p)) .gt. 0) then
             xr(p) = cpool(p) * br_xr(ivt(p)) * tc
-            if (p == 103) then 
-                print*, p, cpool(p), laisun(p), laisha(p), t_ref2m(p), tc, xr(p)
-            end if
          else
             xr(p) = 0._r8
          end if

@@ -810,7 +810,8 @@ contains
         deadcrootc_xfer                     =>    carbonstate_vars%deadcrootc_xfer_patch                      , & ! Input:  [real(r8) (:)     ]  (gC/m2) dead coarse root C transfer               
         gresp_storage                       =>    carbonstate_vars%gresp_storage_patch                        , & ! Input:  [real(r8) (:)     ]  (gC/m2) growth respiration storage                
         gresp_xfer                          =>    carbonstate_vars%gresp_xfer_patch                           , & ! Input:  [real(r8) (:)     ]  (gC/m2) growth respiration transfer               
-        
+        cpool                               =>    carbonstate_vars%cpool_patch                                , & ! Input:  [real(r8) (:)     ]  (gC/m2) C pool        
+
         decomp_npools_vr                    =>    nitrogenstate_vars%decomp_npools_vr_col                     , & ! Input:  [real(r8) (:,:,:) ]  (gC/m3)  VR decomp. (litter, cwd, soil)
         leafn                               =>    nitrogenstate_vars%leafn_patch                              , & ! Input:  [real(r8) (:)     ]  (gN/m2) leaf N                                    
         leafn_storage                       =>    nitrogenstate_vars%leafn_storage_patch                      , & ! Input:  [real(r8) (:)     ]  (gN/m2) leaf N storage                            
@@ -876,7 +877,8 @@ contains
         m_deadcrootc_xfer_to_fire           =>    carbonflux_vars%m_deadcrootc_xfer_to_fire_patch             , & ! Input:  [real(r8) (:)     ]  (gC/m2/s) C emis. deadcrootc_xfer	       
         m_gresp_storage_to_fire             =>    carbonflux_vars%m_gresp_storage_to_fire_patch               , & ! Input:  [real(r8) (:)     ]  (gC/m2/s) C emis. gresp_storage	
         m_gresp_xfer_to_fire                =>    carbonflux_vars%m_gresp_xfer_to_fire_patch                  , & ! Input:  [real(r8) (:)     ]  (gC/m2/s) C emis. gresp_xfer           
-        
+        m_cpool_to_fire                     =>    carbonflux_vars%m_cpool_to_fire_patch                       , & ! Input:  [real(r8) (:)     ]  (gC/m2/s) C emis. cpool     
+  
         fire_mortality_n_to_cwdn            =>    nitrogenflux_vars%fire_mortality_n_to_cwdn_col              , & ! Input:  [real(r8) (:,:)   ]  N flux fire mortality to CWD (gN/m3/s)
         m_leafn_to_fire                     =>    nitrogenflux_vars%m_leafn_to_fire_patch                     , & ! Input:  [real(r8) (:)     ]  (gN/m2/s) N emis. leafn		  
         m_leafn_storage_to_fire             =>    nitrogenflux_vars%m_leafn_storage_to_fire_patch             , & ! Input:  [real(r8) (:)     ]  (gN/m2/s) N emis. leafn_storage	  
@@ -942,9 +944,10 @@ contains
         m_livecrootc_to_deadcrootc_fire     =>    carbonflux_vars%m_livecrootc_to_deadcrootc_fire_patch       , & ! Output: [real(r8) (:)     ]                                                    
         m_deadcrootc_to_litter_fire         =>    carbonflux_vars%m_deadcrootc_to_litter_fire_patch           , & ! Output: [real(r8) (:)     ]                                                    
         m_deadcrootc_storage_to_litter_fire =>    carbonflux_vars%m_deadcrootc_storage_to_litter_fire_patch   , & ! Output: [real(r8) (:)     ]                                                    
-        m_deadcrootc_xfer_to_litter_fire    =>    carbonflux_vars%m_deadcrootc_xfer_to_litter_fire_patch      , & ! Output: [real(r8) (:)     ]                                                    
+        m_deadcrootc_xfer_to_litter_fire    =>    carbonflux_vars%m_deadcrootc_xfer_to_litter_fire_patch      , & ! Output: [real(r8) (:)     ]                                                   
         m_gresp_storage_to_litter_fire      =>    carbonflux_vars%m_gresp_storage_to_litter_fire_patch        , & ! Output: [real(r8) (:)     ]                                                    
-        m_gresp_xfer_to_litter_fire         =>    carbonflux_vars%m_gresp_xfer_to_litter_fire_patch           , & ! Output: [real(r8) (:)     ]                                                    
+        m_gresp_xfer_to_litter_fire         =>    carbonflux_vars%m_gresp_xfer_to_litter_fire_patch           , & ! Output: [real(r8) (:)     ]                             
+        m_cpool_to_litter_fire              =>    carbonflux_vars%m_cpool_to_litter_fire_patch                , & ! Output: [real(r8) (:)     ]                       
         m_decomp_cpools_to_fire_vr          =>    carbonflux_vars%m_decomp_cpools_to_fire_vr_col              , & ! Output: [real(r8) (:,:,:) ]  (gC/m3/s) VR decomp. C fire loss
         m_c_to_litr_met_fire                =>    carbonflux_vars%m_c_to_litr_met_fire_col                    , & ! Output: [real(r8) (:,:)   ]                                                  
         m_c_to_litr_cel_fire                =>    carbonflux_vars%m_c_to_litr_cel_fire_col                    , & ! Output: [real(r8) (:,:)   ]                                                  
@@ -1060,7 +1063,7 @@ contains
         m_deadcrootc_xfer_to_fire(p)     =  deadcrootc_xfer(p)    * f * cc_other(veg_pp%itype(p)) 
         m_gresp_storage_to_fire(p)       =  gresp_storage(p)      * f * cc_other(veg_pp%itype(p))
         m_gresp_xfer_to_fire(p)          =  gresp_xfer(p)         * f * cc_other(veg_pp%itype(p))
-
+        m_cpool_to_fire(p)               =  cpool(p)              * f * cc_other(veg_pp%itype(p))
 
         ! nitrogen fluxes
         m_leafn_to_fire(p)               =  leafn(p)              * f * cc_leaf(veg_pp%itype(p))
@@ -1163,7 +1166,9 @@ contains
         m_gresp_xfer_to_litter_fire(p)              =  gresp_xfer(p) * f * &
              (1._r8 - cc_other(veg_pp%itype(p))) * &
              fm_other(veg_pp%itype(p)) 
-
+        m_cpool_to_litter_fire(p)                   =  cpool(p) * f * &
+             (1._r8 - cc_other(veg_pp%itype(p))) * &
+             fm_other(veg_pp%itype(p))
 
         ! nitrogen pools    
         m_leafn_to_litter_fire(p)                  =  leafn(p) * f * &
@@ -1337,7 +1342,7 @@ contains
                     m_c_to_litr_met_fire(c,j)=m_c_to_litr_met_fire(c,j) + &
                          ((m_leafc_to_litter_fire(p)*lf_flab(veg_pp%itype(p)) &
                          +m_leafc_storage_to_litter_fire(p) + &
-                         m_leafc_xfer_to_litter_fire(p) + &
+                         m_leafc_xfer_to_litter_fire(p) + m_cpool_to_litter_fire(p) + &
                          m_gresp_storage_to_litter_fire(p) &
                          +m_gresp_xfer_to_litter_fire(p))*leaf_prof(p,j) + &
                          (m_frootc_to_litter_fire(p)*fr_flab(veg_pp%itype(p)) &

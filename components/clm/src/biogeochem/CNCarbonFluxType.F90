@@ -107,6 +107,8 @@ module CNCarbonFluxType
      real(r8), pointer :: m_deadcrootc_xfer_to_fire_patch           (:)     ! (gC/m2/s) fire C emissions from deadcrootc_xfer
      real(r8), pointer :: m_gresp_storage_to_fire_patch             (:)     ! (gC/m2/s) fire C emissions from gresp_storage 
      real(r8), pointer :: m_gresp_xfer_to_fire_patch                (:)     ! (gC/m2/s) fire C emissions from gresp_xfer
+     real(r8), pointer :: m_cpool_to_fire_patch                     (:)     ! (gC/m2/s) fire C emissions from cpool
+
      real(r8), pointer :: m_leafc_to_litter_fire_patch              (:)     ! (gC/m2/s) from leafc to litter c due to fire
      real(r8), pointer :: m_leafc_storage_to_litter_fire_patch      (:)     ! (gC/m2/s) from leafc_storage to litter C  due to fire               
      real(r8), pointer :: m_leafc_xfer_to_litter_fire_patch         (:)     ! (gC/m2/s) from leafc_xfer to litter C  due to fire               
@@ -129,6 +131,7 @@ module CNCarbonFluxType
      real(r8), pointer :: m_deadcrootc_xfer_to_litter_fire_patch    (:)     ! (gC/m2/s) from deadcrootc_xfer to litter C due to fire                       
      real(r8), pointer :: m_gresp_storage_to_litter_fire_patch      (:)     ! (gC/m2/s) from gresp_storage to litter C due to fire                       
      real(r8), pointer :: m_gresp_xfer_to_litter_fire_patch         (:)     ! (gC/m2/s) from gresp_xfer to litter C due to fire                       
+     real(r8), pointer :: m_cpool_to_litter_fire_patch              (:)     ! (gC/m2/s) from cpool to litter C due to fire              
 
      ! phenology fluxes from transfer pools                     
      real(r8), pointer :: grainc_xfer_to_grainc_patch               (:)     ! grain C growth from storage for prognostic crop(gC/m2/s)
@@ -519,6 +522,8 @@ contains
         allocate(this%m_deadcrootc_xfer_to_fire_patch           (begp:endp)) ; this%m_deadcrootc_xfer_to_fire_patch           (:) = nan
         allocate(this%m_gresp_storage_to_fire_patch             (begp:endp)) ; this%m_gresp_storage_to_fire_patch             (:) = nan
         allocate(this%m_gresp_xfer_to_fire_patch                (begp:endp)) ; this%m_gresp_xfer_to_fire_patch                (:) = nan
+        allocate(this%m_cpool_to_fire_patch                     (begp:endp)) ; this%m_cpool_to_fire_patch                     (:) = nan
+
         allocate(this%m_leafc_to_litter_fire_patch              (begp:endp)) ; this%m_leafc_to_litter_fire_patch              (:) = nan
         allocate(this%m_leafc_storage_to_litter_fire_patch      (begp:endp)) ; this%m_leafc_storage_to_litter_fire_patch      (:) = nan
         allocate(this%m_leafc_xfer_to_litter_fire_patch         (begp:endp)) ; this%m_leafc_xfer_to_litter_fire_patch         (:) = nan
@@ -541,6 +546,8 @@ contains
         allocate(this%m_deadcrootc_xfer_to_litter_fire_patch    (begp:endp)) ; this%m_deadcrootc_xfer_to_litter_fire_patch    (:) = nan
         allocate(this%m_gresp_storage_to_litter_fire_patch      (begp:endp)) ; this%m_gresp_storage_to_litter_fire_patch      (:) = nan
         allocate(this%m_gresp_xfer_to_litter_fire_patch         (begp:endp)) ; this%m_gresp_xfer_to_litter_fire_patch         (:) = nan
+        allocate(this%m_cpool_to_litter_fire_patch              (begp:endp)) ; this%m_cpool_to_litter_fire_patch              (:) = nan
+
         allocate(this%leafc_xfer_to_leafc_patch                 (begp:endp)) ; this%leafc_xfer_to_leafc_patch                 (:) = nan
         allocate(this%frootc_xfer_to_frootc_patch               (begp:endp)) ; this%frootc_xfer_to_frootc_patch               (:) = nan
         allocate(this%livestemc_xfer_to_livestemc_patch         (begp:endp)) ; this%livestemc_xfer_to_livestemc_patch         (:) = nan
@@ -1125,6 +1132,11 @@ contains
             avgflag='A', long_name='growth respiration transfer fire loss', &
             ptr_patch=this%m_gresp_xfer_to_fire_patch, default='inactive')
 
+       this%m_cpool_to_fire_patch(begp:endp) = spval
+       call hist_addfld1d (fname='M_CPOOL_TO_FIRE', units='gC/m^2/s', &
+            avgflag='A', long_name='cpool fire loss', &
+            ptr_patch=this%m_cpool_to_fire_patch, default='inactive')
+
        this%m_leafc_to_litter_fire_patch(begp:endp) = spval
        call hist_addfld1d (fname='M_LEAFC_TO_LITTER_FIRE', units='gC/m^2/s', &
             avgflag='A', long_name='leaf C fire mortality to litter', &
@@ -1246,6 +1258,11 @@ contains
        call hist_addfld1d (fname='M_GRESP_XFER_TO_LITTER_FIRE', units='gC/m^2/s', &
             avgflag='A', long_name='growth respiration transfer fire mortality to litter', &
             ptr_patch=this%m_gresp_xfer_to_litter_fire_patch, default='inactive')   
+
+      this%m_cpool_to_litter_fire_patch(begp:endp) = spval
+       call hist_addfld1d (fname='M_CPOOL_TO_LITTER_FIRE', units='gC/m^2/s', &
+            avgflag='A', long_name='cpool fire mortality to litter', &
+            ptr_patch=this%m_cpool_to_litter_fire_patch, default='inactive')
 
        this%leafc_xfer_to_leafc_patch(begp:endp) = spval
        call hist_addfld1d (fname='LEAFC_XFER_TO_LEAFC', units='gC/m^2/s', &
@@ -4052,6 +4069,7 @@ contains
           this%m_deadcrootc_xfer_to_fire_patch(i)           = value_patch
           this%m_gresp_storage_to_fire_patch(i)             = value_patch
           this%m_gresp_xfer_to_fire_patch(i)                = value_patch
+          this%m_cpool_to_fire_patch(i)                     = value_patch
 
           this%m_leafc_to_litter_fire_patch(i)              = value_patch
           this%m_leafc_storage_to_litter_fire_patch(i)      = value_patch
@@ -4075,6 +4093,7 @@ contains
           this%m_deadcrootc_xfer_to_litter_fire_patch(i)    = value_patch
           this%m_gresp_storage_to_litter_fire_patch(i)      = value_patch
           this%m_gresp_xfer_to_litter_fire_patch(i)         = value_patch
+          this%m_cpool_to_litter_fire_patch(i)              = value_patch
 
           this%leafc_xfer_to_leafc_patch(i)                 = value_patch
           this%frootc_xfer_to_frootc_patch(i)               = value_patch
@@ -4640,7 +4659,8 @@ contains
             this%m_deadcrootc_storage_to_fire_patch(p)   + &
             this%m_deadcrootc_xfer_to_fire_patch(p)      + &
             this%m_gresp_storage_to_fire_patch(p)        + &
-            this%m_gresp_xfer_to_fire_patch(p)
+            this%m_gresp_xfer_to_fire_patch(p)           + &
+            this%m_cpool_to_fire_patch(p)
 
        if ( crop_prog .and. veg_pp%itype(p) >= npcropmin )then
 
