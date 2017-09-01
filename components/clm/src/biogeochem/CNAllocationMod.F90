@@ -3242,28 +3242,40 @@ contains
              ! calculate the associated carbon allocation, and the excess
              ! carbon flux that must be accounted for through downregulation
 
+             ! calculate the associated carbon allocation, and the excess
+             ! carbon flux that must be accounted for through downregulation
+
              if( .not.cnallocate_carbonphosphorus_only().and. .not.cnallocate_carbonnitrogen_only().and. .not.cnallocate_carbon_only() )then
                  if( plant_nalloc(p) * (c_allometry(p)/n_allometry(p)) < &
                      plant_palloc(p) * (c_allometry(p)/p_allometry(p)) )then
 
                      plant_calloc(p) = plant_nalloc(p) * (c_allometry(p)/n_allometry(p))
-
                      plant_palloc(p) = plant_nalloc(p) * (p_allometry(p)/n_allometry(p))
+                     !in case of strong N limitation, and plant_palloc(p) < retransp_to_ppool(p)                    
+                     sminp_to_ppool(p) = max(plant_palloc(p) - retransp_to_ppool(p),0.0_r8)                 
+                     retransp_to_ppool(p) = min(plant_palloc(p), retransp_to_ppool(p)) 
 
-                     sminp_to_ppool(p) = max(plant_palloc(p) - retransp_to_ppool(p),0.0_r8) ! in case of strong N limitation, and plant_palloc(p) < retransp_to_ppool(p)
-                     
-                     retransp_to_ppool(p) = min(plant_palloc(p) , retransp_to_ppool(p)) ! in case of strong N limitation, and plant_palloc(p) < retransp_to_ppool(p)
                  else
                      plant_calloc(p) = plant_palloc(p) * (c_allometry(p)/p_allometry(p))
-
                      plant_nalloc(p) = plant_palloc(p) * (n_allometry(p)/p_allometry(p))
 
-                     sminn_to_npool(p) = max(plant_nalloc(p) - retransn_to_npool(p), 0.0_r8) ! in case of strong P limitation, and plant_nalloc(p) < retransn_to_npool(p)
-                     
-                     retransn_to_npool(p) = min(plant_nalloc(p) , retransn_to_npool(p)) ! in case of strong P limitation, and plant_nalloc(p) < retransn_to_npool(p)
+                     if (veg_vp%nstor(veg_pp%itype(p)) > 1e-6_r8) then
+                         if (fpg_p(c) .lt. fpg(c)) then
+                             !in case of strong P limitation, and plant_nalloc(p) < retransn_to_npool(p)
+                             sminn_to_npool(p) = max(plant_nalloc(p) - retransn_to_npool(p), 0.0_r8)
+                             retransn_to_npool(p) = min(plant_nalloc(p), retransn_to_npool(p)) 
+                         end if
+                         !Due to allocation from plant N storage, Plant is P
+                         !limited but soil mineral demand is N-limited.  In this
+                         !case where fpg(c) < fpg_p(c) do not adjust uptake.
+                     else
+                         ! in case of strong P limitation, and plant_nalloc(p) < retransn_to_npool(p)
+                         sminn_to_npool(p) = max(plant_nalloc(p) - retransn_to_npool(p), 0.0_r8) 
+                         retransn_to_npool(p) = min(plant_nalloc(p) , retransn_to_npool(p)) 
+                     end if
                  endif
              endif
-         
+
              if(cnallocate_carbonphosphorus_only().or.cnallocate_carbon_only() )then
                  plant_calloc(p) = plant_palloc(p) * (c_allometry(p)/p_allometry(p)) 
              endif
@@ -3279,16 +3291,34 @@ contains
              ! reduce gpp fluxes due to N limitation
              if (gpp(p) > 0.0_r8) then
                  downreg(p) = excess_cflux(p)/gpp(p)
-                 psnsun_to_cpool(p)   = psnsun_to_cpool(p)  *(1._r8 - downreg(p))
-                 psnshade_to_cpool(p) = psnshade_to_cpool(p)*(1._r8 - downreg(p))
-                 if ( use_c13 ) then
-                     c13cf%psnsun_to_cpool_patch(p)   = c13cf%psnsun_to_cpool_patch(p)  *(1._r8 - downreg(p))
-                     c13cf%psnshade_to_cpool_patch(p) = c13cf%psnshade_to_cpool_patch(p)*(1._r8 - downreg(p))
-                 endif
 
-                 if ( use_c14 ) then
-                     c14cf%psnsun_to_cpool_patch(p)   = c14cf%psnsun_to_cpool_patch(p)  *(1._r8 - downreg(p))
-                     c14cf%psnshade_to_cpool_patch(p) = c14cf%psnshade_to_cpool_patch(p)*(1._r8 - downreg(p))
+                 if (veg_vp%br_xr(veg_pp%itype(p)) > 0) then
+                     !Excess carbon goes to temporary NSC pool instead of
+                     !instantaneous downregulation
+                     psnsun_to_cpool(p) = psnsun_to_cpool(p)
+                     psnshade_to_cpool(p) = psnshade_to_cpool(p) 
+                     if ( use_c13 ) then
+                         c13cf%psnsun_to_cpool_patch(p) = c13cf%psnsun_to_cpool_patch(p)
+                         c13cf%psnshade_to_cpool_patch(p) = c13cf%psnshade_to_cpool_patch(p)
+                     endif
+
+                     if ( use_c14 ) then
+                         c14cf%psnsun_to_cpool_patch(p) = c14cf%psnsun_to_cpool_patch(p)
+                         c14cf%psnshade_to_cpool_patch(p) = c14cf%psnshade_to_cpool_patch(p)
+                     endif
+
+                 else
+                     psnsun_to_cpool(p)   = psnsun_to_cpool(p)  *(1._r8 - downreg(p))
+                     psnshade_to_cpool(p) = psnshade_to_cpool(p)*(1._r8 - downreg(p))
+                     if ( use_c13 ) then
+                         c13cf%psnsun_to_cpool_patch(p)   = c13cf%psnsun_to_cpool_patch(p)  *(1._r8 - downreg(p))
+                         c13cf%psnshade_to_cpool_patch(p) = c13cf%psnshade_to_cpool_patch(p)*(1._r8 - downreg(p))
+                     endif
+
+                     if ( use_c14 ) then
+                         c14cf%psnsun_to_cpool_patch(p)   = c14cf%psnsun_to_cpool_patch(p)  *(1._r8 - downreg(p))
+                         c14cf%psnshade_to_cpool_patch(p) = c14cf%psnshade_to_cpool_patch(p)*(1._r8 - downreg(p))
+                     endif
                  endif
              end if
          else

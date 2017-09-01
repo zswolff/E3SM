@@ -236,6 +236,7 @@ contains
    livecrootn                          =>    nitrogenstate_vars%livecrootn_patch                              , & ! Input:  [real(r8) (:)]  (gN/m2) live coarse root N                        
    deadcrootn                          =>    nitrogenstate_vars%deadcrootn_patch                              , & ! Input:  [real(r8) (:)]  (gN/m2) dead coarse root N                        
    retransn                            =>    nitrogenstate_vars%retransn_patch                                , & ! Input:  [real(r8) (:)]  (gN/m2) plant pool of retranslocated N            
+   npool                               =>    nitrogenstate_vars%npool_patch                                   , & ! Input:  [real(r8) (:)]  (gN/m2) plant pool of stored N 
    leafn_storage                       =>    nitrogenstate_vars%leafn_storage_patch                           , & ! Input:  [real(r8) (:)]  (gN/m2) leaf N storage                            
    frootn_storage                      =>    nitrogenstate_vars%frootn_storage_patch                          , & ! Input:  [real(r8) (:)]  (gN/m2) fine root N storage                       
    livestemn_storage                   =>    nitrogenstate_vars%livestemn_storage_patch                       , & ! Input:  [real(r8) (:)]  (gN/m2) live stem N storage                       
@@ -301,6 +302,7 @@ contains
    hrv_livecrootn_to_litter            =>    nitrogenflux_vars%hrv_livecrootn_to_litter_patch                , & ! Output: [real(r8) (:)]                                                    
    hrv_deadcrootn_to_litter            =>    nitrogenflux_vars%hrv_deadcrootn_to_litter_patch                , & ! Output: [real(r8) (:)]                                                    
    hrv_retransn_to_litter              =>    nitrogenflux_vars%hrv_retransn_to_litter_patch                  , & ! Output: [real(r8) (:)]                                                    
+   hrv_npool_to_litter                 =>    nitrogenflux_vars%hrv_npool_to_litter_patch                     , & ! Output: [real(r8) (:)]   
    hrv_leafn_storage_to_litter         =>    nitrogenflux_vars%hrv_leafn_storage_to_litter_patch             , & ! Output: [real(r8) (:)]                                                    
    hrv_frootn_storage_to_litter        =>    nitrogenflux_vars%hrv_frootn_storage_to_litter_patch            , & ! Output: [real(r8) (:)]                                                    
    hrv_livestemn_storage_to_litter     =>    nitrogenflux_vars%hrv_livestemn_storage_to_litter_patch         , & ! Output: [real(r8) (:)]                                                    
@@ -399,6 +401,7 @@ contains
          hrv_livecrootn_to_litter(p)          = livecrootn(p)          * m
          hrv_deadcrootn_to_litter(p)          = deadcrootn(p)          * m
          hrv_retransn_to_litter(p)            = retransn(p)            * m
+         hrv_npool_to_litter(p)               = npool(p)               * m
 
          ! storage pools
          hrv_leafn_storage_to_litter(p)       = leafn_storage(p)       * m
@@ -539,6 +542,7 @@ contains
         hrv_livecrootn_to_litter         =>    nitrogenflux_vars%hrv_livecrootn_to_litter_patch         , & ! Input:  [real(r8) (:)   ]                                                    
         hrv_deadcrootn_to_litter         =>    nitrogenflux_vars%hrv_deadcrootn_to_litter_patch         , & ! Input:  [real(r8) (:)   ]                                                    
         hrv_retransn_to_litter           =>    nitrogenflux_vars%hrv_retransn_to_litter_patch           , & ! Input:  [real(r8) (:)   ]                                                    
+        hrv_npool_to_litter              =>    nitrogenflux_vars%hrv_npool_to_litter_patch              , & ! Input:  [real(r8) (:)   ]
         hrv_leafn_storage_to_litter      =>    nitrogenflux_vars%hrv_leafn_storage_to_litter_patch      , & ! Input:  [real(r8) (:)   ]                                                    
         hrv_frootn_storage_to_litter     =>    nitrogenflux_vars%hrv_frootn_storage_to_litter_patch     , & ! Input:  [real(r8) (:)   ]                                                    
         hrv_livestemn_storage_to_litter  =>    nitrogenflux_vars%hrv_livestemn_storage_to_litter_patch  , & ! Input:  [real(r8) (:)   ]                                                    
@@ -681,6 +685,8 @@ contains
                     ! retranslocated N pool harvest mortality fluxes
                     harvest_n_to_litr_met_n(c,j) = harvest_n_to_litr_met_n(c,j) + &
                          hrv_retransn_to_litter(p) * wtcol(p) * leaf_prof(p,j)
+                    harvest_n_to_litr_met_n(c,j) = harvest_n_to_litr_met_n(c,j) + &
+                         hrv_npool_to_litter(p) * wtcol(p) * leaf_prof(p,j)
 
                     ! storage harvest mortality nitrogen fluxes
                     harvest_n_to_litr_met_n(c,j)      = harvest_n_to_litr_met_n(c,j)      + &

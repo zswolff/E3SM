@@ -182,7 +182,7 @@ module CNEcosystemDynBetrMod
        end if
        call CNMResp(bounds, num_soilc, filter_soilc, num_soilp, filter_soilp, &
             canopystate_vars, soilstate_vars, temperature_vars, photosyns_vars, &
-            carbonflux_vars, nitrogenstate_vars)
+            carbonflux_vars, carbonstate_vars, nitrogenstate_vars)
        call t_stopf('CNMResp')
 
        ! for P competition purpose, calculate P fluxes that will potentially increase solution P pool

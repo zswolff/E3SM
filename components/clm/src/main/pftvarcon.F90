@@ -127,6 +127,7 @@ module pftvarcon
   real(r8), allocatable :: fr_fcel(:)      !fine root litter cellulose fraction
   real(r8), allocatable :: fr_flig(:)      !fine root litter lignin fraction
   real(r8), allocatable :: leaf_long(:)    !leaf longevity (yrs)
+  real(r8), allocatable :: froot_long(:)   !fine root longevity(yrs)
   real(r8), allocatable :: evergreen(:)    !binary flag for evergreen leaf habit (0 or 1)
   real(r8), allocatable :: stress_decid(:) !binary flag for stress-deciduous leaf habit (0 or 1)
   real(r8), allocatable :: season_decid(:) !binary flag for seasonal-deciduous leaf habit (0 or 1)
@@ -236,6 +237,7 @@ module pftvarcon
   real(r8), allocatable :: bbbopt(:)           !Ball-Berry stomatal conductance intercept
   real(r8), allocatable :: mbbopt(:)           !Ball-Berry stomatal conductance slope
   real(r8), allocatable :: nstor(:)            !Nitrogen storage pool timescale 
+  real(r8), allocatable :: br_xr(:)            !Base rate for excess respiration
   real(r8)              :: tc_stress           !Critial temperature for moisture stress
   real(r8)              :: vcmax_np1           !vcmax~np relationship coefficient
   real(r8)              :: vcmax_np2           !vcmax~np relationship coefficient
@@ -400,6 +402,7 @@ contains
     allocate( fr_fcel       (0:mxpft) )      
     allocate( fr_flig       (0:mxpft) )      
     allocate( leaf_long     (0:mxpft) )   
+    allocate( froot_long    (0:mxpft) )
     allocate( evergreen     (0:mxpft) )    
     allocate( stress_decid  (0:mxpft) ) 
     allocate( season_decid  (0:mxpft) ) 
@@ -483,6 +486,7 @@ contains
     allocate( bbbopt             (0:mxpft) )
     allocate( mbbopt             (0:mxpft) )
     allocate( nstor              (0:mxpft) )
+    allocate( br_xr              (0:mxpft) )
 
     ! Set specific vegetation type values
 
@@ -593,6 +597,8 @@ contains
     call ncd_io('fr_flig',fr_flig, 'read', ncid, readvar=readv, posNOTonfile=.true.)    
     if ( .not. readv ) call endrun(msg=' ERROR: error in reading in pft data'//errMsg(__FILE__, __LINE__))
     call ncd_io('leaf_long',leaf_long, 'read', ncid, readvar=readv, posNOTonfile=.true.)    
+    if ( .not. readv ) call endrun(msg=' ERROR: error in reading in pft data'//errMsg(__FILE__, __LINE__))
+    call ncd_io('froot_long',froot_long, 'read', ncid, readvar=readv, posNOTonfile=.true.)
     if ( .not. readv ) call endrun(msg=' ERROR: error in reading in pft data'//errMsg(__FILE__, __LINE__))
     call ncd_io('evergreen',evergreen, 'read', ncid, readvar=readv, posNOTonfile=.true.)    
     if ( .not. readv ) call endrun(msg=' ERROR: error in reading in pft data'//errMsg(__FILE__, __LINE__))
@@ -855,6 +861,8 @@ contains
     call ncd_io('mbbopt', mbbopt, 'read', ncid, readvar=readv, posNOTonfile=.true.)
     if ( .not. readv) call endrun(msg='ERROR:  error in reading in pft data'//errMsg(__FILE__,__LINE__))
     call ncd_io('nstor', nstor, 'read', ncid, readvar=readv, posNOTonfile=.true.)
+    if ( .not. readv) call endrun(msg='ERROR:  error in reading in pft data'//errMsg(__FILE__,__LINE__))
+    call ncd_io('br_xr', br_xr, 'read', ncid, readvar=readv, posNOTonfile=.true.)
     if ( .not. readv) call endrun(msg='ERROR:  error in reading in pft data'//errMsg(__FILE__,__LINE__))
     call ncd_io('tc_stress', tc_stress, 'read', ncid, readvar=readv, posNOTonfile=.true.)
     if ( .not. readv) call endrun(msg='ERROR:  error in reading in pft data'//errMsg(__FILE__,__LINE__))

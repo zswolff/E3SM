@@ -394,7 +394,7 @@ contains
        end if
        call CNMResp(bounds, num_soilc, filter_soilc, num_soilp, filter_soilp, &
             canopystate_vars, soilstate_vars, temperature_vars, photosyns_vars, &
-            carbonflux_vars, nitrogenstate_vars)
+            carbonflux_vars, carbonstate_vars, nitrogenstate_vars)
        call t_stopf('CNMResp')
 
        if ( nu_com .ne. 'RD') then
@@ -595,7 +595,7 @@ contains
 
        call t_startf('CNPhenology')
        call CNPhenology(num_soilc, filter_soilc, num_soilp, filter_soilp, &
-            num_pcropp, filter_pcropp, doalb, &
+            num_pcropp, filter_pcropp, doalb, atm2lnd_vars, &
             waterstate_vars, temperature_vars, crop_vars, canopystate_vars, soilstate_vars, &
             dgvs_vars, cnstate_vars, carbonstate_vars, carbonflux_vars, &
             nitrogenstate_vars, nitrogenflux_vars,&

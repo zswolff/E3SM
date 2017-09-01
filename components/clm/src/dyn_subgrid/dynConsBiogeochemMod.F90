@@ -610,6 +610,8 @@ contains
                 cnstate_vars%offset_swi_patch(p)            = 0._r8
                 cnstate_vars%lgsf_patch(p)                  = 0._r8
                 cnstate_vars%bglfr_patch(p)                 = 0._r8
+                cnstate_vars%bglfr_leaf_patch(p)            = 0._r8
+                cnstate_vars%bglfr_froot_patch(p)           = 0._r8
                 cnstate_vars%bgtr_patch(p)                  = 0._r8
                 cnstate_vars%annavg_t2m_patch(p)            = cnstate_vars%annavg_t2m_col(c)
                 cnstate_vars%tempavg_t2m_patch(p)           = 0._r8

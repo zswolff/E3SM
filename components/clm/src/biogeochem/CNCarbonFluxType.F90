@@ -161,6 +161,8 @@ module CNCarbonFluxType
      real(r8), pointer :: livestem_xsmr_patch                       (:)     ! live stem maintenance respiration from storage (gC/m2/s)
      real(r8), pointer :: livecroot_xsmr_patch                      (:)     ! live coarse root maintenance respiration from storage (gC/m2/s)
      real(r8), pointer :: grain_xsmr_patch                          (:)     ! crop grain or organs maint. respiration from storage (gC/m2/s)
+     !turnover of excess carbon
+     real(r8), pointer :: xr_patch                                  (:)     ! respiration from excess carbon cpool (gC/m2/s)
 
      ! photosynthesis fluxes                                   
      real(r8), pointer :: psnsun_to_cpool_patch                     (:)     ! C fixation from sunlit canopy (gC/m2/s)
@@ -562,6 +564,7 @@ contains
         allocate(this%livestem_xsmr_patch                       (begp:endp)) ; this%livestem_xsmr_patch                       (:) = nan
         allocate(this%livecroot_xsmr_patch                      (begp:endp)) ; this%livecroot_xsmr_patch                      (:) = nan
         allocate(this%grain_xsmr_patch                          (begp:endp)) ; this%grain_xsmr_patch                          (:) = nan
+        allocate(this%xr_patch                                  (begp:endp)) ; this%xr_patch                                  (:) = nan
         allocate(this%psnsun_to_cpool_patch                     (begp:endp)) ; this%psnsun_to_cpool_patch                     (:) = nan
         allocate(this%psnshade_to_cpool_patch                   (begp:endp)) ; this%psnshade_to_cpool_patch                   (:) = nan
         allocate(this%cpool_to_xsmrpool_patch                   (begp:endp)) ; this%cpool_to_xsmrpool_patch                   (:) = nan
@@ -1548,6 +1551,11 @@ contains
        call hist_addfld1d (fname='GR', units='gC/m^2/s', &
             avgflag='A', long_name='total growth respiration', &
             ptr_patch=this%gr_patch)
+
+       this%xr_patch(begp:endp) = spval
+       call hist_addfld1d (fname='XR', units='gC/m^2/s', &
+            avgflag='A', long_name='total excess respiration', &
+            ptr_patch=this%xr_patch)
 
        this%ar_patch(begp:endp) = spval
        call hist_addfld1d (fname='AR', units='gC/m^2/s', &
@@ -4091,6 +4099,7 @@ contains
           this%livestem_xsmr_patch(i)                       = value_patch
           this%livecroot_xsmr_patch(i)                      = value_patch
           this%grain_xsmr_patch(i)                          = value_patch
+          this%xr_patch(i)                                  = value_patch
           this%psnsun_to_cpool_patch(i)                     = value_patch
           this%psnshade_to_cpool_patch(i)                   = value_patch
           this%cpool_to_xsmrpool_patch(i)                   = value_patch
@@ -4491,6 +4500,7 @@ contains
           this%ar_patch(p) = &
                this%mr_patch(p) + &
                this%gr_patch(p) + &
+               this%xr_patch(p) + &
                this%xsmrpool_to_atm_patch(p) ! xsmr... is -ve (slevis)
           if (nu_com .ne. 'RD' ) then
              this%ar_patch(p) = this%ar_patch(p) + &
@@ -4499,7 +4509,8 @@ contains
        else
           this%ar_patch(p) = &
                this%mr_patch(p) + &
-               this%gr_patch(p)
+               this%gr_patch(p) + &
+               this%xr_patch(p)
           if (nu_com .ne. 'RD' ) then
              this%ar_patch(p) = this%ar_patch(p) + &
                   this%xsmrpool_turnover_patch(p)

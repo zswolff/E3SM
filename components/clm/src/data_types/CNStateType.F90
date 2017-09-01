@@ -125,6 +125,8 @@ module CNStateType
      real(r8), pointer :: grain_flag_patch             (:)     ! patch 1: grain fill stage; 0: not
      real(r8), pointer :: lgsf_patch                   (:)     ! patch long growing season factor [0-1]
      real(r8), pointer :: bglfr_patch                  (:)     ! patch background litterfall rate (1/s)
+     real(r8), pointer :: bglfr_leaf_patch             (:)     ! patch background leaf litterfall rate (1/s)
+     real(r8), pointer :: bglfr_froot_patch            (:)     ! patch background fine root litterfall rate (1/s)
      real(r8), pointer :: bgtr_patch                   (:)     ! patch background transfer growth rate (1/s)
      real(r8), pointer :: alloc_pnow_patch             (:)     ! patch fraction of current allocation to display as new growth (DIM)
      real(r8), pointer :: c_allometry_patch            (:)     ! patch C allocation index (DIM)
@@ -303,6 +305,8 @@ contains
     allocate(this%grain_flag_patch            (begp:endp)) ;    this%grain_flag_patch            (:) = nan
     allocate(this%lgsf_patch                  (begp:endp)) ;    this%lgsf_patch                  (:) = nan
     allocate(this%bglfr_patch                 (begp:endp)) ;    this%bglfr_patch                 (:) = nan
+    allocate(this%bglfr_leaf_patch            (begp:endp)) ;    this%bglfr_leaf_patch            (:) = nan
+    allocate(this%bglfr_froot_patch           (begp:endp)) ;    this%bglfr_froot_patch           (:) = nan
     allocate(this%bgtr_patch                  (begp:endp)) ;    this%bgtr_patch                  (:) = nan
     allocate(this%alloc_pnow_patch            (begp:endp)) ;    this%alloc_pnow_patch            (:) = nan
     allocate(this%c_allometry_patch           (begp:endp)) ;    this%c_allometry_patch           (:) = nan
@@ -562,10 +566,15 @@ contains
          avgflag='A', long_name='long growing season factor', &
          ptr_patch=this%lgsf_patch, default='inactive')
 
-    this%bglfr_patch(begp:endp) = spval
-    call hist_addfld1d (fname='BGLFR', units='1/s', &
-         avgflag='A', long_name='background litterfall rate', &
-         ptr_patch=this%bglfr_patch, default='inactive')
+    this%bglfr_leaf_patch(begp:endp) = spval
+    call hist_addfld1d (fname='BGLFR_LEAF', units='1/s', &
+         avgflag='A', long_name='background leaf litterfall rate', &
+         ptr_patch=this%bglfr_leaf_patch, default='inactive')
+
+    this%bglfr_froot_patch(begp:endp) = spval
+    call hist_addfld1d (fname='BGLFR_FROOT', units='1/s', &
+         avgflag='A', long_name='background fine root litterfall rate', &
+         ptr_patch=this%bglfr_froot_patch, default='inactive')
 
     this%bgtr_patch(begp:endp) = spval
     call hist_addfld1d (fname='BGTR', units='1/s', &
@@ -889,6 +898,8 @@ contains
           this%grain_flag_patch(p)            = spval
           this%lgsf_patch(p)                  = spval
           this%bglfr_patch(p)                 = spval
+          this%bglfr_leaf_patch(p)            = spval
+          this%bglfr_froot_patch(p)           = spval
           this%bgtr_patch(p)                  = spval
           this%alloc_pnow_patch(p)            = spval
           this%c_allometry_patch(p)           = spval
@@ -929,6 +940,8 @@ contains
           this%offset_swi_patch(p)     = 0._r8
           this%lgsf_patch(p)           = 0._r8
           this%bglfr_patch(p)          = 0._r8
+          this%bglfr_leaf_patch(p)     = 0._r8
+          this%bglfr_froot_patch(p)    = 0._r8
           this%bgtr_patch(p)           = 0._r8
           this%annavg_t2m_patch(p)     = 280._r8
           this%tempavg_t2m_patch(p)    = 0._r8
@@ -1050,7 +1063,17 @@ contains
     call restartvar(ncid=ncid, flag=flag, varname='bglfr', xtype=ncd_double,  &
          dim1name='pft', &
          long_name='', units='', &
-         interpinic_flag='interp', readvar=readvar, data=this%bglfr_patch) 
+         interpinic_flag='interp', readvar=readvar, data=this%bglfr_patch)
+
+    call restartvar(ncid=ncid, flag=flag, varname='bglfr_leaf', xtype=ncd_double,  &
+         dim1name='pft', &
+         long_name='', units='', &
+         interpinic_flag='interp', readvar=readvar, data=this%bglfr_leaf_patch) 
+
+    call restartvar(ncid=ncid, flag=flag, varname='bglfr_froot', xtype=ncd_double,  &
+         dim1name='pft', &
+         long_name='', units='', &
+         interpinic_flag='interp', readvar=readvar, data=this%bglfr_froot_patch)
 
     call restartvar(ncid=ncid, flag=flag, varname='bgtr', xtype=ncd_double,  &
          dim1name='pft', &
