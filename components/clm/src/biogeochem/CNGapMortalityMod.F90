@@ -251,6 +251,7 @@ contains
          if (ivt(p) < npcropmin) then
             phosphorusflux_vars%m_retransp_to_litter_patch(p) = phosphorusstate_vars%retransp_patch(p) * m
          end if
+         phosphorusflux_vars%m_ppool_to_litter_patch(p)               = phosphorusstate_vars%ppool_patch(p)               * m
 
          if (spinup_state >= 1) then
            phosphorusflux_vars%m_deadstemp_to_litter_patch(p)         = phosphorusstate_vars%deadstemp_patch(p)  * m * spinup_mortality_factor
@@ -385,6 +386,7 @@ contains
          m_livecrootp_to_litter              =>    phosphorusflux_vars%m_livecrootp_to_litter_patch         , & ! Input:  [real(r8) (:)   ]                                                    
          m_deadcrootp_to_litter              =>    phosphorusflux_vars%m_deadcrootp_to_litter_patch         , & ! Input:  [real(r8) (:)   ]                                                    
          m_retransp_to_litter                =>    phosphorusflux_vars%m_retransp_to_litter_patch           , & ! Input:  [real(r8) (:)   ]                                                    
+         m_ppool_to_litter                   =>    phosphorusflux_vars%m_ppool_to_litter_patch              , & ! Input:  [real(r8) (:)   ]         
          m_leafp_storage_to_litter           =>    phosphorusflux_vars%m_leafp_storage_to_litter_patch      , & ! Input:  [real(r8) (:)   ]                                                    
          m_frootp_storage_to_litter          =>    phosphorusflux_vars%m_frootp_storage_to_litter_patch     , & ! Input:  [real(r8) (:)   ]                                                    
          m_livestemp_storage_to_litter       =>    phosphorusflux_vars%m_livestemp_storage_to_litter_patch  , & ! Input:  [real(r8) (:)   ]                                                    
@@ -540,6 +542,9 @@ contains
                      ! retranslocated N pool gap mortality fluxes
                      gap_mortality_p_to_litr_met_p(c,j) = gap_mortality_p_to_litr_met_p(c,j) + &
                           m_retransp_to_litter(p) * wtcol(p) * leaf_prof(p,j)
+                     gap_mortality_p_to_litr_met_p(c,j) = gap_mortality_p_to_litr_met_p(c,j) + &
+                          m_ppool_to_litter(p) * wtcol(p) * leaf_prof(p,j)
+
 
                      ! storage gap mortality phosphorus fluxes
                      gap_mortality_p_to_litr_met_p(c,j)      = gap_mortality_p_to_litr_met_p(c,j)      + &

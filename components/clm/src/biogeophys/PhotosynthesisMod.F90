@@ -599,17 +599,17 @@ contains
             ! Maintenance respiration
 
             lmr25 = lmr25top * nscaler
-            if ( nu_com_leaf_physiology ) then 
+            !if ( nu_com_leaf_physiology ) then 
                 if (c3flag(p)) then
                    lmr_z(p,iv) = lmr25 * ft(t_veg(p), lmrha) * fth(t_veg(p), lmrhd, lmrse, lmrc)
                 else
                    lmr_z(p,iv) = lmr25 * 2._r8**((t_veg(p)-(tfrz+25._r8))/10._r8)
                    lmr_z(p,iv) = lmr_z(p,iv) / (1._r8 + exp( 1.3_r8*(t_veg(p)-(tfrz+55._r8)) ))
                 end if
-            else
-                !Use a Q10 relationship
-                lmr_z(p,iv) = lmr25 * CNParamsShareInst%Q10_mr **((t_veg(p)-(tfrz+25._r8))/10._r8)
-            end if
+            !else
+            !    !Use a Q10 relationship
+            !    lmr_z(p,iv) = lmr25 * CNParamsShareInst%Q10_mr **((t_veg(p)-(tfrz+25._r8))/10._r8)
+            !end if
 
             if (par_z(p,iv) <= 0._r8) then           ! night time
 
