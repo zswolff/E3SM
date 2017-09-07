@@ -744,6 +744,7 @@ contains
    real(r8), pointer :: m_deadcrootp_storage_to_litter_fire     (:)
    real(r8), pointer :: m_deadcrootp_xfer_to_litter_fire        (:)
    real(r8), pointer :: m_retransp_to_litter_fire               (:)
+   real(r8), pointer :: m_ppool_to_litter_fire                  (:)
    real(r8), pointer :: m_decomp_ppools_to_fire_vr              (:,:,:)
    real(r8), pointer :: m_p_to_litr_met_fire                    (:,:)
    real(r8), pointer :: m_p_to_litr_cel_fire                    (:,:)
@@ -854,7 +855,8 @@ contains
         deadcrootp_storage                  =>    phosphorusstate_vars%deadcrootp_storage_patch                 , & ! Input:  [real(r8) (:)     ]  (gP/m2) dead coarse root P storage                
         deadcrootp_xfer                     =>    phosphorusstate_vars%deadcrootp_xfer_patch                    , & ! Input:  [real(r8) (:)     ]  (gP/m2) dead coarse root P transfer               
         retransp                            =>    phosphorusstate_vars%retransp_patch                           , & ! Input:  [real(r8) (:)     ]  (gP/m2) plant pool of retranslocated P            
-        
+        ppool                               =>    phosphorusstate_vars%ppool_patch                              , & ! Input:  [real(r8) (:)     ]  (gP/m2) plant pool of storage P            
+
         fire_mortality_c_to_cwdc            =>    carbonflux_vars%fire_mortality_c_to_cwdc_col                , & ! Input:  [real(r8) (:,:)   ]  C flux fire mortality to CWD (gC/m3/s)
         somc_fire                           =>    carbonflux_vars%somc_fire_col                               , & ! Input:  [real(r8) (:)     ]  (gC/m2/s) fire C emissions due to peat burning
         m_leafc_to_fire                     =>    carbonflux_vars%m_leafc_to_fire_patch                       , & ! Input:  [real(r8) (:)     ]  (gC/m2/s) fire C emis. from leafc	    
@@ -924,6 +926,7 @@ contains
         m_deadcrootp_storage_to_fire        =>    phosphorusflux_vars%m_deadcrootp_storage_to_fire_patch        , & ! Input:  [real(r8) (:)     ]  (gP/m2/s) P emis. deadcrootp_storage   
         m_deadcrootp_xfer_to_fire           =>    phosphorusflux_vars%m_deadcrootp_xfer_to_fire_patch           , & ! Input:  [real(r8) (:)     ]  (gP/m2/s) P emis. deadcrootp_xfer      
         m_retransp_to_fire                  =>    phosphorusflux_vars%m_retransp_to_fire_patch                  , & ! Input:  [real(r8) (:)     ]  (gP/m2/s) P emis. retransp             
+        m_ppool_to_fire                     =>    phosphorusflux_vars%m_ppool_to_fire_patch                     , & ! Input:  [real(r8) (:)     ]  (gP/m2/s) P emis. ppool     
         
         m_leafc_to_litter_fire              =>    carbonflux_vars%m_leafc_to_litter_fire_patch                , & ! Output: [real(r8) (:)     ]                                                    
         m_leafc_storage_to_litter_fire      =>    carbonflux_vars%m_leafc_storage_to_litter_fire_patch        , & ! Output: [real(r8) (:)     ]                                                    
@@ -1004,6 +1007,8 @@ contains
      m_deadcrootp_storage_to_litter_fire =>    phosphorusflux_vars%m_deadcrootp_storage_to_litter_fire_patch 
      m_deadcrootp_xfer_to_litter_fire    =>    phosphorusflux_vars%m_deadcrootp_xfer_to_litter_fire_patch    
      m_retransp_to_litter_fire           =>    phosphorusflux_vars%m_retransp_to_litter_fire_patch           
+     m_ppool_to_litter_fire              =>    phosphorusflux_vars%m_ppool_to_litter_fire_patch
+
      m_decomp_ppools_to_fire_vr          =>    phosphorusflux_vars%m_decomp_ppools_to_fire_vr_col            
      m_p_to_litr_met_fire                =>    phosphorusflux_vars%m_p_to_litr_met_fire_col                  
      m_p_to_litr_cel_fire                =>    phosphorusflux_vars%m_p_to_litr_cel_fire_col                  
@@ -1107,6 +1112,8 @@ contains
         m_deadcrootp_xfer_to_fire(p)     =  deadcrootp_xfer(p)    * f * cc_other(veg_pp%itype(p)) 
         m_deadcrootp_storage_to_fire(p)  =  deadcrootp_storage(p) * f * cc_other(veg_pp%itype(p))
         m_retransp_to_fire(p)            =  retransp(p)           * f * cc_other(veg_pp%itype(p))
+        m_ppool_to_fire(p)               =  ppool(p)              * f * cc_other(veg_pp%itype(p))
+
 
         ! mortality due to fire
         ! carbon pools
@@ -1282,6 +1289,10 @@ contains
         m_retransp_to_litter_fire(p)               =  retransp(p)           * f * &
              (1._r8 - cc_other(veg_pp%itype(p))) * &
              fm_other(veg_pp%itype(p)) 
+        m_ppool_to_litter_fire(p)                  =  ppool(p)              * f * &
+             (1._r8 - cc_other(veg_pp%itype(p))) * &
+             fm_other(veg_pp%itype(p))
+
 
 
         if (use_cndv) then
@@ -1388,7 +1399,7 @@ contains
                     ! add phosphorus
                     m_p_to_litr_met_fire(c,j)=m_p_to_litr_met_fire(c,j) + &
                          ((m_leafp_to_litter_fire(p)*lf_flab(veg_pp%itype(p)) &
-                         +m_leafp_storage_to_litter_fire(p) + &
+                         +m_leafp_storage_to_litter_fire(p) + m_ppool_to_litter_fire(p) + &
                          m_leafp_xfer_to_litter_fire(p)+m_retransp_to_litter_fire(p)) &
                          *leaf_prof(p,j) +(m_frootp_to_litter_fire(p)*fr_flab(veg_pp%itype(p)) &
                          +m_frootp_storage_to_litter_fire(p) + &

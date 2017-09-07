@@ -299,6 +299,8 @@ contains
          ! retranslocated N pool
          ps%retransp_patch(p)           =  ps%retransp_patch(p) - pf%m_retransp_to_fire_patch(p)        * dt
          ps%retransp_patch(p)           =  ps%retransp_patch(p) - pf%m_retransp_to_litter_fire_patch(p) * dt
+         ps%ppool_patch(p)              =  ps%ppool_patch(p) - pf%m_ppool_to_fire_patch(p)              * dt
+         ps%ppool_patch(p)              =  ps%ppool_patch(p) - pf%m_ppool_to_litter_fire_patch(p)       * dt
       end do
 
     end associate 

@@ -33,7 +33,7 @@ module  PhotosynthesisMod
   use clm_varctl          , only : cnallocate_carbonphosphorus_only
   use clm_varctl          , only : iulog
   use pftvarcon           , only : noveg
-    
+  use CNSharedParamsMod   , only : CNParamsShareInst    
   !
   implicit none
   save
@@ -559,7 +559,7 @@ contains
             !
             ! Then scale this value at the top of the canopy for canopy depth
 
-            lmr25top = 2.525e-6_r8 * (1.5_r8 ** ((25._r8 - 20._r8)/10._r8))
+            lmr25top = 2.525e-6_r8 * (CNParamsShareInst%Q10_mr ** ((25._r8 - 20._r8)/10._r8))
             lmr25top = lmr25top * lnc(p) / 12.e-06_r8
 
          else
@@ -599,11 +599,16 @@ contains
             ! Maintenance respiration
 
             lmr25 = lmr25top * nscaler
-            if (c3flag(p)) then
-               lmr_z(p,iv) = lmr25 * ft(t_veg(p), lmrha) * fth(t_veg(p), lmrhd, lmrse, lmrc)
+            if ( nu_com_leaf_physiology ) then 
+                if (c3flag(p)) then
+                   lmr_z(p,iv) = lmr25 * ft(t_veg(p), lmrha) * fth(t_veg(p), lmrhd, lmrse, lmrc)
+                else
+                   lmr_z(p,iv) = lmr25 * 2._r8**((t_veg(p)-(tfrz+25._r8))/10._r8)
+                   lmr_z(p,iv) = lmr_z(p,iv) / (1._r8 + exp( 1.3_r8*(t_veg(p)-(tfrz+55._r8)) ))
+                end if
             else
-               lmr_z(p,iv) = lmr25 * 2._r8**((t_veg(p)-(tfrz+25._r8))/10._r8)
-               lmr_z(p,iv) = lmr_z(p,iv) / (1._r8 + exp( 1.3_r8*(t_veg(p)-(tfrz+55._r8)) ))
+                !Use a Q10 relationship
+                lmr_z(p,iv) = lmr25 * CNParamsShareInst%Q10_mr **((t_veg(p)-(tfrz+25._r8))/10._r8)
             end if
 
             if (par_z(p,iv) <= 0._r8) then           ! night time
@@ -764,7 +769,8 @@ contains
                if (gs_mol(p,iv) < 0._r8) then
                   write (iulog,*)'Negative stomatal conductance:'
                   write (iulog,*)'p,iv,gs_mol= ',p,iv,gs_mol(p,iv)
-                  call endrun(decomp_index=p, clmlevel=namep, msg=errmsg(__FILE__, __LINE__))
+                  !call endrun(decomp_index=p, clmlevel=namep, msg=errmsg(__FILE__, __LINE__))
+                  gs_mol(p,iv) = 1e-12_r8
                end if
 
                ! Compare with Ball-Berry model: gs_mol = m * an * hs/cs p + b
