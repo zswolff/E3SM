@@ -3049,10 +3049,18 @@ contains
              ! allocation as specified in the pft-physiology file.  The value is also used
              ! as a trigger here: -1.0 means to use the dynamic allocation (trees).
              if (stem_leaf(ivt(p)) == -1._r8) then
-                 f3 = (2.7/(1.0+exp(-0.004*(annsum_npp(p) - 300.0)))) - 0.4
+!                 f3 = (2.7/(1.0+exp(-0.004*(annsum_npp(p) - 300.0)))) - 0.4
+                 ! testing alloc1 - only change 2.7 to 1.5
+                 ! testing alloc2 - only change 2.7 to 2.0
+                 f3 = (2.0/(1.0+exp(-0.004*(annsum_npp(p) - 300.0)))) - 0.4
              else
                  f3 = stem_leaf(ivt(p))
              end if
+             
+             ! testing alloc3 - leaf 0.34, stem 0.39, croot 8, froot 19 
+             f1 = 19./34.
+             f2 = 8./39.
+             f3 = 39./34
 
              f4 = flivewd(ivt(p))
              g1 = grperc(ivt(p))
