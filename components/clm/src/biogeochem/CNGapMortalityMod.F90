@@ -23,6 +23,8 @@ module CNGapMortalityMod
   use PhosphorusFluxType  , only : phosphorusflux_type
   use PhosphorusStateType , only : phosphorusstate_type
 
+  use clm_varctl          , only : nu_com
+
   !
   implicit none
   save
@@ -97,8 +99,8 @@ contains
     integer                  , intent(in)    :: num_soilp       ! number of soil patches in filter
     integer                  , intent(in)    :: filter_soilp(:) ! patch filter for soil points
     type(dgvs_type)          , intent(inout) :: dgvs_vars
-    type(cnstate_type)       , intent(in)    :: cnstate_vars
-    type(carbonstate_type)   , intent(in)    :: carbonstate_vars
+    type(cnstate_type)       , intent(inout)    :: cnstate_vars
+    type(carbonstate_type)   , intent(inout)    :: carbonstate_vars
     type(nitrogenstate_type) , intent(in)    :: nitrogenstate_vars
     type(carbonflux_type)    , intent(inout) :: carbonflux_vars
     type(nitrogenflux_type)  , intent(inout) :: nitrogenflux_vars
@@ -130,6 +132,11 @@ contains
       am = CNGapMortParamsInst%am
       ! set coeff of growth efficiency in mortality equation 
       k_mort = CNGapMortParamsInst%k_mort
+
+      if (nu_com .eq. 'RD') then
+          call mortality_rate_soilorder(num_soilp,filter_soilp,cnstate_vars)
+      end if
+
 
       ! patch loop
       do fp = 1,num_soilp
@@ -163,6 +170,11 @@ contains
             end if
 
          end if
+
+         if (nu_com .eq. 'RD') then
+             am = cnstate_vars%r_mort_cal_patch(p)
+         end if
+
 
          m  = am/(get_days_per_year() * secspday)
 
@@ -571,5 +583,51 @@ contains
     end associate
 
   end subroutine CNGapPftToColumn
+
+  subroutine mortality_rate_soilorder(&
+       num_soilp, filter_soilp, &
+       cnstate_vars)
+    !
+    ! !DESCRIPTION:
+    ! !this surroutine is to calculate mortality rate based on soil order
+
+    ! USES
+    use pftvarcon       , only: nbrdlf_evr_trp_tree, nbrdlf_dcd_trp_tree
+    !
+    ! !ARGUMENTS:
+    integer                  , intent(in)    :: num_soilp       ! number of soil patches in filter
+    integer                  , intent(in)    :: filter_soilp(:) ! patch filter for soil points
+    type(cnstate_type)       , intent(inout)    :: cnstate_vars
+
+    ! local variables
+    integer :: p,c,fp
+
+
+    associate(                                                      &
+       ivt            =>    veg_pp%itype                             , & ! Input:[integer  (:)   ]  patch vegetation type                                
+       isoilorder     =>    cnstate_vars%isoilorder               , &
+       r_mort_cal     =>    cnstate_vars%r_mort_cal_patch )
+
+       ! loop over the patches
+       do fp = 1,num_soilp
+          p = filter_soilp(fp)
+          c = veg_pp%column(p)
+               if( veg_pp%itype(p) == nbrdlf_evr_trp_tree .or. veg_pp%itype(p) == nbrdlf_dcd_trp_tree )then
+
+                   if( isoilorder(c) == 12 )then
+                      r_mort_cal(p) = 0.015             ! Tropical Oxisols
+                   else
+                      r_mort_cal(p) = 0.025             ! Other tropical soils
+                   endif
+               else
+                   r_mort_cal(p) = 0.02                 ! Default mortality rate 
+               endif
+       end do
+
+     end associate
+
+
+  end subroutine mortality_rate_soilorder
+
 
 end module CNGapMortalityMod

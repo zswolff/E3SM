@@ -274,6 +274,10 @@ module CNCarbonFluxType
      real(r8), pointer :: tempavg_agnpp_patch                       (:)     ! (gC/m2/s) temp. average aboveground NPP
      real(r8), pointer :: tempavg_bgnpp_patch                       (:)     ! (gC/m2/s) temp. average belowground NPP
 
+     ! For comparison with RAINFOR wood productivity data
+     real(r8), pointer :: agwdnpp_patch                             (:)     !(gC/m2/s) aboveground NPP
+
+
      !----------------------------------------------------
      ! column carbon flux variables  
      !----------------------------------------------------
@@ -664,6 +668,9 @@ contains
         allocate(this%tempavg_bgnpp_patch               (begp:endp))                  ; this%tempavg_bgnpp_patch (:) = spval
         allocate(this%annavg_agnpp_patch                (begp:endp))                  ; this%annavg_agnpp_patch  (:) = spval ! To detect first year
         allocate(this%annavg_bgnpp_patch                (begp:endp))                  ; this%annavg_bgnpp_patch  (:) = spval ! To detect first year
+
+        allocate(this%agwdnpp_patch                             (begp:endp)) ; this%agwdnpp_patch                             (:) = nan
+
 
      end if ! if(.not.use_ed)
 
@@ -1598,6 +1605,12 @@ contains
        call hist_addfld1d (fname='BGNPP', units='gC/m^2/s', &
             avgflag='A', long_name='belowground NPP', &
             ptr_patch=this%bgnpp_patch)
+
+       this%agwdnpp_patch(begp:endp) = spval
+       call hist_addfld1d (fname='AGWDNPP', units='gC/m^2/s', &
+            avgflag='A', long_name='aboveground wood NPP', &
+            ptr_patch=this%agwdnpp_patch)
+
 
        this%litfall_patch(begp:endp) = spval
        call hist_addfld1d (fname='LITFALL', units='gC/m^2/s', &
@@ -4174,6 +4187,7 @@ contains
           this%npp_patch(i)                                 = value_patch 
           this%agnpp_patch(i)                               = value_patch
           this%bgnpp_patch(i)                               = value_patch
+          this%agwdnpp_patch(i)                               = value_patch
           this%litfall_patch(i)                             = value_patch
           this%vegfire_patch(i)                             = value_patch
           this%wood_harvestc_patch(i)                       = value_patch
@@ -5347,6 +5361,13 @@ end subroutine CSummary_interface
             this%livecrootc_xfer_to_livecrootc_patch(p)     + &
             this%cpool_to_deadcrootc_patch(p)               + &
             this%deadcrootc_xfer_to_deadcrootc_patch(p)
+
+       this%agwdnpp_patch(p) = &
+            this%cpool_to_livestemc_patch(p)              + &
+            this%livestemc_xfer_to_livestemc_patch(p)     + &
+            this%cpool_to_deadstemc_patch(p)              + &
+            this%deadstemc_xfer_to_deadstemc_patch(p)
+
     enddo
     ! some zeroing
     do fc = 1,num_soilc

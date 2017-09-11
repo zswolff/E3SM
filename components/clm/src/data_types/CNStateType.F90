@@ -160,6 +160,10 @@ module CNStateType
 
      real(r8), pointer :: frac_loss_lit_to_fire_col        (:)
      real(r8), pointer :: frac_loss_cwd_to_fire_col        (:)
+
+     !!! annual mortality rate dynamically calcaulted at patch
+     real(r8), pointer :: r_mort_cal_patch                 (:)     ! patch annual mortality rate  
+
    contains
 
      procedure, public  :: Init         
@@ -337,6 +341,9 @@ contains
     allocate(fert_type                        (begc:endc))                   ; fert_type     (:) = 0
     allocate(fert_continue                    (begc:endc))                   ; fert_continue (:) =0
     allocate(fert_dose                        (begc:endc,1:12))              ; fert_dose     (:,:) = nan
+
+    allocate(this%r_mort_cal_patch                (begp:endp))               ; this%r_mort_cal_patch   (:) = nan
+
   end subroutine InitAllocate
 
   !------------------------------------------------------------------------
@@ -648,6 +655,12 @@ contains
        avgflag='A', long_name='P limitation factor', &
        ptr_patch=this%cp_scalar, default='active')
 
+    this%r_mort_cal_patch(begp:endp) = spval
+    call hist_addfld1d (fname='R_MORT_CAL', units='none', &
+         avgflag='A', long_name='calcualted annual mortality rate', &
+         ptr_patch=this%r_mort_cal_patch, default='inactive')
+
+
   end subroutine InitHistory
 
   !-----------------------------------------------------------------------
@@ -743,14 +756,14 @@ contains
     ! --------------------------------------------------------------------
 
     allocate(soilorder_rdin(bounds%begg:bounds%endg))
-    !call ncd_io(ncid=ncid, varname='SOIL_ORDER', flag='read',data=soilorder_rdin, dim1name=grlnd, readvar=readvar)
-    !if (.not. readvar) then
-    !   call endrun(msg=' ERROR: SOIL_ORDER NOT on surfdata file'//errMsg(__FILE__, __LINE__))
-    !end if
+    call ncd_io(ncid=ncid, varname='SOIL_ORDER', flag='read',data=soilorder_rdin, dim1name=grlnd, readvar=readvar)
+    if (.not. readvar) then
+       call endrun(msg=' ERROR: SOIL_ORDER NOT on surfdata file'//errMsg(__FILE__, __LINE__))
+    end if
     do c = bounds%begc, bounds%endc
        g = col_pp%gridcell(c)
-!       this%isoilorder(c) = soilorder_rdin(g)
-       this%isoilorder(c) = 12
+       this%isoilorder(c) = soilorder_rdin(g)
+!       this%isoilorder(c) = 12
     end do
     deallocate(soilorder_rdin)
 
@@ -913,6 +926,9 @@ contains
           this%p_allometry_patch(p)           = spval
           this%tempmax_retransp_patch(p)      = spval
           this%annmax_retransp_patch(p)       = spval
+
+          this%r_mort_cal_patch(p)           = spval
+
  
        end if
     end do
@@ -960,6 +976,10 @@ contains
           this%p_allometry_patch(p)           = 0._r8
           this%tempmax_retransp_patch(p)      = 0._r8
           this%annmax_retransp_patch(p)       = 0._r8
+
+          this%r_mort_cal_patch(p)           = 0._r8
+
+
        end if
     end do
 
