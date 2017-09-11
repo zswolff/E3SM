@@ -603,8 +603,7 @@ for row in AFdatareader:
                     output.write("python IniPPools.py --diricase "+os.path.abspath(runroot)+ \
                                  '/'+ad_case+'/run/ --casename '+ad_case+' --restart_year '+ \
                                  str(int(ny_ad)+1)+ ' --sitephos Site_PPools.txt' + \
-                                 ' --casesite '+site+' --site_lon '+str(site_lon)+' --site_lat '+ \
-                                 str(site_lat)+' --acme_input '+ccsm_input+'\n')
+                                 ' --casesite '+site+' --acme_input '+ccsm_input+'\n')
             if ('spinup_diags' in c):
                  if (options.cpl_bypass):
                      mycompset = 'ICB1850'+mymodel+'BC'

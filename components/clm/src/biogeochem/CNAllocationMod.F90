@@ -2884,7 +2884,7 @@ contains
          cpool_to_grainc              => carbonflux_vars%cpool_to_grainc_patch               , & ! Output: [real(r8) (:)   ]  allocation to grain C (gC/m2/s)
          cpool_to_grainc_storage      => carbonflux_vars%cpool_to_grainc_storage_patch       , & ! Output: [real(r8) (:)   ]  allocation to grain C storage (gC/m2/s)
 
-         npool                        => nitrogenstate_vars%npool_patch                        , & ! Input:  [real(r8) (:)   ]  (gN/m3) plant N pool storage
+         npool                        => nitrogenstate_vars%npool_patch                        , & ! Input:  [real(r8) (:)   ]  (gN/m2) plant N pool storage
 
          plant_ndemand                => nitrogenflux_vars%plant_ndemand_patch               , & ! Output: [real(r8) (:)   ]  N flux required to support initial GPP (gN/m2/s)
          plant_nalloc                 => nitrogenflux_vars%plant_nalloc_patch                , & ! Output: [real(r8) (:)   ]  total allocated N flux (gN/m2/s)
@@ -2908,7 +2908,8 @@ contains
          sminn_to_plant               => nitrogenflux_vars%sminn_to_plant_col                , & ! Output: [real(r8) (:)   ]
          sminn_to_plant_vr            => nitrogenflux_vars%sminn_to_plant_vr_col             , & ! Output: [real(r8) (:,:) ]
 
-         !!! add phosphorus variables  - X. YANG
+         !!! add phosphorus variables  - X. YANG 
+         ppool                        => phosphorusstate_vars%ppool_patch                      , & ! Input: [real(r8)       ] Plant non-structural P storage (gP/m2)
          plant_pdemand                => phosphorusflux_vars%plant_pdemand_patch               , & ! Output: [real(r8) (:)   ]  P flux required to support initial GPP (gP/m2/s)
          plant_palloc                 => phosphorusflux_vars%plant_palloc_patch                , & ! Output: [real(r8) (:)   ]  total allocated P flux (gP/m2/s)
          ppool_to_grainp              => phosphorusflux_vars%ppool_to_grainp_patch             , & ! Output: [real(r8) (:)   ]  allocation to grain P (gP/m2/s)
@@ -3096,18 +3097,27 @@ contains
              ! turning off this correction (PET, 12/11/03), instead using bgtr in
              ! phenology algorithm.
 
-             sminn_to_npool(p) = plant_ndemand(p) * fpg(c)
-             sminp_to_ppool(p) = plant_pdemand(p) * fpg_p(c)
 
              if (veg_vp%nstor(veg_pp%itype(p)) > 1e-6_r8) then 
+               !N pool modification
+               sminn_to_npool(p) = plant_ndemand(p) * min(fpg(c), fpg_p(c))
+               sminp_to_ppool(p) = plant_pdemand(p) * min(fpg(c), fpg_p(c))
+
                rc = veg_vp%nstor(veg_pp%itype(p)) * max(annsum_npp(p) * n_allometry(p) / c_allometry(p), 0.01_r8)
                r  = max(1._r8,rc/max(npool(p), 1e-9_r8))
                plant_nalloc(p) = (plant_ndemand(p) + retransn_to_npool(p)) / r
-             else
-               plant_nalloc(p) = sminn_to_npool(p) + retransn_to_npool(p)
-             end if
 
-             plant_palloc(p) = sminp_to_ppool(p) + retransp_to_ppool(p)
+               rc = veg_vp%nstor(veg_pp%itype(p)) * max(annsum_npp(p) * p_allometry(p) / c_allometry(p), 0.01_r8)
+               r  = max(1._r8,rc/max(ppool(p), 1e-9_r8))
+               plant_palloc(p) = (plant_pdemand(p) + retransp_to_ppool(p)) / r
+
+             else
+               sminn_to_npool(p) = plant_ndemand(p) * fpg(c)
+               sminp_to_ppool(p) = plant_pdemand(p) * fpg_p(c)
+
+               plant_nalloc(p) = sminn_to_npool(p) + retransn_to_npool(p)
+               plant_palloc(p) = sminp_to_ppool(p) + retransp_to_ppool(p)
+             end if
 
              ! calculate the associated carbon allocation, and the excess
              ! carbon flux that must be accounted for through downregulation
@@ -3122,24 +3132,15 @@ contains
                      plant_calloc(p) = plant_nalloc(p) * (c_allometry(p)/n_allometry(p))
                      plant_palloc(p) = plant_nalloc(p) * (p_allometry(p)/n_allometry(p))
                      !in case of strong N limitation, and plant_palloc(p) < retransp_to_ppool(p)                    
-                     sminp_to_ppool(p) = max(plant_palloc(p) - retransp_to_ppool(p),0.0_r8)                 
-                     retransp_to_ppool(p) = min(plant_palloc(p), retransp_to_ppool(p)) 
-
+                     if (veg_vp%nstor(veg_pp%itype(p)) == 0._r8) then 
+                         sminp_to_ppool(p) = max(plant_palloc(p) - retransp_to_ppool(p),0.0_r8)                 
+                         retransp_to_ppool(p) = min(plant_palloc(p), retransp_to_ppool(p)) 
+                     end if
                  else
                      plant_calloc(p) = plant_palloc(p) * (c_allometry(p)/p_allometry(p))
                      plant_nalloc(p) = plant_palloc(p) * (n_allometry(p)/p_allometry(p))
-
-                     if (veg_vp%nstor(veg_pp%itype(p)) > 1e-6_r8) then
-                         if (fpg_p(c) .lt. fpg(c)) then
-                             !in case of strong P limitation, and plant_nalloc(p) < retransn_to_npool(p)
-                             sminn_to_npool(p) = max(plant_nalloc(p) - retransn_to_npool(p), 0.0_r8)
-                             retransn_to_npool(p) = min(plant_nalloc(p), retransn_to_npool(p)) 
-                         end if
-                         !Due to allocation from plant N storage, Plant is P
-                         !limited but soil mineral demand is N-limited.  In this
-                         !case where fpg(c) < fpg_p(c) do not adjust uptake.
-                     else
-                         ! in case of strong P limitation, and plant_nalloc(p) < retransn_to_npool(p)
+                     ! in case of strong P limitation, and plant_nalloc(p) < retransn_to_npool(p)
+                     if (veg_vp%nstor(veg_pp%itype(p)) == 0._r8) then 
                          sminn_to_npool(p) = max(plant_nalloc(p) - retransn_to_npool(p), 0.0_r8) 
                          retransn_to_npool(p) = min(plant_nalloc(p) , retransn_to_npool(p)) 
                      end if
@@ -3153,7 +3154,9 @@ contains
              if(cnallocate_carbonnitrogen_only().or.cnallocate_carbon_only() )then
                  plant_calloc(p) = plant_nalloc(p) * (c_allometry(p)/n_allometry(p)) 
                  plant_palloc(p) = plant_calloc(p) * (p_allometry(p)/c_allometry(p))
-                 sminp_to_ppool(p) = plant_palloc(p) - retransp_to_ppool(p)
+                 if (veg_vp%nstor(veg_pp%itype(p)) == 0._r8) then 
+                     sminp_to_ppool(p) = plant_palloc(p) - retransp_to_ppool(p)
+                 end if
              endif
   
              excess_cflux(p) = availc(p) - plant_calloc(p)

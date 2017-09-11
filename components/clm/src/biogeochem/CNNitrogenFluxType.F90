@@ -308,6 +308,7 @@ module CNNitrogenFluxType
      ! dynamic landcover fluxes
      real(r8), pointer :: dwt_seedn_to_leaf_col                     (:)     ! col (gN/m2/s) seed source to PFT-level
      real(r8), pointer :: dwt_seedn_to_deadstem_col                 (:)     ! col (gN/m2/s) seed source to PFT-level
+     real(r8), pointer :: dwt_seedn_to_npool_col                    (:)     ! col (gN/m2/s) seed source to PFT level
      real(r8), pointer :: dwt_conv_nflux_col                        (:)     ! col (gN/m2/s) conversion N flux (immediate loss to atm)
      real(r8), pointer :: dwt_prod10n_gain_col                      (:)     ! col (gN/m2/s) addition to 10-yr wood product pool
      real(r8), pointer :: dwt_prod100n_gain_col                     (:)     ! col (gN/m2/s) addition to 100-yr wood product pool
@@ -616,6 +617,7 @@ contains
 
     allocate(this%dwt_seedn_to_leaf_col      (begc:endc))                   ; this%dwt_seedn_to_leaf_col      (:)   = nan
     allocate(this%dwt_seedn_to_deadstem_col  (begc:endc))                   ; this%dwt_seedn_to_deadstem_col  (:)   = nan
+    allocate(this%dwt_seedn_to_npool_col     (begc:endc))                   ; this%dwt_seedn_to_npool_col     (:)   = nan
     allocate(this%dwt_conv_nflux_col         (begc:endc))                   ; this%dwt_conv_nflux_col         (:)   = nan
     allocate(this%dwt_prod10n_gain_col       (begc:endc))                   ; this%dwt_prod10n_gain_col       (:)   = nan
     allocate(this%dwt_prod100n_gain_col      (begc:endc))                   ; this%dwt_prod100n_gain_col      (:)   = nan
@@ -1839,6 +1841,11 @@ contains
          avgflag='A', long_name='seed source to PFT-level deadstem', &
          ptr_col=this%dwt_seedn_to_deadstem_col, default='inactive')
 
+    this%dwt_seedn_to_npool_col(begc:endc) = spval
+    call hist_addfld1d (fname='DWT_SEEDN_TO_NPOOL', units='gN/m^2/s', &
+         avgflag='A', long_name='seed source to PFT-level npool', &
+         ptr_col=this%dwt_seedn_to_npool_col, default='inactive')
+
     this%dwt_conv_nflux_col(begc:endc) = spval
     call hist_addfld1d (fname='DWT_CONV_NFLUX', units='gN/m^2/s', &
          avgflag='A', long_name='conversion N flux (immediate loss to atm)', &
@@ -2707,6 +2714,7 @@ contains
     do c = bounds%begc,bounds%endc
        this%dwt_seedn_to_leaf_col(c)     = 0._r8
        this%dwt_seedn_to_deadstem_col(c) = 0._r8
+       this%dwt_seedn_to_npool_col(c)    = 0._r8
        this%dwt_conv_nflux_col(c)        = 0._r8
        this%dwt_prod10n_gain_col(c)      = 0._r8
        this%dwt_prod100n_gain_col(c)     = 0._r8

@@ -150,7 +150,7 @@ contains
       ! simulatoins
 
       ! Set Q10 from CNSharedParamsMod
-      Q10 = CNParamsShareInst%Q10
+      Q10 = CNParamsShareInst%Q10_mr
 
       ! column loop to calculate temperature factors in each soil layer
       do j=1,nlevgrnd

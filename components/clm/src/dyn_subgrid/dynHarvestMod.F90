@@ -258,6 +258,7 @@ contains
    livecrootp                          =>    phosphorusstate_vars%livecrootp_patch                              , & ! Input:  [real(r8) (:)]  (gP/m2) live coarse root P                        
    deadcrootp                          =>    phosphorusstate_vars%deadcrootp_patch                              , & ! Input:  [real(r8) (:)]  (gP/m2) dead coarse root P                        
    retransp                            =>    phosphorusstate_vars%retransp_patch                                , & ! Input:  [real(r8) (:)]  (gP/m2) plant pool of retranslocated P            
+   ppool                               =>    phosphorusstate_vars%ppool_patch                                   , & ! Input:  [real(r8) (:)]  (gP/m2) plant pool of storage P  
    leafp_storage                       =>    phosphorusstate_vars%leafp_storage_patch                           , & ! Input:  [real(r8) (:)]  (gP/m2) leaf P storage                            
    frootp_storage                      =>    phosphorusstate_vars%frootp_storage_patch                          , & ! Input:  [real(r8) (:)]  (gP/m2) fine root P storage                       
    livestemp_storage                   =>    phosphorusstate_vars%livestemp_storage_patch                       , & ! Input:  [real(r8) (:)]  (gP/m2) live stem P storage                       
@@ -324,6 +325,7 @@ contains
    hrv_livecrootp_to_litter            =>    phosphorusflux_vars%hrv_livecrootp_to_litter_patch                , & ! Output: [real(r8) (:)]                                                    
    hrv_deadcrootp_to_litter            =>    phosphorusflux_vars%hrv_deadcrootp_to_litter_patch                , & ! Output: [real(r8) (:)]                                                    
    hrv_retransp_to_litter              =>    phosphorusflux_vars%hrv_retransp_to_litter_patch                  , & ! Output: [real(r8) (:)]                                                    
+   hrv_ppool_to_litter                 =>    phosphorusflux_vars%hrv_ppool_to_litter_patch                     , & ! Output: [real(r8) (:)] 
    hrv_leafp_storage_to_litter         =>    phosphorusflux_vars%hrv_leafp_storage_to_litter_patch             , & ! Output: [real(r8) (:)]                                                    
    hrv_frootp_storage_to_litter        =>    phosphorusflux_vars%hrv_frootp_storage_to_litter_patch            , & ! Output: [real(r8) (:)]                                                    
    hrv_livestemp_storage_to_litter     =>    phosphorusflux_vars%hrv_livestemp_storage_to_litter_patch         , & ! Output: [real(r8) (:)]                                                    
@@ -431,6 +433,7 @@ contains
          hrv_livecrootp_to_litter(p)          = livecrootp(p)          * m
          hrv_deadcrootp_to_litter(p)          = deadcrootp(p)          * m
          hrv_retransp_to_litter(p)            = retransp(p)            * m
+         hrv_ppool_to_litter(p)               = ppool(p)               * m
 
          ! storage pools
          hrv_leafp_storage_to_litter(p)       = leafp_storage(p)       * m
@@ -571,6 +574,7 @@ contains
         hrv_livecrootp_to_litter         =>    phosphorusflux_vars%hrv_livecrootp_to_litter_patch         , & ! Input:  [real(r8) (:)   ]                                                    
         hrv_deadcrootp_to_litter         =>    phosphorusflux_vars%hrv_deadcrootp_to_litter_patch         , & ! Input:  [real(r8) (:)   ]                                                    
         hrv_retransp_to_litter           =>    phosphorusflux_vars%hrv_retransp_to_litter_patch           , & ! Input:  [real(r8) (:)   ]                                                    
+        hrv_ppool_to_litter              =>    phosphorusflux_vars%hrv_ppool_to_litter_patch              , & ! Input:  [real(r8) (:)   ]   
         hrv_leafp_storage_to_litter      =>    phosphorusflux_vars%hrv_leafp_storage_to_litter_patch      , & ! Input:  [real(r8) (:)   ]                                                    
         hrv_frootp_storage_to_litter     =>    phosphorusflux_vars%hrv_frootp_storage_to_litter_patch     , & ! Input:  [real(r8) (:)   ]                                                    
         hrv_livestemp_storage_to_litter  =>    phosphorusflux_vars%hrv_livestemp_storage_to_litter_patch  , & ! Input:  [real(r8) (:)   ]                                                    
@@ -744,6 +748,8 @@ contains
                     ! retranslocated phosphorus pool harvest mortality fluxes
                     harvest_p_to_litr_met_p(c,j) = harvest_p_to_litr_met_p(c,j) + &
                          hrv_retransp_to_litter(p) * wtcol(p) * leaf_prof(p,j)
+                    harvest_p_to_litr_met_p(c,j) = harvest_p_to_litr_met_p(c,j) + &
+                         hrv_ppool_to_litter(p) * wtcol(p) * leaf_prof(p,j)
 
                     ! storage harvest mortality phosphorus fluxes
                     harvest_p_to_litr_met_p(c,j)      = harvest_p_to_litr_met_p(c,j)      + &

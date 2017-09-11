@@ -232,6 +232,11 @@ class Frame(wx.Frame):
         self.cruncep = wx.CheckBox(panel, -1,'Use cru-ncep forcing data')
         self.cruncep.SetValue(False)
         box2.Add(self.cruncep,0,wx.EXPAND)
+        self.gswp3 = wx.CheckBox(panel, -1,'Use gswp3 forcing data')
+        self.gswp3.SetValue(False)
+        box2.Add(self.gswp3,0,wx.EXPAND)
+
+
 
         #Run PTCLM button
         m_text12= wx.StaticText(panel, -1, "\nConfigure, build and run", style=wx.ALIGN_LEFT)
@@ -625,6 +630,8 @@ class Frame(wx.Frame):
         mycpl_bypass=self.cpl_bypass.GetValue()
 	myonehour=self.onehour.GetValue()     
         mycruncep=self.cruncep.GetValue()
+        mygswp3=self.gswp3.GetValue()
+
 
         cdate="1850"
         if (myindex == 2):
@@ -699,6 +706,8 @@ class Frame(wx.Frame):
             cmd = cmd+' --tstep 1'
         if (mycruncep):
             cmd = cmd+' --cruncep'
+        elif (mygswp3):
+            cmd = cmd+' --gswp3'
         cmd = cmd+' --runroot '+rundir
         
         print cmd

@@ -776,7 +776,8 @@ for i in range(1,int(options.ninst)+1):
             'QFLX_SUB_SNOW', 'QFLX_DEW_GRND', 'QH2OSFC', 'H2OSOI', 'CPOOL_TO_LIVESTEMC', 'TOTLITC', \
             'TOTSOMC', 'ZWT', 'SNOWDP', 'TLAI']
     var_list_daily = ['TOTLITC', 'TOTSOMC', 'CWDC', 'LITR1C_vr', 'LITR2C_vr', 'LITR3C_vr', 'SOIL1C_vr', \
-                      'SOIL2C_vr', 'SOIL3C_vr', 'H2OSFC', 'ZWT', 'SNOWDP', 'TLAI', 'CPOOL','NPOOL','PPOOL']
+                      'SOIL2C_vr', 'SOIL3C_vr', 'H2OSFC', 'ZWT', 'SNOWDP', 'TLAI', 'CPOOL','NPOOL','PPOOL', \
+                      'FPI','FPI_P','FPG','FPG_P','FPI_vr','FPI_P_vr']
     var_list_pft = ['GPP', 'NPP', 'LEAFC_ALLOC', 'AGNPP', 'CPOOL_TO_DEADSTEMC', \
                     'LIVECROOTC_XFER_TO_LIVECROOTC', 'DEADCROOTC_XFER_TO_DEADCROOTC', \
                     'CPOOL_TO_LIVECROOTC', 'CPOOL_TO_DEADCROOTC', 'FROOTC_ALLOC', 'AR', 'MR', \
@@ -798,7 +799,7 @@ for i in range(1,int(options.ninst)+1):
                        'MR', 'GR', 'ER', 'NPP', 'TLAI', 'SOIL3C', 'TOTSOMC', 'LEAFC', \
                        'DEADSTEMC', 'DEADCROOTC', 'FROOTC', 'LIVESTEMC', 'LIVECROOTC', 'TOTVEGC', \
                        'TOTCOLC', 'TOTLITC', 'BTRAN', 'CWDC', 'QVEGE', 'QVEGT', 'QSOIL', 'QDRAI', \
-                       'QRUNOFF', 'FPI', 'FPG', 'FPI_P','FPG_P', 'CPOOL','NPOOL', 'SMINN', 'HR_vr']
+                       'QRUNOFF', 'FPI', 'FPG', 'FPI_P','FPG_P', 'CPOOL','NPOOL', 'PPOOL', 'SMINN', 'HR_vr']
     #ILAMB diagnostic variables
     ilamb_outputs = ['FAREA_BURNED', 'CWDC', 'LEAFC', 'TOTLITC', 'STORVEGC', 'LIVESTEMC', 'DEADSTEMC', \
                      'TOTPRODC', 'FROOTC', 'LIVECROOTC', 'DEADCROOTC', 'SOIL1C', 'SOIL2C', 'SOIL3C', \

@@ -105,8 +105,8 @@ if (len(mycases) > 1):
   mysites=[]
   for c in range(0,ncases):
     mysites.append(options.site)
-    if (len(mycompsets) == 1):
-        mycompsets.append(options.compset)
+    #if (len(mycompsets) == 1):
+    mycompsets.append(options.compset)
   mytitles = mycases
 elif (len(mysites) > 1):
   ncases = len(mysites)
@@ -154,6 +154,7 @@ else:
 avpd      = int(options.myavpd)        # desired averaging period in output timestep
 ystart    = int(options.myystart)      # beginning year to plot/average
 yend      = int(options.myyend)        # final year to plot/average 
+yend_all  = yend                       # keep track of last year for which datasets exist
 
 avtype = 'default'
 if (options.mydiurnal):
@@ -362,10 +363,12 @@ for c in range(0,ncases):
                         x[nsteps] = y+m/12.0
                         myvar_temp = getvar(myfile, myvars[v],npf,int(options.index), \
                                             myscalefactors[v])
-                        #print c,v,nsteps,myvar_temp
                         mydata[v,nsteps] = myvar_temp
                         nsteps = nsteps + 1
-            
+                    else:
+                        print 'Warning: '+myfile+' does not exist'
+                        if (y-1 < yend_all):
+                            yend_all = y-1
     #read annual .nc files
     if (ftype == 'custom'):
         for v in range(0,nvar):
@@ -433,7 +436,10 @@ for c in range(0,ncases):
                                 x[myind] = ystart+(ylast*nypf+y*nypf) + nypf*(i*1.0-0.5)/npf
                             mydata[v,myind] = myvar_temp[i]
                             nsteps=nsteps+1
-  
+  		    else:	
+                         print 'Warning: '+myfile+' does not exist'
+                         if (y-1 < yend_all):
+                             yend_all = y-1
     #perform averaging and write output files 
     if (avtype == 'default'):
         for v in range(0,nvar):
@@ -456,7 +462,7 @@ for c in range(0,ncases):
             mysum_obs = numpy.zeros(snum[c], numpy.float)
             myct = numpy.zeros(snum[c],numpy.float)
             myct_obs = numpy.zeros(snum[c],numpy.float)
-            for y in range(0,(yend-ystart+1)):
+            for y in range(0,(yend_all-ystart+1)):
                 for d in range (int(options.dstart),int(options.dend)):
                     for s in range(0,snum[c]):        
                         h=s
@@ -484,15 +490,18 @@ for c in range(0,ncases):
             mysum=numpy.zeros(snum[c], numpy.float)
             mysum_obs = numpy.zeros(snum[c], numpy.float)
             mycount_obs = numpy.zeros(snum[c], numpy.int)
-            for y in range(0,(yend-ystart+1)):
+            for y in range(0,(yend_all-ystart+1)):
                 for s in range(0,snum[c]):
-                    mysum[s]=mysum[s]+mydata[v,(y*12+s)]/(yend-ystart+1)
+                    print y, s, mydata[v,y*12+s]
+                    mysum[s]=mysum[s]+mydata[v,(y*12+s)]/float(yend_all-ystart+1)
                     if (myobs[v,(y*12+s)] > -900):
                         mysum_obs[s]=mysum_obs[s]+myobs[v,(y*12+s)]
                         mycount_obs[s] = mycount_obs[s]+1
             for s in range(0,snum[c]):
                 if (mycount_obs[s] > 0):
                     mysum_obs[s] = mysum_obs[s]/mycount_obs[s]
+                else:
+                    mysum_obs[s] = numpy.NaN
                 x_toplot[c,s] = s+1.5
                 obs_toplot[c,v,s]  = mysum_obs[s]
                 data_toplot[c,v,s] = mysum[s]
@@ -527,8 +536,9 @@ for v in range(0,len(myvars)):
         else:
             ax.plot(x_toplot[c, 0:snum[c]], (data_toplot[c,v,0:snum[c]]), label=mytitles[c], color=colors[c], \
 	      linestyle=styles[c], linewidth=3)
-            ax.errorbar(x_toplot[c, 0:snum[c]], obs_toplot[c,v,0:snum[c]], yerr = err_toplot[c,v,0:snum[c]], \
-                        color=colors[c], fmt='o')
+            if (options.myobs and c == 0):
+                ax.errorbar(x_toplot[c, 0:snum[c]], obs_toplot[c,v,0:snum[c]], yerr = err_toplot[c,v,0:snum[c]], \
+                            color=colors[c], fmt='o')
         print v,c, rmse[v,c], bias[v,c], corr[v,c]
 
     if (avtype == 'seasonal'):
@@ -542,7 +552,7 @@ for v in range(0,len(myvars)):
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
     ax.legend(loc='center left', bbox_to_anchor=(1, 0.5),prop={'size': 10})
-    plt.title(var_long_names[v])
+    plt.title(var_long_names[v]+' at '+mysites[0])
     if (options.ylog):
         plt.yscale('log')
 
@@ -550,7 +560,7 @@ for v in range(0,len(myvars)):
         os.system('mkdir -p ./plots/'+mycases[c])
         fig_filename = './plots/'+mycases[c]+'/'+mysites[c]+'_'+myvars[v]
         if (options.spinup):
-            fig_filename = fig_type+'spinup'
+            fig_type = 'spinup'
         elif (options.mydiurnal):
             fig_type = 'diurnalcycle_'+str(options.dstart)+'_'+str(options.dend)
         elif (options.myseasonal):
@@ -559,6 +569,8 @@ for v in range(0,len(myvars)):
             fig_type = 'monthly'
         elif (mytstep == 'annual' and obs):
             fig_type='internannual'
+        else:
+            fig_type='default'
         fig_filename = fig_filename+'_'+fig_type
 
         fig.savefig(fig_filename+'.pdf')
