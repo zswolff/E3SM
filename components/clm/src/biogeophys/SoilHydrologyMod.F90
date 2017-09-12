@@ -1868,7 +1868,7 @@ contains
                    rsub_top_max = dsmax_tmp(c)
                 else
                    imped=10._r8**(-e_ice*(icefracsum/dzsum))
-                   rsub_top_max = 10._r8 * sin((rpi/180.) * col_pp%topo_slope(c))
+                   rsub_top_max = min(10._r8 * sin((rpi/180.) * col_pp%topo_slope(c)), 1e-1_r8)
                 end if
              endif
              if (use_vichydro) then

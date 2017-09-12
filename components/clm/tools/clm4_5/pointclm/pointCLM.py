@@ -534,12 +534,17 @@ else:
 os.system('chmod u+w ' +tmpdir+'/clm_params.nc')
 if (options.parm_file != ''):
     pftfile = tmpdir+'/clm_params.nc'
-    input   = open(os.path.abspath(options.parm_file))
+    if ('/' not in options.parm_file):
+       #assume in pointclm directory
+       input  = open(PTCLMdir+'/'+options.parm_file)
+    else:   #assume full path given
+       input   = open(os.path.abspath(options.parm_file))
     for s in input:
         if s[0:1] != '#':
             values = s.split()
             thisvar = nffun.getvar(pftfile, values[0])
             thisvar[int(values[1])] = float(values[2])
+            print values[0], thisvar
             ierr = nffun.putvar(pftfile, values[0], thisvar)
     input.close()
 if (options.parm_vals != ''):

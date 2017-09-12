@@ -193,8 +193,13 @@ contains
          end if
          if (br_xr(ivt(p)) .gt. 0) then
             xr(p) = cpool(p) * br_xr(ivt(p)) * tc
+            !xr_above(p) = xr(p) * (leafn(p) + livestemn(p)) / &
+            !          (leafn(p) + livestemn(p) + frootn(p))
+            !xr_below(p) = xr(p) - xr_above(p)
          else
             xr(p) = 0._r8
+            !xr_above(p) = 0._r8
+            !xr_below(p) = 0._r8
          end if
       end do
 

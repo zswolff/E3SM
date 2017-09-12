@@ -518,6 +518,14 @@ for v in range(0,len(myvars)):
     colors=['b','g','r','c','m','y','k','b','g','r','c','m','y','k','b','g','r','c','m','y','k']
     styles=['-','-','-','-','-','-','-','--','--','--','--','--','--','--','-.','-.','-.','-.','-.','-.','-.']
     for c in range(0,ncases):
+        #Output data
+        outdata = netcdf.netcdf_file("test.nc","w",mmap=False)
+        outdata.createDimension('time',snum[c])
+        outdata.createDimension('lat',1)
+        outdata.createDimension('lon',1)
+        #myvar = outdata.createVariable(
+
+
         gind=[]
         for i in range(0,snum[c]):
             if (obs_toplot[c,v,i] < -900):

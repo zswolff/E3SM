@@ -82,11 +82,11 @@ if diricase != dirocase:
 shutil.copy(fileinp, fileinp+".b")
 
 if site in solutionP.keys():
-   mysolutionP = solutionP[site]
-   mylabileP   = labileP[site]
-   mysecondP   = secondP[site]
-   myocclP     = occlP[site]
-   myprimP     = primP[site]
+   mysolutionP = solutionP[site] 
+   mylabileP   = labileP[site] 
+   mysecondP   = secondP[site] 
+   myocclP     = occlP[site] 
+   myprimP     = primP[site] 
 else:
   global_file = options.acme_input+'/lnd/clm2/rawdata/mksrf_soilphos_0.5x0.5_simyr1850.c170623.nc'
   #get corresponding 0.5x0.5 and 1.9x2.5 degree grid cells
@@ -123,10 +123,10 @@ else:
                 if (mylat >= latixy[k,0]-0.25 and mylat < latixy[k,0]+0.25):
                     lat_ind = k
      restsolutionP[i,:] = obssolutionP
-     restlabileP[i,:]   = obslabileP[lat_ind,lon_ind]
-     restsecondP[i,:]   = obssecondP[lat_ind,lon_ind]
-     restocclP[i,:]     = obsocclP[lat_ind,lon_ind]
-     restprimP[i,:]     = obsprimP[lat_ind,lon_ind]
+     restlabileP[i,:]   = obslabileP[lat_ind,lon_ind] / 0.5
+     restsecondP[i,:]   = obssecondP[lat_ind,lon_ind] / 0.5
+     restocclP[i,:]     = obsocclP[lat_ind,lon_ind] / 0.5
+     restprimP[i,:]     = obsprimP[lat_ind,lon_ind] / 0.5
 
 putvar(fileout, 'solutionp_vr', restsolutionP)
 putvar(fileout, 'labilep_vr'  , restlabileP  )

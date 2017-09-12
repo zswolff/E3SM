@@ -236,6 +236,18 @@ class Frame(wx.Frame):
         self.gswp3.SetValue(False)
         box2.Add(self.gswp3,0,wx.EXPAND)
 
+        #pft physiology file entry
+        m_text8 = wx.StaticText(panel, -1, "File for parameter mods", style=wx.ALIGN_LEFT)
+        m_text8.SetFont(wx.Font(10, wx.SWISS, wx.NORMAL, wx.BOLD))
+        m_text8.SetSize(m_text4.GetBestSize())
+        box2.Add(m_text8, 0, wx.ALL, 3)
+        self.m_pftfile = wx.TextCtrl(panel, -1, mypftfile)
+        self.m_pftfile.Bind(wx.EVT_TEXT, self.OnPftfileText)
+        box2.Add(self.m_pftfile,0,wx.EXPAND)
+        browse_finidat = wx.Button(panel, -1, "Browse", (20,20))
+        browse_finidat.Bind(wx.EVT_BUTTON, self.OnPftfileOpen)
+        box2.Add(browse_finidat, 0, wx.ALL, 3)
+
 
 
         #Run PTCLM button
@@ -607,7 +619,7 @@ class Frame(wx.Frame):
             thisrow=thisrow+1
         mynyears=self.nyears.GetValue()
         mycaseprefix=self.m_caseprefix.GetValue()
-        mypftfile= '' #self.m_pftfile.GetValue()
+        mypftfile= self.m_pftfile.GetValue()
         myfinidat= '' #self.m_finidat.GetValue()
         if (doall):
             mysite='all,'
@@ -681,7 +693,7 @@ class Frame(wx.Frame):
         if mysitedata == False:
             cmd=cmd+' --pftgrid --soilgrid'
         if mypftfile != '':
-            cmd=cmd+' --pftfile '+mypftfile
+            cmd=cmd+' --parm_file '+mypftfile
         if myfinidat != '':
             cmd=cmd+' --finidat '+myfinidat
         elif (myindex == 1):

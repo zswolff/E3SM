@@ -95,10 +95,10 @@ for ic in range(column.__len__()):
     jj = jj_idx[ig] 
     ii = ii_idx[ig]
 
-    ncr.variables['labilep_vr'][ic,:] = nci.variables['lab'][jj, ii]
-    ncr.variables['secondp_vr'][ic,:] = nci.variables['sec'][jj, ii]
-    ncr.variables['occlp_vr'  ][ic,:] = nci.variables['occ'][jj, ii]
-    ncr.variables['primp_vr'  ][ic,:] = nci.variables['apa'][jj, ii]
+    ncr.variables['labilep_vr'][ic,:] = nci.variables['lab'][jj, ii] / 0.5
+    ncr.variables['secondp_vr'][ic,:] = nci.variables['sec'][jj, ii] / 0.5
+    ncr.variables['occlp_vr'  ][ic,:] = nci.variables['occ'][jj, ii] / 0.5
+    ncr.variables['primp_vr'  ][ic,:] = nci.variables['apa'][jj, ii] / 0.5
 
 ncr.close()
 #-ncr.variables['labilep_vr'][:,:] = nci.variables['lab'][jj_idx[cidx1d[:]-1], ii_idx[cidx1d[:]-1]]

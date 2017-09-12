@@ -353,6 +353,8 @@ if (options.gswp3):
     basecmd = basecmd+' --gswp3'
 if (options.archiveroot !=''):
     basecmd = basecmd+' --archiveroot '+options.archiveroot
+if (options.parm_file !=''):
+    basecmd = basecmd+' --parm_file '+options.parm_file
 if (options.mod_parm_file !=''):
     basecmd = basecmd+' --mod_parm_file '+options.mod_parm_file
 basecmd = basecmd + ' --np '+str(options.np)
