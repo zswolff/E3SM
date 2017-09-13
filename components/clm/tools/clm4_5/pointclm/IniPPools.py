@@ -127,7 +127,7 @@ else:
             for k in range(0,latixy.shape[0]):
                 if (mylat >= latixy[k,0]-0.25 and mylat < latixy[k,0]+0.25):
                     lat_ind = k
-     restsolutionP[i,:] = obssolutionP
+     #restsolutionP[i,:] = obssolutionP
      restlabileP[i,:]   = obslabileP[lat_ind,lon_ind] / 0.5
      restsecondP[i,:]   = obssecondP[lat_ind,lon_ind] / 0.5
      restocclP[i,:]     = obsocclP[lat_ind,lon_ind] / 0.5
