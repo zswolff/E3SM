@@ -130,7 +130,10 @@ parser.add_option("--walltime", dest="walltime", default=6, \
 #------------ define function for pbs submission
 def submit(fname, submit_type='qsub', job_depend=''):
     if (job_depend != ''):
-        os.system(submit_type+' -W depend=afterok:'+job_depend+' '+fname+' > temp/jobinfo')
+        if (submit_type == 'qsub'):
+            os.system(submit_type+' -W depend=afterok:'+job_depend+' '+fname+' > temp/jobinfo')
+        elif (submit_type == 'sbatch'):
+            os.system(submit_type+' -d afterok:'+job_depend+' '+fname+' > temp/jobinfo')
     else:
         os.system(submit_type+' '+fname+' > temp/jobinfo')
     myinput = open('temp/jobinfo')
@@ -205,13 +208,13 @@ elif (options.machine == 'titan' or options.machine == 'eos'):
     ccsm_input = '/lustre/atlas/world-shared/cli900/cesm/inputdata'
 elif (options.machine == 'cades' or options.machine == 'metis'):
     ccsm_input = '/lustre/or-hydra/cades-ccsi/proj-shared/project_acme/ACME_inputdata/'
-elif (options.machine == 'edison' or options.machine == 'cori'):
+elif (options.machine == 'edison' or 'cori' in options.machine):
     ccsm_input = '/project/projectdirs/acme/inputdata'
 
 if (options.compiler != ''):
     if (options.machine == 'titan' or options.machine == 'metis'):
         options.compiler = 'pgi'
-    if (options.machine == 'eos' or options.machine == 'edison'):
+    if (options.machine == 'eos' or options.machine == 'edison' or 'cori' in options.machine):
         options.compiler = 'intel'
     if (options.machine == 'cades'):
         options.compiler = 'gnu'
@@ -239,6 +242,8 @@ if (options.runroot == '' or (os.path.exists(options.runroot) == False)):
         runroot='/lustre/atlas/scratch/'+myuser+'/'+myproject
     elif (options.machine == 'cades' or options.machine == 'metis'):
         runroot='/lustre/or-hydra/cades-ccsi/scratch/'+myuser
+    elif ('cori' in options.machine):
+        runroot='/global/cscratch1/sd/'+myuser
     else:
         runroot = csmdir+'/run'
 else:
@@ -515,7 +520,7 @@ for c in cases:
 
 
     mysubmit_type = 'qsub'
-    if (options.machine == 'cori' or options.machine == 'edison'):
+    if ('cori' in options.machine or options.machine == 'edison'):
         mysubmit_type = 'sbatch'
     #Create a .PBS site fullrun script to launch the full job 
 
@@ -530,7 +535,7 @@ for c in cases:
                     output.write('#PBS -l walltime='+str(options.walltime)+':00:00\n')
                 else:
                     output.write('#SBATCH --time='+str(options.walltime)+':00:00\n')
-                    if ('edison' in options.machine):
+                    if ('cori' in options.machine or 'edison' in options.machine):
                         output.write('#SBATCH --partition=regular\n')
             elif ("#!" in s or "#PBS" in s or "#SBATCH" in s):
                 output.write(s)
@@ -554,7 +559,13 @@ for c in cases:
             output.write('module load python\n')
             output.write('module load python_numpy/1.9.2\n')
             output.write('module load python_scipy/0.15.1\n')
-            
+        if ('cori' in options.machine or 'edison' in options.machine):
+            output.write('module unload python\n')
+            output.write('module unload scipy\n')
+            output.write('module unload numpy\n')
+            output.write('module load python/2.7-anaconda\n')
+            output.write('module load nco\n')                  
+   
         this_run_n = runblock
         if (n == (n_submits-1)):
             this_run_n = run_n_total- (n * runblock)

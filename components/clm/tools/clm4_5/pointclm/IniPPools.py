@@ -81,12 +81,17 @@ if diricase != dirocase:
    shutil.copy(fileinp, dirocase)
 shutil.copy(fileinp, fileinp+".b")
 
-if site in solutionP.keys():
-   mysolutionP = solutionP[site] 
-   mylabileP   = labileP[site] 
-   mysecondP   = secondP[site] 
-   myocclP     = occlP[site] 
-   myprimP     = primP[site] 
+if site =='XXXXX':  #in solutionP.keys():
+   obssolutionP = solutionP[site] 
+   obslabileP   = labileP[site] 
+   obssecondP   = secondP[site] 
+   obsocclP     = occlP[site] 
+   obsprimP     = primP[site] 
+   putvar(fileout, 'solutionp_vr', obssolutionP  )
+   putvar(fileout, 'labilep_vr'  , obslabileP  )
+   putvar(fileout, 'secondp_vr'  , obssecondP  )
+   putvar(fileout, 'occlp_vr'    , obsocclP    )
+   putvar(fileout, 'primp_vr'    , obsprimP    ) 
 else:
   global_file = options.acme_input+'/lnd/clm2/rawdata/mksrf_soilphos_0.5x0.5_simyr1850.c170623.nc'
   #get corresponding 0.5x0.5 and 1.9x2.5 degree grid cells
@@ -96,13 +101,13 @@ else:
   cols1d_lon = getvar(fileinp, 'cols1d_lon')
   cols1d_lat = getvar(fileinp, 'cols1d_lat')
 
-  restsolutionP = getvar(fileinp, 'solutionp_vr')
+  #restsolutionP = getvar(fileinp, 'solutionp_vr')
   restlabileP   = getvar(fileinp, 'labilep_vr')
   restsecondP   = getvar(fileinp, 'secondp_vr')
   restocclP     = getvar(fileinp, 'occlp_vr')
   restprimP     = getvar(fileinp, 'primp_vr')
 
-  obssolutionP  = 0.0015
+  #obssolutionP  = 0.0015
   obslabileP    = getvar(global_file, 'LABILE_P')
   obssecondP    = getvar(global_file, 'SECONDARY_P')
   obsocclP      = getvar(global_file, 'OCCLUDED_P')
@@ -128,9 +133,9 @@ else:
      restocclP[i,:]     = obsocclP[lat_ind,lon_ind] / 0.5
      restprimP[i,:]     = obsprimP[lat_ind,lon_ind] / 0.5
 
-putvar(fileout, 'solutionp_vr', restsolutionP)
-putvar(fileout, 'labilep_vr'  , restlabileP  )
-putvar(fileout, 'secondp_vr'  , restsecondP  )
-putvar(fileout, 'occlp_vr'    , restocclP    )
-putvar(fileout, 'primp_vr'    , restprimP    )
+  #putvar(fileout, 'solutionp_vr', restsolutionP)
+  putvar(fileout, 'labilep_vr'  , restlabileP  )
+  putvar(fileout, 'secondp_vr'  , restsecondP  )
+  putvar(fileout, 'occlp_vr'    , restocclP    )
+  putvar(fileout, 'primp_vr'    , restprimP    )
 
