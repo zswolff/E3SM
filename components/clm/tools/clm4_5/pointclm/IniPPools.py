@@ -139,3 +139,9 @@ else:
   putvar(fileout, 'occlp_vr'    , restocclP    )
   putvar(fileout, 'primp_vr'    , restprimP    )
 
+#Remove negative Ppool values
+os.system("ncap2 -O -s 'pool=abs(ppool)' "+fileout+" "+fileout)
+os.system("ncap2 -O -s 'defdim(\"cohort\",5663)' -s 'defdim(\"levurb\",5)' -s " \
+   +"'defdim(\"string_length\",64)' -s 'defdim(\"levtrc\",10)' " + \
+   fileout+" "+fileout)
+            

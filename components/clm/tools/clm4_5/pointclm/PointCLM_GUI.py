@@ -43,7 +43,7 @@ class Frame(wx.Frame):
     global filename
     def __init__(self, title):
 
-        wx.Frame.__init__(self, None, title=title, pos=(100,100), size=(900,700))
+        wx.Frame.__init__(self, None, title=title, pos=(100,100), size=(900,800))
         self.Bind(wx.EVT_CLOSE, self.OnClose)
 
         file_opened=0
@@ -235,6 +235,9 @@ class Frame(wx.Frame):
         self.gswp3 = wx.CheckBox(panel, -1,'Use gswp3 forcing data')
         self.gswp3.SetValue(False)
         box2.Add(self.gswp3,0,wx.EXPAND)
+        self.c14 = wx.CheckBox(panel, -1,'Use c14')
+        self.c14.SetValue(False)
+        box2.Add(self.c14,0,wx.EXPAND)
 
         #pft physiology file entry
         m_text8 = wx.StaticText(panel, -1, "File for parameter mods", style=wx.ALIGN_LEFT)
@@ -643,7 +646,7 @@ class Frame(wx.Frame):
 	myonehour=self.onehour.GetValue()     
         mycruncep=self.cruncep.GetValue()
         mygswp3=self.gswp3.GetValue()
-
+        myc14=self.c14.getValue()
 
         cdate="1850"
         if (myindex == 2):
@@ -720,6 +723,8 @@ class Frame(wx.Frame):
             cmd = cmd+' --cruncep'
         elif (mygswp3):
             cmd = cmd+' --gswp3'
+        if (myc14):
+            cmd = cmd+' --C14'
         cmd = cmd+' --runroot '+rundir
         
         print cmd

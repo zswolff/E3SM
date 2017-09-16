@@ -964,6 +964,9 @@ for i in range(1,int(options.ninst)+1):
             output.write(" use_c13 = .true.\n")
         if (options.C14):
             output.write(" use_c14 = .true.\n")
+            output.write(" use_c14_bombspike = .true.\n")
+            output.write(" atm_c14_filename = '"+options.ccsm_input+"/atm/datm7/CO2/" + \
+                         "atm_delta_C14_data_1850-2007_monthly_25082011.nc'\n")
         if ('ECA' in compset):
             output.write(" nyears_ad_carbon_only = 0\n")
             output.write(" spinup_mortality_factor = 1\n")
@@ -1007,7 +1010,7 @@ else:
 
 #stream file modificaitons: directory and domain file (for using site_level CRU-NCEP)
 if (not cpl_bypass and not isglobal):
-    if (use_cruncep):
+    if (options.cruncep):
         types = ['Precip', 'Solar', 'TPQW']
         tout  = ['Precip', 'Solar', 'TPHWL']
         for i in range(0,3):
@@ -1040,19 +1043,19 @@ if (not cpl_bypass and not isglobal):
         myoutput.close()
 
     #reverse directories for CLM1PT and site
-    #if (use_cruncep == False):
-    #    myinput  = open('./Buildconf/datmconf/datm.streams.txt.CLM1PT.CLM_USRDAT')
-    #    myoutput = open('./user_datm.streams.txt.CLM1PT.CLM_USRDAT','w')
-    #    for s in myinput:
-    #        if ('CLM1PT_data' in s):
-    #            temp = s.replace('CLM1PT_data', 'TEMPSTRING')
-    #            s    = temp.replace(str(numxpts)+'x'+str(numypts)+'pt'+'_'+options.site, 'CLM1PT_data')
-    #            temp  =s.replace('TEMPSTRING', str(numxpts)+'x'+str(numypts)+'pt'+'_'+options.site)
-    #            myoutput.write(temp)
-    #        else:
-    #            myoutput.write(s)
-    #    myinput.close()
-    #    myoutput.close()
+    if (options.cruncep == False):
+        myinput  = open('./Buildconf/datmconf/datm.streams.txt.CLM1PT.CLM_USRDAT')
+        myoutput = open('./user_datm.streams.txt.CLM1PT.CLM_USRDAT','w')
+        for s in myinput:
+            if ('CLM1PT_data' in s):
+                temp = s.replace('CLM1PT_data', 'TEMPSTRING')
+                s    = temp.replace(str(numxpts)+'x'+str(numypts)+'pt'+'_'+options.site, 'CLM1PT_data')
+                temp  =s.replace('TEMPSTRING', str(numxpts)+'x'+str(numypts)+'pt'+'_'+options.site)
+                myoutput.write(temp)
+            else:
+                myoutput.write(s)
+        myinput.close()
+        myoutput.close()
 
 #CPPDEF modifications
 infile  = open("./Macros.make")
@@ -1112,7 +1115,7 @@ if (not cpl_bypass):
             else:
                 mypresaero = '"datm.streams.txt.presaero.clim_1850 1 1850 1850"'
                 myco2=''
-            if (use_cruncep):
+            if (options.cruncep):
                 myoutput.write(' streams = "datm.streams.txt.CLMCRUNCEP.Solar '+str(myalign_year)+ \
                                    ' '+str(startyear)+' '+str(endyear)+'  ", '+ \
                                    '"datm.streams.txt.CLMCRUNCEP.Precip '+str(myalign_year)+ \
@@ -1127,7 +1130,7 @@ if (not cpl_bypass):
         elif ('streams' in s):
             continue  #do nothing
         elif ('taxmode' in s):
-            if (use_cruncep):
+            if (options.cruncep):
                 taxst = "taxmode = 'cycle', 'cycle', 'cycle', 'extend', 'extend'"
             else:
                 taxst = "taxmode = 'cycle', 'extend', 'extend'"

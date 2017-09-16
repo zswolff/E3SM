@@ -155,6 +155,8 @@ avpd      = int(options.myavpd)        # desired averaging period in output time
 ystart    = int(options.myystart)      # beginning year to plot/average
 yend      = int(options.myyend)        # final year to plot/average 
 yend_all  = yend                       # keep track of last year for which datasets exist
+mylat_vals =[]
+mylon_vals= []
 
 avtype = 'default'
 if (options.mydiurnal):
@@ -330,7 +332,6 @@ for c in range(0,ncases):
             else:
                 print 'Error reading observations for '+mysites[c]
 
-    
     #read monthly .nc files (default output)
     if (ftype == 'default'):
         for v in range(0,nvar):
@@ -351,15 +352,19 @@ for c in range(0,ncases):
                             if (float(options.scale_factor) < -900):
                                 if ('gC/m^2/s' in varout.units):
                                     myscalefactors.append(3600*24)
-                                    var_units.append('gC/m^2/day')
+                                    var_units.append('g.C/m2/day')
                                 else:
                                     myscalefactors.append(1.0)
-                                    var_units.append(varout.units)
+                                    var_units.append(varout.units.replace('^',''))
                             else:
                                 myscalefactors.append(float(options.scale_factor))
-                                var_units.append(varout.units)
+                                var_units.append(varout.units.replace('^',''))
                         
-
+                        if (y == ystart and m == 0 and v == 0):      # get lat/lon info
+                            nffile = netcdf.netcdf_file(myfile,"r")
+                            mylat_vals.append(nffile.variables['lat'][0])
+                            mylon_vals.append(nffile.variables['lon'][0])
+                            nffile.close()
                         x[nsteps] = y+m/12.0
                         myvar_temp = getvar(myfile, myvars[v],npf,int(options.index), \
                                             myscalefactors[v])
@@ -413,18 +418,23 @@ for c in range(0,ncases):
                                 if ('gC/m^2/s' in varout.units):
                                     if (npf >= 365):
                                         myscalefactors.append(3600*24)
-                                        var_units.append('gC/m^2/day')
+                                        var_units.append('g.C/m2/day')
                                     else:
                                         myscalefactors.append(3600*24*365)
-                                        var_units.append('gC/m^2/yr')
+                                        var_units.append('g.C/m2/yr')
                                 else:
                                     myscalefactors.append(1.0)
-                                    var_units.append(varout.units)
+                                    var_units.append(varout.units.replace('^',''))
                             else:
                                  myscalefactors.append(float(options.scale_factor))
-                                 var_units.append(varout.units)
-
+                                 var_units.append(varout.units.replace('^',''))
                             nffile.close()
+                        if (y == 0 and v == 0):      # get lat/lon info
+                            nffile = netcdf.netcdf_file(myfile,"r")
+                            mylat_vals.append(nffile.variables['lat'][0])
+                            mylon_vals.append(nffile.variables['lon'][0])
+                            nffile.close()
+
                         myvar_temp = getvar(myfile,myvars[v],npf,int(options.index), \
                                             myscalefactors[v])
                         for i in range(0,npf):
@@ -507,7 +517,17 @@ for c in range(0,ncases):
                 data_toplot[c,v,s] = mysum[s]
 
                 
-#matplotlib plot
+#diagnostics, outputs and plots
+
+if (options.spinup):
+    analysis_type = 'spinup'
+elif (options.mydiurnal):
+    analysis_type = 'diurnalcycle_'+str(options.dstart)+'_'+str(options.dend)
+elif (options.myseasonal):
+    analysis_type = 'seasonalcycle'
+else:
+    analysis_type=mytstep
+
 rmse = numpy.zeros([len(myvars),ncases],numpy.float)
 bias = numpy.zeros([len(myvars),ncases],numpy.float)
 corr = numpy.zeros([len(myvars),ncases],numpy.float)
@@ -518,14 +538,56 @@ for v in range(0,len(myvars)):
     colors=['b','g','r','c','m','y','k','b','g','r','c','m','y','k','b','g','r','c','m','y','k']
     styles=['-','-','-','-','-','-','-','--','--','--','--','--','--','--','-.','-.','-.','-.','-.','-.','-.']
     for c in range(0,ncases):
-        #Output data
-        outdata = netcdf.netcdf_file("test.nc","w",mmap=False)
-        outdata.createDimension('time',snum[c])
-        outdata.createDimension('lat',1)
-        outdata.createDimension('lon',1)
-        #myvar = outdata.createVariable(
-
-
+        #Output data in netcdf format
+        if (c == 0):
+            if (v == 0):
+                ftype_suffix=['model','obs']
+                for ftype in range(0,2):
+                    outdata = netcdf.netcdf_file("summary_"+analysis_type+'_'+ftype_suffix[ftype]+".nc","w",mmap=False)
+                    outdata.createDimension('time',snum[c])
+                    outdata.createDimension('lat',ncases)
+                    outdata.createDimension('lon',ncases)
+                    outdata.createDimension('strlen',6)
+                    mylat = outdata.createVariable('lat','f',('lat',))
+                    mylat.long_name='coordinate latitude'
+                    mylat.units='degrees_north'
+                    mylon = outdata.createVariable('lon','f',('lon',))
+                    mylon.long_name='coordinate longitude'
+                    mylon.units='degrees_east'
+                    mytime = outdata.createVariable('time','f',('time',))
+                    mytime.long_name='time'
+                    mytime.units='days since '+str(ystart)+'-01-01 00:00:00'
+                    mytime.calendar='noleap'
+                    mytime[:] = (x_toplot[0,0:snum[c]]-ystart)*365
+                    myname = outdata.createVariable('site_name','c',('lat','lon','strlen'))
+                    myname[:,:,:] = ''
+                    outdata.close()
+        for ftype in range(0,2):
+            outdata = netcdf.netcdf_file("summary_"+analysis_type+'_'+ftype_suffix[ftype]+".nc","a",mmap=False)
+            if (c == 0):
+                myvar = outdata.createVariable(myvars[v],'f',('time','lat','lon'))
+                myvar.units=var_units[v]
+                myvar.missing_value=1e36
+                myvar[:,:,:]=1e36
+            else:
+                myvar=outdata.variables[myvars[v]]
+            scalefac = 1.0
+            if (var_units[v] == 'g.C/m2/day'):
+                myvar.units = 'kg.C/m2/s'
+                scalefac = 1.0 / (3600*24*1000.0)
+            if (ftype == 0):
+                myvar[:,c,c] = data_toplot[c,v,0:snum[c]]*scalefac
+            if (ftype == 1):
+                myvar[:,c,c] = obs_toplot[c,v,0:snum[c]]*scalefac
+            if (v == 0):
+                myname = outdata.variables['site_name']
+                myname[c,c,0:6] = str(mysites[c])[0:6]
+                mylat = outdata.variables['lat']
+                mylat[c] = mylat_vals[c]
+                mylon = outdata.variables['lon']
+                mylon[c] = mylon_vals[c]
+            outdata.close()
+        
         gind=[]
         for i in range(0,snum[c]):
             if (obs_toplot[c,v,i] < -900):
@@ -567,26 +629,13 @@ for v in range(0,len(myvars)):
     if (options.pdf):
         os.system('mkdir -p ./plots/'+mycases[c])
         fig_filename = './plots/'+mycases[c]+'/'+mysites[c]+'_'+myvars[v]
-        if (options.spinup):
-            fig_type = 'spinup'
-        elif (options.mydiurnal):
-            fig_type = 'diurnalcycle_'+str(options.dstart)+'_'+str(options.dend)
-        elif (options.myseasonal):
-            fig_type = 'seasonalcycle'
-        elif (mytstep == 'monthly' and obs):
-            fig_type = 'monthly'
-        elif (mytstep == 'annual' and obs):
-            fig_type='internannual'
-        else:
-            fig_type='default'
-        fig_filename = fig_filename+'_'+fig_type
-
+        fig_filename = fig_filename+'_'+analysis_type
         fig.savefig(fig_filename+'.pdf')
 
 if (not options.pdf):
     plt.show()
 
-outdata = open('./plots/'+mycases[c]+'/'+mysites[c]+'_summary_'+fig_type+'.txt','w')
+outdata = open('./plots/'+mycases[c]+'/'+mysites[c]+'_summary_'+analysis_type+'.txt','w')
 outdata.write(mysites[c]+'\n')
 outdata.write('RMSE\n')
 varst='               '

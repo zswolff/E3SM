@@ -12,7 +12,7 @@ module CNNitrogenStateType
   use clm_varctl             , only : use_nitrif_denitrif, use_vertsoilc, use_century_decomp
   use clm_varctl             , only : iulog, override_bgc_restart_mismatch_dump, spinup_state
   use decompMod              , only : bounds_type
-  use pftvarcon              , only : npcropmin
+  use pftvarcon              , only : npcropmin, nstor
   use CNDecompCascadeConType , only : decomp_cascade_con
   use VegetationPropertiesType         , only : veg_vp
   use abortutils             , only : endrun
@@ -836,6 +836,9 @@ contains
           this%deadcrootn_xfer_patch(p)    = 0._r8
           this%retransn_patch(p)           = 0._r8
           this%npool_patch(p)              = 0._r8
+          if (nstor(veg_pp%itype(p)) .gt. 0) then 
+              this%npool_patch(p)          = 10.0_r8
+          end if
           this%ntrunc_patch(p)             = 0._r8
           this%dispvegn_patch(p)           = 0._r8
           this%storvegn_patch(p)           = 0._r8

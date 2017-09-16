@@ -685,6 +685,7 @@ contains
              deadstemc_seed   = 0._r8
              deadstemn_seed   = 0._r8
              npool_seed       = 0._r8
+             ppool_seed       = 0._r8
              deadstemp_seed   = 0._r8
              if ( use_c13 ) then
                 leafc13_seed = 0._r8
@@ -701,12 +702,13 @@ contains
                 if (veg_vp%woody(veg_pp%itype(p)) == 1._r8) then
                    deadstemc_seed = 0.1_r8
                    deadstemn_seed = deadstemc_seed / veg_vp%deadwdcn(veg_pp%itype(p))
-                   if (veg_vp%nstor(veg_pp%itype(p)) > 0._r8) then 
-                       npool_seed     = 0.1_r8
-                       ppool_seed     = 0.01_r8
-                   end if
                    deadstemp_seed = deadstemc_seed / veg_vp%deadwdcp(veg_pp%itype(p))
                 end if
+                if (veg_vp%nstor(veg_pp%itype(p)) > 0._r8) then
+                   npool_seed     = 0.1_r8
+                   ppool_seed     = 0.01_r8
+                end if
+
                 
                 if ( use_c13 ) then
                    ! 13c state is initialized assuming del13c = -28 permil for C3, and -13 permil for C4.
@@ -970,7 +972,7 @@ contains
              ps%deadcrootp_storage_patch(p) = ps%deadcrootp_storage_patch(p) * t1
              ps%deadcrootp_xfer_patch(p)    = ps%deadcrootp_xfer_patch(p)    * t1
              ps%retransp_patch(p)	    = ps%retransp_patch(p)           * t1
-             ps%ppool_patch(p)              = ps%ppool_patch(p)              * t1
+             ps%ppool_patch(p)              = ps%ppool_patch(p)              * t1 + ppool_seed*t2
              ps%ptrunc_patch(p)             = ps%ptrunc_patch(p)             * t1
              ps%dispvegp_patch(p)	    = ps%dispvegp_patch(p)           * t1
              ps%storvegp_patch(p)	    = ps%storvegp_patch(p)           * t1

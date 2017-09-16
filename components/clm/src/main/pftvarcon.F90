@@ -246,6 +246,9 @@ module pftvarcon
   real(r8)              :: jmax_np1            !jmax~np relationship coefficient
   real(r8)              :: jmax_np2            !jmax~np relationship coefficient
   real(r8)              :: jmax_np3            !jmax~np relationship coefficient
+  ! Hydrology
+  real(r8)              :: rsub_top_globalmax
+
   !
   ! !PUBLIC MEMBER FUNCTIONS:
   public :: pftconrd ! Read and initialize vegetation (PFT) constants
@@ -824,6 +827,8 @@ contains
         call ncd_io('jmax_np3',jmax_np3, 'read', ncid, readvar=readv, posNOTonfile=.true.)
         if ( .not. readv ) call endrun(msg=' ERROR: error in reading in vcmax_np data'//errMsg(__FILE__, __LINE__))
     end if
+    call ncd_io('rsub_top_globalmax', rsub_top_globalmax, 'read', ncid, readvar=readv, posNOTonfile=.true.)
+    if ( .not. readv) call endrun(msg='ERROR:  error in reading in pft data'//errMsg(__FILE__,__LINE__))
     call ncd_io('fnr', fnr, 'read', ncid, readvar=readv, posNOTonfile=.true.)
     if ( .not. readv) call endrun(msg='ERROR:  error in reading in pft data'//errMsg(__FILE__,__LINE__))
     call ncd_io('act25', act25, 'read', ncid, readvar=readv, posNOTonfile=.true.)
