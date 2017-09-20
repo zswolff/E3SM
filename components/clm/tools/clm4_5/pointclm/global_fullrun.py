@@ -330,7 +330,7 @@ if (options.metdir !='none'):
 #    basecmd = basecmd+' --nopointdata '
 if (options.C13):
     basecmd = basecmd+' --C13 '
-if (options.C13):
+if (options.C14):
     basecmd = basecmd+' --C14 '
 if (options.nofire):
     basecmd = basecmd+' --nofire'
@@ -533,6 +533,8 @@ for c in cases:
                 output.write("#!/bin/csh -f\n")
                 if (mysubmit_type == 'qsub'):
                     output.write('#PBS -l walltime='+str(options.walltime)+':00:00\n')
+                    if ('cades' in options.machine):
+                        output.write('#PBS -W x=FLAGS:ADVRES:system.5872\n')  #TEMPORARY
                 else:
                     output.write('#SBATCH --time='+str(options.walltime)+':00:00\n')
                     if ('cori' in options.machine or 'edison' in options.machine):
@@ -603,15 +605,15 @@ for c in cases:
                                  str(int(ny_ad)+1)+'\n')
 
             if (not options.cn_only):
-                if ('f19' in options.res):
-                    output.write('bash\n')
-                    output.write("/home/dmricciuto/anaconda2/bin/python ini_LORES.py --diricase "+os.path.abspath(runroot)+ \
-                                 '/'+ad_case+'/run/ --casename '+ad_case+' --restart_year '+ \
-                                 str(int(ny_ad)+1)+ ' --acme_input '+ccsm_input+'\n')
-                else:
-                   output.write("python IniPPools.py --diricase "+os.path.abspath(runroot)+ \
-                                 '/'+ad_case+'/run/ --casename '+ad_case+' --restart_year '+ \
-                                 str(int(ny_ad)+1)+ ' --acme_input '+ccsm_input+'\n')
+                #if ('f19' in options.res):
+                #    output.write('bash\n')
+                #    output.write("/home/dmricciuto/anaconda2/bin/python ini_LORES.py --diricase "+os.path.abspath(runroot)+ \
+                #                 '/'+ad_case+'/run/ --casename '+ad_case+' --restart_year '+ \
+                #                 str(int(ny_ad)+1)+ ' --acme_input '+ccsm_input+'\n')
+                #else:
+                output.write("python IniPPools.py --diricase "+os.path.abspath(runroot)+ \
+                              '/'+ad_case+'/run/ --casename '+ad_case+' --restart_year '+ \
+                              str(int(ny_ad)+1)+ ' --acme_input '+ccsm_input+'\n')
         output.close()
 
         job_depend_run = submit('temp/global_'+c+'_'+str(n)+'.pbs',job_depend=job_depend_run, \

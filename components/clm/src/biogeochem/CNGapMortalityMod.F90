@@ -202,7 +202,8 @@ contains
          carbonflux_vars%m_livecrootc_storage_to_litter_patch(p)  = carbonstate_vars%livecrootc_storage_patch(p)  * m
          carbonflux_vars%m_deadcrootc_storage_to_litter_patch(p)  = carbonstate_vars%deadcrootc_storage_patch(p)  * m
          carbonflux_vars%m_gresp_storage_to_litter_patch(p)       = carbonstate_vars%gresp_storage_patch(p)       * m
-
+         carbonflux_vars%m_cpool_to_litter_patch(p)               = carbonstate_vars%cpool_patch(p)               * m
+ 
          ! transfer pools
          carbonflux_vars%m_leafc_xfer_to_litter_patch(p)          = carbonstate_vars%leafc_xfer_patch(p)          * m
          carbonflux_vars%m_frootc_xfer_to_litter_patch(p)         = carbonstate_vars%frootc_xfer_patch(p)         * m
@@ -368,7 +369,8 @@ contains
          m_livecrootc_xfer_to_litter         =>    carbonflux_vars%m_livecrootc_xfer_to_litter_patch      , & ! Input:  [real(r8) (:)   ]                                                    
          m_deadcrootc_xfer_to_litter         =>    carbonflux_vars%m_deadcrootc_xfer_to_litter_patch      , & ! Input:  [real(r8) (:)   ]                                                    
          m_gresp_xfer_to_litter              =>    carbonflux_vars%m_gresp_xfer_to_litter_patch           , & ! Input:  [real(r8) (:)   ]                                                    
-         
+         m_cpool_to_litter                   =>    carbonflux_vars%m_cpool_to_litter_patch                , & ! Input:  [real(r8) (:)   ]               
+
          m_leafn_to_litter                   =>    nitrogenflux_vars%m_leafn_to_litter_patch              , & ! Input:  [real(r8) (:)   ]                                                    
          m_frootn_to_litter                  =>    nitrogenflux_vars%m_frootn_to_litter_patch             , & ! Input:  [real(r8) (:)   ]                                                    
          m_livestemn_to_litter               =>    nitrogenflux_vars%m_livestemn_to_litter_patch          , & ! Input:  [real(r8) (:)   ]                                                    
@@ -462,7 +464,7 @@ contains
                           (m_livecrootc_to_litter(p) + m_deadcrootc_to_litter(p)) * wtcol(p) * croot_prof(p,j)
                      ! storage gap mortality carbon fluxes
                      gap_mortality_c_to_litr_met_c(c,j)      = gap_mortality_c_to_litr_met_c(c,j)      + &
-                          (m_leafc_storage_to_litter(p) + m_gresp_storage_to_litter(p))      * wtcol(p) * leaf_prof(p,j)
+                          (m_cpool_to_litter(p) + m_leafc_storage_to_litter(p) + m_gresp_storage_to_litter(p)) * wtcol(p) * leaf_prof(p,j)
                      gap_mortality_c_to_litr_met_c(c,j)     = gap_mortality_c_to_litr_met_c(c,j)     + &
                           m_frootc_storage_to_litter(p)     * wtcol(p) * froot_prof(p,j)
                      gap_mortality_c_to_litr_met_c(c,j)  = gap_mortality_c_to_litr_met_c(c,j)  + &

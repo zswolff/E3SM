@@ -56,6 +56,7 @@ module CNCarbonFluxType
      real(r8), pointer :: m_deadcrootc_xfer_to_litter_patch         (:)     ! dead coarse root C transfer mortality (gC/m2/s)
      real(r8), pointer :: m_gresp_storage_to_litter_patch           (:)     ! growth respiration storage mortality (gC/m2/s)
      real(r8), pointer :: m_gresp_xfer_to_litter_patch              (:)     ! growth respiration transfer mortality (gC/m2/s)
+     real(r8), pointer :: m_cpool_to_litter_patch                   (:)     ! plant storage C pool to litter (gC/m2/s)
 
      ! harvest mortality fluxes
      real(r8), pointer :: hrv_leafc_to_litter_patch                 (:)     ! leaf C harvest mortality (gC/m2/s)
@@ -80,6 +81,7 @@ module CNCarbonFluxType
      real(r8), pointer :: hrv_gresp_storage_to_litter_patch         (:)     ! growth respiration storage harvest mortality (gC/m2/s)
      real(r8), pointer :: hrv_gresp_xfer_to_litter_patch            (:)     ! growth respiration transfer harvest mortality (gC/m2/s)
      real(r8), pointer :: hrv_xsmrpool_to_atm_patch                 (:)     ! excess MR pool harvest mortality (gC/m2/s)
+     real(r8), pointer :: hrv_cpool_to_litter_patch                 (:)     ! Harvest cpool to litter (gC/m2/s)
      ! crop harvest
      real(r8), pointer :: hrv_leafc_to_prod1c_patch                 (:)     ! crop leafc harvested (gC/m2/s)
      real(r8), pointer :: hrv_livestemc_to_prod1c_patch             (:)     ! crop stemc harvested (gC/m2/s)
@@ -387,7 +389,7 @@ module CNCarbonFluxType
      real(r8), pointer :: vegfire_col                               (:)     ! column (gC/m2/s) patch-level fire loss (obsolete, mark for removal) (p2c)
      real(r8), pointer :: wood_harvestc_col                         (:)     ! column (p2c)                                                  
      real(r8), pointer :: hrv_xsmrpool_to_atm_col                   (:)     ! column excess MR pool harvest mortality (gC/m2/s) (p2c)
-
+  
      ! Temporary and annual sums
      real(r8), pointer :: tempsum_litfall_patch       (:) ! temporary annual sum of litfall (gC/m2/yr) (CNDV)
      real(r8), pointer :: tempsum_npp_patch           (:) ! patch temporary annual sum of NPP (gC/m2/yr)
@@ -480,6 +482,7 @@ contains
         allocate(this%m_deadcrootc_to_litter_patch              (begp:endp)) ; this%m_deadcrootc_to_litter_patch              (:) = nan
         allocate(this%m_gresp_storage_to_litter_patch           (begp:endp)) ; this%m_gresp_storage_to_litter_patch           (:) = nan
         allocate(this%m_gresp_xfer_to_litter_patch              (begp:endp)) ; this%m_gresp_xfer_to_litter_patch              (:) = nan
+        allocate(this%m_cpool_to_litter_patch                   (begp:endp)) ; this%m_cpool_to_litter_patch                   (:) = nan
         allocate(this%hrv_leafc_to_litter_patch                 (begp:endp)) ; this%hrv_leafc_to_litter_patch                 (:) = nan
         allocate(this%hrv_leafc_storage_to_litter_patch         (begp:endp)) ; this%hrv_leafc_storage_to_litter_patch         (:) = nan
         allocate(this%hrv_leafc_xfer_to_litter_patch            (begp:endp)) ; this%hrv_leafc_xfer_to_litter_patch            (:) = nan
@@ -506,6 +509,7 @@ contains
         allocate(this%hrv_gresp_storage_to_litter_patch         (begp:endp)) ; this%hrv_gresp_storage_to_litter_patch         (:) = nan
         allocate(this%hrv_gresp_xfer_to_litter_patch            (begp:endp)) ; this%hrv_gresp_xfer_to_litter_patch            (:) = nan
         allocate(this%hrv_xsmrpool_to_atm_patch                 (begp:endp)) ; this%hrv_xsmrpool_to_atm_patch                 (:) = nan
+        allocate(this%hrv_cpool_to_litter_patch                 (begp:endp)) ; this%hrv_cpool_to_litter_patch                 (:) = nan
         allocate(this%m_leafc_to_fire_patch                     (begp:endp)) ; this%m_leafc_to_fire_patch                     (:) = nan
         allocate(this%m_leafc_storage_to_fire_patch             (begp:endp)) ; this%m_leafc_storage_to_fire_patch             (:) = nan
         allocate(this%m_leafc_xfer_to_fire_patch                (begp:endp)) ; this%m_leafc_xfer_to_fire_patch                (:) = nan
@@ -4035,6 +4039,7 @@ contains
           this%m_deadcrootc_to_litter_patch(i)              = value_patch
           this%m_gresp_storage_to_litter_patch(i)           = value_patch
           this%m_gresp_xfer_to_litter_patch(i)              = value_patch
+          this%m_cpool_to_litter_patch(i)                   = value_patch
           this%hrv_leafc_to_litter_patch(i)                 = value_patch             
           this%hrv_leafc_storage_to_litter_patch(i)         = value_patch     
           this%hrv_leafc_xfer_to_litter_patch(i)            = value_patch        
@@ -4061,6 +4066,7 @@ contains
           this%hrv_gresp_storage_to_litter_patch(i)         = value_patch     
           this%hrv_gresp_xfer_to_litter_patch(i)            = value_patch        
           this%hrv_xsmrpool_to_atm_patch(i)                 = value_patch
+          this%hrv_cpool_to_litter_patch(i)                 = value_patch
 
           this%m_leafc_to_fire_patch(i)                     = value_patch
           this%m_leafc_storage_to_fire_patch(i)             = value_patch
@@ -4629,7 +4635,8 @@ contains
             this%hrv_deadcrootc_storage_to_litter_patch(p)    + &
             this%hrv_deadcrootc_xfer_to_litter_patch(p)       + &
             this%hrv_gresp_storage_to_litter_patch(p)         + &
-            this%hrv_gresp_xfer_to_litter_patch(p)
+            this%hrv_gresp_xfer_to_litter_patch(p)            + &
+            this%hrv_cpool_to_litter_patch(p)
 
        ! update the annual litfall accumulator, for use in mortality code
        if (use_cndv) then

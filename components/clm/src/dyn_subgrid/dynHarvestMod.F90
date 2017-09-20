@@ -228,6 +228,7 @@ contains
    livecrootc_xfer                     =>    carbonstate_vars%livecrootc_xfer_patch                         , & ! Input:  [real(r8) (:)]  (gC/m2) live coarse root C transfer               
    deadcrootc_xfer                     =>    carbonstate_vars%deadcrootc_xfer_patch                         , & ! Input:  [real(r8) (:)]  (gC/m2) dead coarse root C transfer               
    gresp_xfer                          =>    carbonstate_vars%gresp_xfer_patch                              , & ! Input:  [real(r8) (:)]  (gC/m2) growth respiration transfer               
+   cpool                               =>    carbonstate_vars%cpool_patch                                   , & ! Input:  [real(r8) (:)]  (gC/m2) Plant C storage
 
    leafn                               =>    nitrogenstate_vars%leafn_patch                                   , & ! Input:  [real(r8) (:)]  (gN/m2) leaf N                                    
    frootn                              =>    nitrogenstate_vars%frootn_patch                                  , & ! Input:  [real(r8) (:)]  (gN/m2) fine root N                               
@@ -294,6 +295,7 @@ contains
    hrv_livecrootc_xfer_to_litter       =>    carbonflux_vars%hrv_livecrootc_xfer_to_litter_patch           , & ! Output: [real(r8) (:)]                                                    
    hrv_deadcrootc_xfer_to_litter       =>    carbonflux_vars%hrv_deadcrootc_xfer_to_litter_patch           , & ! Output: [real(r8) (:)]                                                    
    hrv_gresp_xfer_to_litter            =>    carbonflux_vars%hrv_gresp_xfer_to_litter_patch                , & ! Output: [real(r8) (:)]                                                    
+   hrv_cpool_to_litter                 =>    carbonflux_vars%hrv_cpool_to_litter_patch                     , & ! Output: [real(r8) (:)]             
 
    hrv_leafn_to_litter                 =>    nitrogenflux_vars%hrv_leafn_to_litter_patch                     , & ! Output: [real(r8) (:)]                                                    
    hrv_frootn_to_litter                =>    nitrogenflux_vars%hrv_frootn_to_litter_patch                    , & ! Output: [real(r8) (:)]                                                    
@@ -381,6 +383,7 @@ contains
          hrv_livecrootc_storage_to_litter(p)  = livecrootc_storage(p)  * m
          hrv_deadcrootc_storage_to_litter(p)  = deadcrootc_storage(p)  * m
          hrv_gresp_storage_to_litter(p)       = gresp_storage(p)       * m
+         hrv_cpool_to_litter(p)               = cpool(p)               * m
 
          ! transfer pools
          hrv_leafc_xfer_to_litter(p)          = leafc_xfer(p)          * m
@@ -530,6 +533,7 @@ contains
         hrv_livecrootc_xfer_to_litter    =>    carbonflux_vars%hrv_livecrootc_xfer_to_litter_patch      , & ! Input:  [real(r8) (:)   ]                                                    
         hrv_deadcrootc_xfer_to_litter    =>    carbonflux_vars%hrv_deadcrootc_xfer_to_litter_patch      , & ! Input:  [real(r8) (:)   ]                                                    
         hrv_gresp_xfer_to_litter         =>    carbonflux_vars%hrv_gresp_xfer_to_litter_patch           , & ! Input:  [real(r8) (:)   ]                                                    
+        hrv_cpool_to_litter              =>    carbonflux_vars%hrv_cpool_to_litter_patch                , & ! Input:  [real(r8) (:)   ]       
         chrv_deadstemc_to_prod10c        =>    carbonflux_vars%hrv_deadstemc_to_prod10c_col             , & ! InOut:  [real(r8) (:)   ]                                                    
         chrv_deadstemc_to_prod100c       =>    carbonflux_vars%hrv_deadstemc_to_prod100c_col            , & ! InOut:  [real(r8) (:)   ]                                                    
         harvest_c_to_litr_met_c          =>    carbonflux_vars%harvest_c_to_litr_met_c_col              , & ! InOut:  [real(r8) (:,:) ]  C fluxes associated with harvest to litter metabolic pool (gC/m3/s)
@@ -645,6 +649,9 @@ contains
                          hrv_deadcrootc_storage_to_litter(p) * wtcol(p) * croot_prof(p,j)
                     harvest_c_to_litr_met_c(c,j)      = harvest_c_to_litr_met_c(c,j)      + &
                          hrv_gresp_storage_to_litter(p)      * wtcol(p) * leaf_prof(p,j)
+                    harvest_c_to_litr_met_c(c,j)      = harvest_c_to_litr_met_c(c,j)      + &
+                         hrv_cpool_to_litter(p)      * wtcol(p) * leaf_prof(p,j)
+
 
                     ! transfer harvest mortality carbon fluxes
                     harvest_c_to_litr_met_c(c,j)      = harvest_c_to_litr_met_c(c,j)      + &

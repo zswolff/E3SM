@@ -652,10 +652,15 @@ for row in AFdatareader:
                  output.write("python plotcase.py --site "+site+" --compset "+mycompset \
                                +" --case "+mycaseid+" --vars NEE,GPP,EFLX_LH_TOT,FSH --csmdir "+ \
                                os.path.abspath(runroot)+" --obs --h4 --pdf\n")
+                 #monthly data
+                 output.write("python plotcase.py --site "+site+" --compset "+mycompset \
+                               +" --case "+mycaseid+" --vars NEE,GPP,EFLX_LH_TOT,FSH,FPG,FPG_P,"+ \
+                               "FPI,FPI_P,NPP,QOVER --csmdir "+os.path.abspath(runroot)+ \
+                               " --obs --pdf --yend "+str(site_endyear)+"\n")
                  #1850-present
                  output.write("python plotcase.py --site "+site+" --compset "+mycompset \
                                +" --case "+mycaseid+" --vars TOTLITC,CWDC,TOTVEGC,TOTSOMC --csmdir " \
-                               +os.path.abspath(runroot)+" --ystart 1850 --h4 --pdf\n")
+                               +os.path.abspath(runroot)+" --ystart 1850 --yend "+str(site_endyear)+" --h4 --pdf\n")
                  output.write("scp -r ./plots/"+mycaseid+" acme-webserver.ornl.gov:~/www/single_point/plots\n")
 
             output.write('sleep 1\n')

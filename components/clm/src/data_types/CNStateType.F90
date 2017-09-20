@@ -89,7 +89,7 @@ module CNStateType
      real(r8) , pointer :: tempavg_t2m_patch           (:)     ! patch temporary average 2m air temperature (K)
      real(r8) , pointer :: annavg_t2m_patch            (:)     ! patch annual average 2m air temperature (K)
      real(r8) , pointer :: annavg_t2m_col              (:)     ! col annual average of 2m air temperature, averaged from pft-level (K)
-     real(r8) , pointer :: scalaravg_col               (:)     ! column average scalar for decompostion (for ad_spinup)
+     real(r8) , pointer :: scalaravg_col               (:,:)   ! column average scalar for decompostion (for ad_spinup)
      real(r8) , pointer :: annsum_counter_col          (:)     ! col seconds since last annual accumulator turnover
 
      ! Fire
@@ -271,7 +271,7 @@ contains
     allocate(this%tempavg_t2m_patch   (begp:endp))                   ; this%tempavg_t2m_patch   (:)   = nan
     allocate(this%annsum_counter_col  (begc:endc))                   ; this%annsum_counter_col  (:)   = nan
     allocate(this%annavg_t2m_col      (begc:endc))                   ; this%annavg_t2m_col      (:)   = nan
-    allocate(this%scalaravg_col       (begc:endc))                   ; this%scalaravg_col       (:)   = nan
+    allocate(this%scalaravg_col       (begc:endc,1:nlevdecomp_full)) ; this%scalaravg_col       (:,:) = spval
     allocate(this%annavg_t2m_patch    (begp:endp))                   ; this%annavg_t2m_patch    (:)   = nan
 
     allocate(this%nfire_col           (begc:endc))                   ; this%nfire_col           (:)   = spval
@@ -473,9 +473,9 @@ contains
          avgflag='A', long_name='annual average of 2m air temperature', &
          ptr_col=this%annavg_t2m_col, default='inactive')
 
-    this%scalaravg_col(begc:endc) = spval
-    call hist_addfld1d(fname='SCALARAVG', units='fraction', &
-         avgflag='A', long_name='average of decomposition scalar', &
+    this%scalaravg_col(begc:endc,:) = spval
+    call hist_addfld_decomp(fname='SCALARAVG'//trim(vr_suffix), units='fraction', &
+         type2d='levdcmp', avgflag='A', long_name='average of decomposition scalar',&
          ptr_col=this%scalaravg_col)
 
     this%nfire_col(begc:endc) = spval
@@ -843,7 +843,6 @@ contains
        if (lun_pp%ifspecial(l)) then
           this%annsum_counter_col (c) = spval
           this%annavg_t2m_col     (c) = spval
-          this%scalaravg_col      (c) = spval
           this%nfire_col          (c) = spval
           this%baf_crop_col       (c) = spval
           this%baf_peatf_col      (c) = spval
@@ -857,6 +856,7 @@ contains
           do j = 1,nlevdecomp_full
              this%fpi_vr_col(c,j) = spval
              this%fpi_p_vr_col(c,j) = spval
+             this%scalaravg_col(c,j) = spval
           end do
        end if
 
@@ -878,6 +878,7 @@ contains
           this%fpi_p_vr_col(c,1:nlevdecomp_full)          = 0._r8 
           this%som_adv_coef_col(c,1:nlevdecomp_full)    = 0._r8 
           this%som_diffus_coef_col(c,1:nlevdecomp_full) = 0._r8 
+          this%scalaravg_col(c,1:nlevdecomp_full)       = 0._r8
 
           ! initialize the profiles for converting to vertically resolved carbon pools
           this%nfixation_prof_col(c,1:nlevdecomp_full)  = 0._r8 
@@ -1236,10 +1237,11 @@ contains
          long_name='', units='', &
          interpinic_flag='interp', readvar=readvar, data=this%annavg_t2m_col) 
 
-    call restartvar(ncid=ncid, flag=flag, varname='scalaravg_col', xtype=ncd_double, &
-         dim1name='column', &
-         long_name='', units='', &
-         interpinic_flag = 'interp', readvar=readvar, data=this%scalaravg_col)
+    ptr2d => this%scalaravg_col
+    call restartvar(ncid=ncid, flag=flag, varname='scalaravg_col', xtype=ncd_double,  &
+            dim1name='column',dim2name='levgrnd', switchdim=.true., &
+            long_name='fraction of potential immobilization of phosphorus', units='unitless', &
+            interpinic_flag='interp', readvar=readvar, data=ptr2d)
 
     if (crop_prog) then
 

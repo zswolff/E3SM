@@ -836,7 +836,7 @@ contains
 
        if ( use_c14 ) then
           call C14Decay(num_soilc, filter_soilc, num_soilp, filter_soilp, &
-               c14_carbonstate_vars)
+               cnstate_vars, c14_carbonstate_vars)
 
           call C14BombSpike(num_soilp, filter_soilp, &
                cnstate_vars)

@@ -702,7 +702,7 @@ contains
        ! There is a 'time' control here, so MUST be called each time-step,
        ! and then better put the code here rather than in 'get_clm_bgc_state'
        if (spinup_state == 1 .and. year >= 40) then
-            clm_bgc_data%sitefactor_kd_vr_col(c,:) = decomp_k_scalar(c)
+            clm_bgc_data%sitefactor_kd_vr_col(c,:) = decomp_k_scalar(c,:)
        else
             clm_bgc_data%sitefactor_kd_vr_col(c,:) = 1.0_r8
        end if

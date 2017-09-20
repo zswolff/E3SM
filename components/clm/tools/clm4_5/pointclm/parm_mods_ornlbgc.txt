@@ -1,6 +1,12 @@
-leaf_long 1 2.0
-leaf_long 2 4.0
+leaf_long 1 1.5
+leaf_long 2 3.0
 leaf_long 4 1.0
+leaf_long 5 1.0
+leafcn 1 40.0
+flnr 1 0.0466
+flnr 6 0.075
+flnr 7 0.075
+flnr 8 0.075
 froot_long 1 2.0
 froot_long 2 4.0
 froot_long 4 1.0
@@ -13,9 +19,9 @@ croot_stem 6 0.205
 froot_leaf 3 0.500
 froot_leaf 4 0.559
 froot_leaf 6 0.559
-froot_leaf 9 2.5
-froot_leaf 11 2.5
-froot_leaf 12 2.5
+froot_leaf 9 2.2
+froot_leaf 11 2.2
+froot_leaf 12 2.2
 stem_leaf 4 -0.7
 stem_leaf 6 -0.7
 tc_stress -1 -0.2

@@ -62,7 +62,6 @@ if (sitephos != ''):
          lines = f.readlines()
          contents = [x.rstrip('\n') for x in lines]
          for content in contents[1:]:
-             print not content.strip()
              if content.strip():
                 sl = content.split(',')
                 sitename = sl[0]
@@ -140,8 +139,9 @@ else:
   putvar(fileout, 'primp_vr'    , restprimP    )
 
 #Remove negative Ppool values
-os.system("ncap2 -O -s 'pool=abs(ppool)' "+fileout+" "+fileout)
+os.system("ncap2 -O -s 'ppool=0.2*npool' "+fileout+" "+fileout)
 os.system("ncap2 -O -s 'defdim(\"cohort\",5663)' -s 'defdim(\"levurb\",5)' -s " \
    +"'defdim(\"string_length\",64)' -s 'defdim(\"levtrc\",10)' " + \
    fileout+" "+fileout)
             
+

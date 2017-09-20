@@ -801,10 +801,14 @@ for i in range(1,int(options.ninst)+1):
                     'DEADSTEMC_XFER', 'LIVECROOTC_XFER', 'DEADCROOTC_XFER', 'TLAI', 'CPOOL_TO_LIVESTEMC']
     var_list_spinup = ['PPOOL', 'EFLX_LH_TOT', 'RETRANSN', 'PCO2', 'PBOT', 'NDEP_TO_SMINN', 'OCDEP', \
                        'BCDEP', 'COL_FIRE_CLOSS', 'HDM', 'LNFM', 'NEE', 'GPP', 'FPSN', 'AR', 'HR', \
-                       'MR', 'GR', 'ER', 'NPP', 'TLAI', 'SOIL3C', 'TOTSOMC', 'LEAFC', \
+                       'MR', 'GR', 'ER', 'NPP', 'TLAI', 'SOIL3C', 'TOTSOMC', 'TOTSOMC_1m', 'LEAFC', \
                        'DEADSTEMC', 'DEADCROOTC', 'FROOTC', 'LIVESTEMC', 'LIVECROOTC', 'TOTVEGC', \
-                       'TOTCOLC', 'TOTLITC', 'BTRAN', 'CWDC', 'QVEGE', 'QVEGT', 'QSOIL', 'QDRAI', \
-                       'QRUNOFF', 'FPI', 'FPG', 'FPI_P','FPG_P', 'CPOOL','NPOOL', 'PPOOL', 'SMINN', 'HR_vr']
+                       'TOTCOLC', 'TOTLITC', 'BTRAN', 'SCALARAVG_vr', 'CWDC', 'QVEGE', 'QVEGT', 'QSOIL', 'QDRAI', \
+                       'QRUNOFF', 'FPI', 'FPI_vr', 'FPG', 'FPI_P','FPI_P_vr', 'FPG_P', 'CPOOL','NPOOL', 'PPOOL', 'SMINN', 'HR_vr']
+    if (options.C14):
+        var_list_spinup.append('C14_TOTSOMC')
+        var_list_spinup.append('C14_TOTSOMC_1m')
+        var_list_spinup.append('C14_TOTVEGC')
     #ILAMB diagnostic variables
     ilamb_outputs = ['FAREA_BURNED', 'CWDC', 'LEAFC', 'TOTLITC', 'STORVEGC', 'LIVESTEMC', 'DEADSTEMC', \
                      'TOTPRODC', 'FROOTC', 'LIVECROOTC', 'DEADCROOTC', 'SOIL1C', 'SOIL2C', 'SOIL3C', \

@@ -646,7 +646,7 @@ class Frame(wx.Frame):
 	myonehour=self.onehour.GetValue()     
         mycruncep=self.cruncep.GetValue()
         mygswp3=self.gswp3.GetValue()
-        myc14=self.c14.getValue()
+        myc14=self.c14.GetValue()
 
         cdate="1850"
         if (myindex == 2):
