@@ -296,7 +296,7 @@ for row in AFdatareader:
             basecmd = basecmd+' --metdir '+options.metdir
         if (options.C13):
             basecmd = basecmd+' --C13 '
-        if (options.C13):
+        if (options.C14):
             basecmd = basecmd+' --C14 '
         if (options.ninst > 1):
             basecmd = basecmd+' --ninst '+str(options.ninst)

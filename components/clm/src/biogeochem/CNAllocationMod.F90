@@ -2807,7 +2807,7 @@ contains
     real(r8) cng                                                     !C:N ratio for grain (= cnlw for now; slevis)
 
     !! Local P variables
-    real(r8):: rc_npool, rc, r                                               !Factors for nitrogen pool
+    real(r8):: rc, rc_p, r                                               !Factors for nitrogen pool
     real(r8):: cpl,cpfr,cplw,cpdw,cpg                                    !C:N ratios for leaf, fine root, and wood
     real(r8):: puptake_prof(bounds%begc:bounds%endc, 1:nlevdecomp)
 
@@ -3092,17 +3092,21 @@ contains
 
              if (veg_vp%nstor(veg_pp%itype(p)) > 1e-6_r8) then 
                !N pool modification
-               sminn_to_npool(p) = plant_ndemand(p) * fpg(c)
-               sminp_to_ppool(p) = plant_pdemand(p) * fpg_p(c)
+               sminn_to_npool(p) = plant_ndemand(p) * min(fpg(c), fpg_p(c))
+               sminp_to_ppool(p) = plant_pdemand(p) * min(fpg(c), fpg_p(c))
 
-               rc = veg_vp%nstor(veg_pp%itype(p)) * max(annsum_npp(p) * n_allometry(p) / c_allometry(p), 0.01_r8) 
-               sminn_to_npool(p) = sminn_to_npool(p) / max((npool(p) / rc), 1.0_r8)  !limit uptake when pool is large
+               rc   = veg_vp%nstor(veg_pp%itype(p)) * max(annsum_npp(p) * n_allometry(p) / c_allometry(p), 0.01_r8)
+               rc_p = veg_vp%nstor(veg_pp%itype(p)) * max(annsum_npp(p) * p_allometry(p) / c_allometry(p), 0.01_r8)
+
+               if (.not. cnallocate_carbon_only .and. .not. cnallocate_carbonphosphorus_only &
+                     .and. .not. cnallocate_carbonnitrogen_only) then  
+                   sminn_to_npool(p) = plant_ndemand(p) * fpg(p)   / max((npool(p) / rc), 1.0_r8)  !limit uptake when pool is large
+                   sminp_to_ppool(p) = plant_pdemand(p) * fpg_p(c) / max((ppool(p) / rc), 1.0_r8)  !limit uptake when pool is large
+               end if
                r  = max(1._r8,rc/max(npool(p), 1e-9_r8))                         
                plant_nalloc(p) = (plant_ndemand(p) + retransn_to_npool(p)) / r
 
-               rc = veg_vp%nstor(veg_pp%itype(p)) * max(annsum_npp(p) * p_allometry(p) / c_allometry(p), 0.01_r8)
-               sminp_to_ppool(p) = sminp_to_ppool(p) / max((ppool(p) / rc), 1.0_r8)  !limit uptake when pool is large
-               r  = max(1._r8,rc/max(ppool(p), 1e-9_r8))
+               r  = max(1._r8,rc_p/max(ppool(p), 1e-9_r8))
                plant_palloc(p) = (plant_pdemand(p) + retransp_to_ppool(p)) / r
 
              else
@@ -3112,9 +3116,6 @@ contains
                plant_nalloc(p) = sminn_to_npool(p) + retransn_to_npool(p)
                plant_palloc(p) = sminp_to_ppool(p) + retransp_to_ppool(p)
              end if
-
-             ! calculate the associated carbon allocation, and the excess
-             ! carbon flux that must be accounted for through downregulation
 
              ! calculate the associated carbon allocation, and the excess
              ! carbon flux that must be accounted for through downregulation

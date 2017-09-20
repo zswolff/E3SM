@@ -567,15 +567,22 @@ else:
     os.system('cp '+options.ccsm_input+'/lnd/clm2/paramdata/CNP_parameters_'+CNPstamp+'.nc ' \
               +tmpdir+'/CNP_parameters.nc')
 os.system('chmod u+w ' +tmpdir+'/CNP_parameters.nc')
+
+
 if (options.parm_file_P != ''):
     soilorderfile = tmpdir+'/CNP_parameters.nc'
-    input   = open(os.path.abspath(options.parm_file_P))
+    if ('/' not in options.parm_file_P):
+        #assume in pointclm directory
+        input  = open(PTCLMdir+'/'+options.parm_file_P)
+    else:   #assume full path given
+        input   = open(os.path.abspath(options.parm_file_P))
+        input   = open(os.path.abspath(options.parm_file_P))
     for s in input:
         if s[0:1] != '#':
             values = s.split()
-            thisvar = nffun.getvar(pftfile, values[0])
+            thisvar = nffun.getvar(soilorderfile, values[0])
             thisvar[int(values[1])] = float(values[2])
-            ierr = nffun.putvar(pftfile, values[0], thisvar)
+            ierr = nffun.putvar(soilorderfile, values[0], thisvar)
     input.close()
     soilorderfile.close()
 

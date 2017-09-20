@@ -63,6 +63,8 @@ parser.add_option("--srcmods_loc", dest="srcmods_loc", default='', \
                   help = 'Copy sourcemods from this location')
 parser.add_option("--parm_file", dest="parm_file", default="", \
                   help = 'parameter file to use')
+parser.add_option("--parm_file_P", dest="parm_file_P", default="", \
+                  help = 'P parameter file to use')               
 parser.add_option("--parm_vals", dest="parm_vals", default="", \
                   help = 'User specified parameter values')
 parser.add_option("--nopftdyn", action="store_true", dest="nopftdyn", \
@@ -360,6 +362,8 @@ if (options.archiveroot !=''):
     basecmd = basecmd+' --archiveroot '+options.archiveroot
 if (options.parm_file !=''):
     basecmd = basecmd+' --parm_file '+options.parm_file
+if (options.parm_file_P !=''):
+    basecmd = basecmd+' --parm_file_P '+options.parm_file_P
 if (options.mod_parm_file !=''):
     basecmd = basecmd+' --mod_parm_file '+options.mod_parm_file
 basecmd = basecmd + ' --np '+str(options.np)
