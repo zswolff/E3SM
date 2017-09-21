@@ -89,7 +89,7 @@ module CNStateType
      real(r8) , pointer :: tempavg_t2m_patch           (:)     ! patch temporary average 2m air temperature (K)
      real(r8) , pointer :: annavg_t2m_patch            (:)     ! patch annual average 2m air temperature (K)
      real(r8) , pointer :: annavg_t2m_col              (:)     ! col annual average of 2m air temperature, averaged from pft-level (K)
-     real(r8) , pointer :: scalaravg_col               (:)     ! column average scalar for decompostion (for ad_spinup)
+     real(r8) , pointer :: scalaravg_col               (:,:)   ! column average scalar for decompostion (for ad_spinup)
      real(r8) , pointer :: annsum_counter_col          (:)     ! col seconds since last annual accumulator turnover
 
      ! Fire
@@ -125,6 +125,8 @@ module CNStateType
      real(r8), pointer :: grain_flag_patch             (:)     ! patch 1: grain fill stage; 0: not
      real(r8), pointer :: lgsf_patch                   (:)     ! patch long growing season factor [0-1]
      real(r8), pointer :: bglfr_patch                  (:)     ! patch background litterfall rate (1/s)
+     real(r8), pointer :: bglfr_leaf_patch             (:)     ! patch background leaf litterfall rate (1/s)
+     real(r8), pointer :: bglfr_froot_patch            (:)     ! patch background fine root litterfall rate (1/s)
      real(r8), pointer :: bgtr_patch                   (:)     ! patch background transfer growth rate (1/s)
      real(r8), pointer :: alloc_pnow_patch             (:)     ! patch fraction of current allocation to display as new growth (DIM)
      real(r8), pointer :: c_allometry_patch            (:)     ! patch C allocation index (DIM)
@@ -158,6 +160,10 @@ module CNStateType
 
      real(r8), pointer :: frac_loss_lit_to_fire_col        (:)
      real(r8), pointer :: frac_loss_cwd_to_fire_col        (:)
+
+     !!! annual mortality rate dynamically calcaulted at patch
+     real(r8), pointer :: r_mort_cal_patch                 (:)     ! patch annual mortality rate  
+
    contains
 
      procedure, public  :: Init         
@@ -265,7 +271,7 @@ contains
     allocate(this%tempavg_t2m_patch   (begp:endp))                   ; this%tempavg_t2m_patch   (:)   = nan
     allocate(this%annsum_counter_col  (begc:endc))                   ; this%annsum_counter_col  (:)   = nan
     allocate(this%annavg_t2m_col      (begc:endc))                   ; this%annavg_t2m_col      (:)   = nan
-    allocate(this%scalaravg_col       (begc:endc))                   ; this%scalaravg_col       (:)   = nan
+    allocate(this%scalaravg_col       (begc:endc,1:nlevdecomp_full)) ; this%scalaravg_col       (:,:) = spval
     allocate(this%annavg_t2m_patch    (begp:endp))                   ; this%annavg_t2m_patch    (:)   = nan
 
     allocate(this%nfire_col           (begc:endc))                   ; this%nfire_col           (:)   = spval
@@ -303,6 +309,8 @@ contains
     allocate(this%grain_flag_patch            (begp:endp)) ;    this%grain_flag_patch            (:) = nan
     allocate(this%lgsf_patch                  (begp:endp)) ;    this%lgsf_patch                  (:) = nan
     allocate(this%bglfr_patch                 (begp:endp)) ;    this%bglfr_patch                 (:) = nan
+    allocate(this%bglfr_leaf_patch            (begp:endp)) ;    this%bglfr_leaf_patch            (:) = nan
+    allocate(this%bglfr_froot_patch           (begp:endp)) ;    this%bglfr_froot_patch           (:) = nan
     allocate(this%bgtr_patch                  (begp:endp)) ;    this%bgtr_patch                  (:) = nan
     allocate(this%alloc_pnow_patch            (begp:endp)) ;    this%alloc_pnow_patch            (:) = nan
     allocate(this%c_allometry_patch           (begp:endp)) ;    this%c_allometry_patch           (:) = nan
@@ -333,6 +341,9 @@ contains
     allocate(fert_type                        (begc:endc))                   ; fert_type     (:) = 0
     allocate(fert_continue                    (begc:endc))                   ; fert_continue (:) =0
     allocate(fert_dose                        (begc:endc,1:12))              ; fert_dose     (:,:) = nan
+
+    allocate(this%r_mort_cal_patch                (begp:endp))               ; this%r_mort_cal_patch   (:) = nan
+
   end subroutine InitAllocate
 
   !------------------------------------------------------------------------
@@ -462,9 +473,9 @@ contains
          avgflag='A', long_name='annual average of 2m air temperature', &
          ptr_col=this%annavg_t2m_col, default='inactive')
 
-    this%scalaravg_col(begc:endc) = spval
-    call hist_addfld1d(fname='SCALARAVG', units='fraction', &
-         avgflag='A', long_name='average of decomposition scalar', &
+    this%scalaravg_col(begc:endc,:) = spval
+    call hist_addfld_decomp(fname='SCALARAVG'//trim(vr_suffix), units='fraction', &
+         type2d='levdcmp', avgflag='A', long_name='average of decomposition scalar',&
          ptr_col=this%scalaravg_col)
 
     this%nfire_col(begc:endc) = spval
@@ -562,10 +573,15 @@ contains
          avgflag='A', long_name='long growing season factor', &
          ptr_patch=this%lgsf_patch, default='inactive')
 
-    this%bglfr_patch(begp:endp) = spval
-    call hist_addfld1d (fname='BGLFR', units='1/s', &
-         avgflag='A', long_name='background litterfall rate', &
-         ptr_patch=this%bglfr_patch, default='inactive')
+    this%bglfr_leaf_patch(begp:endp) = spval
+    call hist_addfld1d (fname='BGLFR_LEAF', units='1/s', &
+         avgflag='A', long_name='background leaf litterfall rate', &
+         ptr_patch=this%bglfr_leaf_patch, default='inactive')
+
+    this%bglfr_froot_patch(begp:endp) = spval
+    call hist_addfld1d (fname='BGLFR_FROOT', units='1/s', &
+         avgflag='A', long_name='background fine root litterfall rate', &
+         ptr_patch=this%bglfr_froot_patch, default='inactive')
 
     this%bgtr_patch(begp:endp) = spval
     call hist_addfld1d (fname='BGTR', units='1/s', &
@@ -638,6 +654,12 @@ contains
     call hist_addfld1d (fname='cp_scalar', units='', &
        avgflag='A', long_name='P limitation factor', &
        ptr_patch=this%cp_scalar, default='active')
+
+    this%r_mort_cal_patch(begp:endp) = spval
+    call hist_addfld1d (fname='R_MORT_CAL', units='none', &
+         avgflag='A', long_name='calcualted annual mortality rate', &
+         ptr_patch=this%r_mort_cal_patch, default='inactive')
+
 
   end subroutine InitHistory
 
@@ -734,14 +756,14 @@ contains
     ! --------------------------------------------------------------------
 
     allocate(soilorder_rdin(bounds%begg:bounds%endg))
-    !call ncd_io(ncid=ncid, varname='SOIL_ORDER', flag='read',data=soilorder_rdin, dim1name=grlnd, readvar=readvar)
-    !if (.not. readvar) then
-    !   call endrun(msg=' ERROR: SOIL_ORDER NOT on surfdata file'//errMsg(__FILE__, __LINE__))
-    !end if
+    call ncd_io(ncid=ncid, varname='SOIL_ORDER', flag='read',data=soilorder_rdin, dim1name=grlnd, readvar=readvar)
+    if (.not. readvar) then
+       call endrun(msg=' ERROR: SOIL_ORDER NOT on surfdata file'//errMsg(__FILE__, __LINE__))
+    end if
     do c = bounds%begc, bounds%endc
        g = col_pp%gridcell(c)
-!       this%isoilorder(c) = soilorder_rdin(g)
-       this%isoilorder(c) = 12
+       this%isoilorder(c) = soilorder_rdin(g)
+!       this%isoilorder(c) = 12
     end do
     deallocate(soilorder_rdin)
 
@@ -821,7 +843,6 @@ contains
        if (lun_pp%ifspecial(l)) then
           this%annsum_counter_col (c) = spval
           this%annavg_t2m_col     (c) = spval
-          this%scalaravg_col      (c) = spval
           this%nfire_col          (c) = spval
           this%baf_crop_col       (c) = spval
           this%baf_peatf_col      (c) = spval
@@ -835,6 +856,7 @@ contains
           do j = 1,nlevdecomp_full
              this%fpi_vr_col(c,j) = spval
              this%fpi_p_vr_col(c,j) = spval
+             this%scalaravg_col(c,j) = spval
           end do
        end if
 
@@ -856,6 +878,7 @@ contains
           this%fpi_p_vr_col(c,1:nlevdecomp_full)          = 0._r8 
           this%som_adv_coef_col(c,1:nlevdecomp_full)    = 0._r8 
           this%som_diffus_coef_col(c,1:nlevdecomp_full) = 0._r8 
+          this%scalaravg_col(c,1:nlevdecomp_full)       = 0._r8
 
           ! initialize the profiles for converting to vertically resolved carbon pools
           this%nfixation_prof_col(c,1:nlevdecomp_full)  = 0._r8 
@@ -889,6 +912,8 @@ contains
           this%grain_flag_patch(p)            = spval
           this%lgsf_patch(p)                  = spval
           this%bglfr_patch(p)                 = spval
+          this%bglfr_leaf_patch(p)            = spval
+          this%bglfr_froot_patch(p)           = spval
           this%bgtr_patch(p)                  = spval
           this%alloc_pnow_patch(p)            = spval
           this%c_allometry_patch(p)           = spval
@@ -902,6 +927,9 @@ contains
           this%p_allometry_patch(p)           = spval
           this%tempmax_retransp_patch(p)      = spval
           this%annmax_retransp_patch(p)       = spval
+
+          this%r_mort_cal_patch(p)           = spval
+
  
        end if
     end do
@@ -929,6 +957,8 @@ contains
           this%offset_swi_patch(p)     = 0._r8
           this%lgsf_patch(p)           = 0._r8
           this%bglfr_patch(p)          = 0._r8
+          this%bglfr_leaf_patch(p)     = 0._r8
+          this%bglfr_froot_patch(p)    = 0._r8
           this%bgtr_patch(p)           = 0._r8
           this%annavg_t2m_patch(p)     = 280._r8
           this%tempavg_t2m_patch(p)    = 0._r8
@@ -947,6 +977,10 @@ contains
           this%p_allometry_patch(p)           = 0._r8
           this%tempmax_retransp_patch(p)      = 0._r8
           this%annmax_retransp_patch(p)       = 0._r8
+
+          this%r_mort_cal_patch(p)           = 0._r8
+
+
        end if
     end do
 
@@ -1050,7 +1084,17 @@ contains
     call restartvar(ncid=ncid, flag=flag, varname='bglfr', xtype=ncd_double,  &
          dim1name='pft', &
          long_name='', units='', &
-         interpinic_flag='interp', readvar=readvar, data=this%bglfr_patch) 
+         interpinic_flag='interp', readvar=readvar, data=this%bglfr_patch)
+
+    call restartvar(ncid=ncid, flag=flag, varname='bglfr_leaf', xtype=ncd_double,  &
+         dim1name='pft', &
+         long_name='', units='', &
+         interpinic_flag='interp', readvar=readvar, data=this%bglfr_leaf_patch) 
+
+    call restartvar(ncid=ncid, flag=flag, varname='bglfr_froot', xtype=ncd_double,  &
+         dim1name='pft', &
+         long_name='', units='', &
+         interpinic_flag='interp', readvar=readvar, data=this%bglfr_froot_patch)
 
     call restartvar(ncid=ncid, flag=flag, varname='bgtr', xtype=ncd_double,  &
          dim1name='pft', &
@@ -1193,10 +1237,11 @@ contains
          long_name='', units='', &
          interpinic_flag='interp', readvar=readvar, data=this%annavg_t2m_col) 
 
-    call restartvar(ncid=ncid, flag=flag, varname='scalaravg_col', xtype=ncd_double, &
-         dim1name='column', &
-         long_name='', units='', &
-         interpinic_flag = 'interp', readvar=readvar, data=this%scalaravg_col)
+    ptr2d => this%scalaravg_col
+    call restartvar(ncid=ncid, flag=flag, varname='scalaravg_col', xtype=ncd_double,  &
+            dim1name='column',dim2name='levgrnd', switchdim=.true., &
+            long_name='fraction of potential immobilization of phosphorus', units='unitless', &
+            interpinic_flag='interp', readvar=readvar, data=ptr2d)
 
     if (crop_prog) then
 

@@ -12,7 +12,7 @@ module PhosphorusStateType
   use clm_varctl             , only : use_nitrif_denitrif, use_vertsoilc, use_century_decomp
   use clm_varctl             , only : iulog, override_bgc_restart_mismatch_dump, spinup_state
   use decompMod              , only : bounds_type
-  use pftvarcon              , only : npcropmin
+  use pftvarcon              , only : npcropmin, nstor
   use CNDecompCascadeConType , only : decomp_cascade_con
   use VegetationPropertiesType         , only : veg_vp
   use abortutils             , only : endrun
@@ -21,6 +21,8 @@ module PhosphorusStateType
   use ColumnType             , only : col_pp                
   use VegetationType              , only : veg_pp
   use clm_varctl             , only : nu_com
+ 
+  use soilorder_varcon , only : smax,ks_sorption
               
   ! 
   ! !PUBLIC TYPES:
@@ -738,6 +740,9 @@ contains
           this%deadcrootp_xfer_patch(p)    = 0._r8
           this%retransp_patch(p)           = 0._r8
           this%ppool_patch(p)              = 0._r8
+          if (nstor(veg_pp%itype(p)) .gt. 0) then
+              this%ppool_patch(p)          = 1.0_r8
+          end if
           this%ptrunc_patch(p)             = 0._r8
           this%dispvegp_patch(p)           = 0._r8
           this%storvegp_patch(p)           = 0._r8
@@ -869,11 +874,17 @@ contains
     integer            :: restart_file_spinup_state 
     ! flags for comparing the model and restart decomposition cascades
     integer            :: decomp_cascade_state, restart_file_decomp_cascade_state 
+    real(r8)           :: smax_c, ks_sorption_c
+
     !------------------------------------------------------------------------
 
     !--------------------------------
     ! patch phosphorus state variables
     !--------------------------------
+    associate(&
+         isoilorder     => cnstate_vars%isoilorder &
+         )
+
 
     call restartvar(ncid=ncid, flag=flag, varname='leafp', xtype=ncd_double,  &
          dim1name='pft', long_name='', units='', &
@@ -1008,6 +1019,20 @@ contains
             dim1name='column', dim2name='levgrnd', switchdim=.true., &
             long_name='',  units='', fill_value=spval, &
             interpinic_flag='interp', readvar=readvar, data=ptr2d)
+
+       
+       if(flag == 'read')then
+
+        do c = bounds%begc, bounds%endc
+         smax_c = smax(isoilorder(c))
+         ks_sorption_c = ks_sorption(isoilorder(c))
+
+         this%solutionp_vr_col(c,:) = (this%labilep_vr_col(c,:)*ks_sorption_c)/&
+                                (smax_c-this%labilep_vr_col(c,:))
+        enddo
+       endif
+
+
     else
 
        ptr1d => this%solutionp_vr_col(:,1)
@@ -1216,10 +1241,10 @@ contains
             do j = 1, nlevdecomp
 	       if ( exit_spinup ) then
 		 m = decomp_cascade_con%spinup_factor(k)
-                 if (decomp_cascade_con%spinup_factor(k) > 1) m = m  / cnstate_vars%scalaravg_col(c)
+                 if (decomp_cascade_con%spinup_factor(k) > 1 .and. nu_com .eq. 'RD') m = m  / cnstate_vars%scalaravg_col(c,j)
                else if ( enter_spinup ) then 
                  m = 1. / decomp_cascade_con%spinup_factor(k)
-		 if (decomp_cascade_con%spinup_factor(k) > 1) m = m  * cnstate_vars%scalaravg_col(c)
+		 if (decomp_cascade_con%spinup_factor(k) > 1 .and. nu_com .eq. 'RD') m = m  * cnstate_vars%scalaravg_col(c,j)
                end if 
                this%decomp_ppools_vr_col(c,j,k) = this%decomp_ppools_vr_col(c,j,k) * m
              end do
@@ -1237,6 +1262,7 @@ contains
        end do
 
     end if
+    end associate
 
   end subroutine Restart
 
