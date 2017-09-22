@@ -65,7 +65,7 @@ contains
      if ( .not. readv ) call endrun(msg=trim(errCode)//trim(tString)//errMsg(__FILE__, __LINE__))
      !CNSoilLittVertTranspParamsInst%som_diffus=tempr
      ! FIX(SPM,032414) - can't be pulled out since division makes things not bfb
-     CNSoilLittVertTranspParamsInst%som_diffus = 0._r8 !1e-4_r8 / (secspday * 365._r8)  
+     CNSoilLittVertTranspParamsInst%som_diffus = 1e-4_r8 / (secspday * 365._r8)  
 
      tString='cryoturb_diffusion_k'
      call ncd_io(trim(tString),tempr, 'read', ncid, readvar=readv)
@@ -74,7 +74,7 @@ contains
      !FIX(SPM,032414) Todo.  This constant cannot be on file since the divide makes things
      !SPM Todo.  This constant cannot be on file since the divide makes things
      !not bfb
-     CNSoilLittVertTranspParamsInst%cryoturb_diffusion_k = 0._r8 !5e-4_r8 / (secspday * 365._r8)  ! [m^2/sec] = 5 cm^2 / yr = 1m^2 / 200 yr
+     CNSoilLittVertTranspParamsInst%cryoturb_diffusion_k = 5e-4_r8 / (secspday * 365._r8)  ! [m^2/sec] = 5 cm^2 / yr = 1m^2 / 200 yr
 
      tString='max_altdepth_cryoturbation'
      call ncd_io(trim(tString),tempr, 'read', ncid, readvar=readv)

@@ -134,6 +134,11 @@ contains
     if ( .not. readv ) call endrun(msg=trim(errCode)//trim(tString)//errMsg(__FILE__, __LINE__))
     CNPhenolParamsInst%crit_dayl_stress=tempr
 
+    tString='cumprec_onset'
+    call ncd_io(varname=trim(tString),data=tempr, flag='read', ncid=ncid, readvar=readv)
+    if ( .not. readv ) call endrun(msg=trim(errCode)//trim(tString)//errMsg(__FILE__, __LINE__))
+    CNPhenolParamsInst%cumprec_onset=tempr
+
     tString='ndays_on'
     call ncd_io(varname=trim(tString),data=tempr, flag='read', ncid=ncid, readvar=readv)
     if ( .not. readv ) call endrun( msg=trim(errCode)//trim(tString)//errMsg(__FILE__, __LINE__))

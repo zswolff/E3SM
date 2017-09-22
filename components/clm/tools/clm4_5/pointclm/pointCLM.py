@@ -584,7 +584,6 @@ if (options.parm_file_P != ''):
             thisvar[int(values[1])] = float(values[2])
             ierr = nffun.putvar(soilorderfile, values[0], thisvar)
     input.close()
-    soilorderfile.close()
 
 #set number of run years for ad, exit spinup cases
 if (options.ny_ad != options.run_n and options.ad_spinup):

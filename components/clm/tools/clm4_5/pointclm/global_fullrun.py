@@ -537,8 +537,8 @@ for c in cases:
                 output.write("#!/bin/csh -f\n")
                 if (mysubmit_type == 'qsub'):
                     output.write('#PBS -l walltime='+str(options.walltime)+':00:00\n')
-                    if ('cades' in options.machine):
-                        output.write('#PBS -W x=FLAGS:ADVRES:system.5872\n')  #TEMPORARY
+                    #if ('cades' in options.machine):
+                    #    output.write('#PBS -W x=FLAGS:ADVRES:system.5872\n')  #TEMPORARY
                 else:
                     output.write('#SBATCH --time='+str(options.walltime)+':00:00\n')
                     if ('cori' in options.machine or 'edison' in options.machine):

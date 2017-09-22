@@ -56,6 +56,8 @@ parser.add_option("--srcmods_loc", dest="srcmods_loc", default='', \
                   help = 'Copy sourcemods from this location')
 parser.add_option("--parm_file", dest="parm_file", default="", \
                   help = 'parameter file to use')
+parser.add_option("--parm_file_P", dest="parm_file_P", default="", \
+                  help = 'parameter file to use')
 parser.add_option("--parm_vals", dest="parm_vals", default="", \
                   help = 'User specified parameter values')
 parser.add_option("--postproc_file", dest="postproc_file", default="postproc_vars", \
@@ -288,6 +290,8 @@ for row in AFdatareader:
             basecmd = basecmd+' --caseidprefix '+mycaseid
         if (options.parm_file != ''):
             basecmd = basecmd+' --parm_file '+options.parm_file
+        if (options.parm_file_P != ''):
+            basecmd = basecmd+' --parm_file_P '+options.parm_file_P
         if (options.parm_vals != ''):
             basecmd = basecmd+' --parm_vals '+options.parm_vals
         if (options.clean_build):
@@ -548,7 +552,7 @@ for row in AFdatareader:
                             if ('diags' in c or 'iniadjust' in c):
                                 output.write("#PBS -l nodes=1:ppn=1\n")
                             else:
-                                output.write("#PBS -l nodes=1:ppn=32\n")
+                                output.write("#PBS -l nodes=2:ppn=32\n")
                         else:
                             output.write("#PBS -l nodes=1\n")
                     elif ("#!" in s or "#PBS" in s or "#SBATCH" in s):
