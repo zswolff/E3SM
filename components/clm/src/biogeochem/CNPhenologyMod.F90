@@ -132,7 +132,7 @@ contains
     tString='crit_dayl_stress'
     call ncd_io(varname=trim(tString),data=tempr, flag='read', ncid=ncid, readvar=readv)
     if ( .not. readv ) then 
-        crit_dayl_stress = 3600._r8 * 6._r8 !call endrun(msg=trim(errCode)//trim(tString)//errMsg(__FILE__, __LINE__))
+        crit_dayl_stress = secspday / 4 !call endrun(msg=trim(errCode)//trim(tString)//errMsg(__FILE__, __LINE__))
     else
         CNPhenolParamsInst%crit_dayl_stress=tempr
     end if

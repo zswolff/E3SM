@@ -787,7 +787,12 @@ contains
          ! as a trigger here: -1.0 means to use the dynamic allocation (trees).
 
          if (stem_leaf(ivt(p)) < 0._r8) then
-             f3 = max((-1.0_r8*stem_leaf(ivt(p))*2.7)/(1.0+exp(-0.004*(annsum_npp(p) - 300.0))) - 0.4, 0.2_r8)
+             if (stem_leaf(ivt(p)) == -1._r8) then
+                 f3 = (2.7/(1.0+exp(-0.004*(annsum_npp(p) - 300.0)))) - 0.4
+             else 
+                 f3 = max((-1.0_r8*stem_leaf(ivt(p))*2.7_r8)/(1.0_r8+exp(-0.004_r8*(annsum_npp(p) - &
+                           300.0_r8))) - 0.4_r8, 0.2_r8)
+             end if
          else
              f3 = stem_leaf(ivt(p))
          end if
@@ -3057,7 +3062,12 @@ contains
              ! allocation as specified in the pft-physiology file.  The value is also used
              ! as a trigger here: -1.0 means to use the dynamic allocation (trees).
              if (stem_leaf(ivt(p)) < 0._r8) then
-                 f3 = max((-1.0_r8*stem_leaf(ivt(p))*2.7)/(1.0+exp(-0.004*(annsum_npp(p) - 300.0))) - 0.4, 0.2_r8)
+                 if (stem_leaf(ivt(p)) == -1._r8) then
+                     f3 = (2.7/(1.0+exp(-0.004*(annsum_npp(p) - 300.0)))) - 0.4
+                 else
+                     f3 = max((-1.0_r8*stem_leaf(ivt(p))*2.7_r8)/(1.0_r8+exp(-0.004_r8*(annsum_npp(p) - &
+                               300.0_r8))) - 0.4_r8, 0.2_r8)
+                 end if
              else
                  f3 = stem_leaf(ivt(p))
              end if
@@ -3134,7 +3144,7 @@ contains
                      plant_calloc(p) = plant_nalloc(p) * (c_allometry(p)/n_allometry(p))
                      plant_palloc(p) = plant_nalloc(p) * (p_allometry(p)/n_allometry(p))
                      !in case of strong N limitation, and plant_palloc(p) < retransp_to_ppool(p)                    
-                     if (veg_vp%nstor(veg_pp%itype(p)) == 0._r8) then 
+                     if (veg_vp%nstor(veg_pp%itype(p)) > 1e-6_r8) then 
                          sminp_to_ppool(p) = max(plant_palloc(p) - retransp_to_ppool(p),0.0_r8)                 
                          retransp_to_ppool(p) = min(plant_palloc(p), retransp_to_ppool(p)) 
                      end if
@@ -3142,7 +3152,7 @@ contains
                      plant_calloc(p) = plant_palloc(p) * (c_allometry(p)/p_allometry(p))
                      plant_nalloc(p) = plant_palloc(p) * (n_allometry(p)/p_allometry(p))
                      ! in case of strong P limitation, and plant_nalloc(p) < retransn_to_npool(p)
-                     if (veg_vp%nstor(veg_pp%itype(p)) == 0._r8) then 
+                     if (veg_vp%nstor(veg_pp%itype(p)) > 1e-6._r8) then 
                          sminn_to_npool(p) = max(plant_nalloc(p) - retransn_to_npool(p), 0.0_r8) 
                          retransn_to_npool(p) = min(plant_nalloc(p) , retransn_to_npool(p)) 
                      end if
@@ -3167,7 +3177,7 @@ contains
              if (gpp(p) > 0.0_r8) then
                  downreg(p) = excess_cflux(p)/gpp(p)
 
-                 if (veg_vp%br_xr(veg_pp%itype(p)) > 0) then
+                 if (veg_vp%br_xr(veg_pp%itype(p)) > 1e-9_r8) then
                      !Excess carbon goes to temporary NSC pool instead of
                      !instantaneous downregulation
                      psnsun_to_cpool(p) = psnsun_to_cpool(p)

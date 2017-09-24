@@ -624,7 +624,7 @@ contains
                if( veg_pp%itype(p) == nbrdlf_evr_trp_tree .or. veg_pp%itype(p) == nbrdlf_dcd_trp_tree )then
                    r_mort_cal(p) = r_mort_soilorder( isoilorder(c) )
                else
-                   r_mort_cal(p) = 0.02                 ! Default mortality rate 
+                   r_mort_cal(p) = 0.02_r8                 ! Default mortality rate 
                endif
        end do
 

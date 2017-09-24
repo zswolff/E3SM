@@ -836,7 +836,7 @@ contains
           this%deadcrootn_xfer_patch(p)    = 0._r8
           this%retransn_patch(p)           = 0._r8
           this%npool_patch(p)              = 0._r8
-          if (nstor(veg_pp%itype(p)) .gt. 0) then 
+          if (nstor(veg_pp%itype(p)) .gt. 1e-6_r8) then 
               this%npool_patch(p)          = 10.0_r8
           end if
           this%ntrunc_patch(p)             = 0._r8

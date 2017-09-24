@@ -704,7 +704,7 @@ contains
                    deadstemn_seed = deadstemc_seed / veg_vp%deadwdcn(veg_pp%itype(p))
                    deadstemp_seed = deadstemc_seed / veg_vp%deadwdcp(veg_pp%itype(p))
                 end if
-                if (veg_vp%nstor(veg_pp%itype(p)) > 0._r8) then
+                if (veg_vp%nstor(veg_pp%itype(p)) > 1e-6_r8) then
                    npool_seed     = 0.1_r8
                    ppool_seed     = 0.01_r8
                 end if

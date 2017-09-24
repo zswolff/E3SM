@@ -740,7 +740,7 @@ contains
           this%deadcrootp_xfer_patch(p)    = 0._r8
           this%retransp_patch(p)           = 0._r8
           this%ppool_patch(p)              = 0._r8
-          if (nstor(veg_pp%itype(p)) .gt. 0) then
+          if (nstor(veg_pp%itype(p)) .gt. 1e-6_r8) then
               this%ppool_patch(p)          = 1.0_r8
           end if
           this%ptrunc_patch(p)             = 0._r8

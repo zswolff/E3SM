@@ -996,7 +996,6 @@ contains
                  c = filter_soilc(fc)
                  cnstate_vars%scalaravg_col(c,j) = cnstate_vars%scalaravg_col(c,j) + &
                   (t_scalar(c,4) * w_scalar(c,4) * o_scalar(c,4) * depth_scalar(c,4) ) * dt / (86400._r8 * 365._r8 * 20._r8)
-                 if (cnstate_vars%scalaravg_col(c,j) < 1.0e-4) cnstate_vars%scalaravg_col(c,j) = 1.0e-4
              end do
          end do 
        else if (year < 20) then 
@@ -1004,6 +1003,8 @@ contains
             c = filter_soilc(fc)
             cnstate_vars%scalaravg_col(c,:) = 0._r8
           end do
+       else if (year >= 40) then 
+           if (cnstate_vars%scalaravg_col(c,j) < 1.0e-3) cnstate_vars%scalaravg_col(c,j) = 1.0_r8
        end if
 
        if (use_vertsoilc) then

@@ -191,7 +191,7 @@ contains
             livestem_mr(p) = livestemn(p)*br_mr*tc
             grain_mr(p) = grainn(p)*br_mr*tc
          end if
-         if (br_xr(ivt(p)) .gt. 0) then
+         if (br_xr(ivt(p)) .gt. 1e-9_r8) then
             xr(p) = cpool(p) * br_xr(ivt(p)) * tc
             !xr_above(p) = xr(p) * (leafn(p) + livestemn(p)) / &
             !          (leafn(p) + livestemn(p) + frootn(p))
