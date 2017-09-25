@@ -3152,7 +3152,7 @@ contains
                      plant_calloc(p) = plant_palloc(p) * (c_allometry(p)/p_allometry(p))
                      plant_nalloc(p) = plant_palloc(p) * (n_allometry(p)/p_allometry(p))
                      ! in case of strong P limitation, and plant_nalloc(p) < retransn_to_npool(p)
-                     if (veg_vp%nstor(veg_pp%itype(p)) > 1e-6._r8) then 
+                     if (veg_vp%nstor(veg_pp%itype(p)) > 1e-6_r8) then 
                          sminn_to_npool(p) = max(plant_nalloc(p) - retransn_to_npool(p), 0.0_r8) 
                          retransn_to_npool(p) = min(plant_nalloc(p) , retransn_to_npool(p)) 
                      end if

@@ -108,6 +108,7 @@ contains
     !
     ! !USES:
     use ncdio_pio    , only: file_desc_t,ncd_io
+    use clm_varcon   , only: secspday
 
     ! !ARGUMENTS:
     implicit none
