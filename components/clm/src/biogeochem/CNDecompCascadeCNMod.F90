@@ -989,23 +989,20 @@ contains
        end if
 
        call get_curr_date(year, mon, day, sec)
-       if (year >= 20 .and. year < 40) then 
-         !Calcluate location and depth-specific acceleration factors
-         do j = 1,nlevdecomp
-             do fc=1,num_soilc
-                 c = filter_soilc(fc)
-                 cnstate_vars%scalaravg_col(c,j) = cnstate_vars%scalaravg_col(c,j) + &
-                  (t_scalar(c,4) * w_scalar(c,4) * o_scalar(c,4) * depth_scalar(c,4) ) * dt / (86400._r8 * 365._r8 * 20._r8)
-             end do
-         end do 
-       else if (year < 20) then 
-          do fc=1,num_soilc
-            c = filter_soilc(fc)
-            cnstate_vars%scalaravg_col(c,:) = 0._r8
-          end do
-       else if (year >= 40) then 
-           if (cnstate_vars%scalaravg_col(c,j) < 1.0e-3) cnstate_vars%scalaravg_col(c,j) = 1.0_r8
-       end if
+       do fc=1,num_soilc
+           c = filter_soilc(fc)
+           if (year < 20 .and. spinup_state == 1) then
+               cnstate_vars%scalaravg_col(c,:) = 0._r8
+           else if (year < 40 .and. spinup_state == 1) then
+               cnstate_vars%scalaravg_col(c,:) = cnstate_vars%scalaravg_col(c,:) + &
+                     (t_scalar(c,4) * w_scalar(c,4) * o_scalar(c,4) * depth_scalar(c,4) ) &
+                     * dt / (86400._r8 * 365._r8 * 20._r8)
+           else
+               if (cnstate_vars%scalaravg_col(c,4) < 1.0e-3) then
+                    cnstate_vars%scalaravg_col(c,:) = 1.0_r8
+               end if
+           end if
+       end do
 
        if (use_vertsoilc) then
           do j = 1,nlevdecomp
