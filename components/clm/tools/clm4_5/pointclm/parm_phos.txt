@@ -1,0 +1,4 @@
+smax 12 1000
+ks_sorption  12 0.03
+smax 11 1000
+ks_sorption  11 0.03
