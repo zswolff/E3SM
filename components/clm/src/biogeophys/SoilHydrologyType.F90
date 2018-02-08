@@ -855,7 +855,7 @@ contains
 
      ! preset values
 
-     origflag = 0          
+     origflag = 1          
      h2osfcflag = 1        
 
      if ( masterproc )then
