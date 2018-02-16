@@ -61,7 +61,6 @@ print lat_bounds
 
 mysimyr=int(options.mysimyr)
 
-
 if ('hcru' in options.res):
     resx = 0.5
     resy = 0.5
@@ -69,6 +68,7 @@ if ('hcru' in options.res):
     if (mysimyr == 2000):
         surffile_orig =  ccsm_input+'/lnd/clm2/surfdata_map/surfdata_360x720cru_simyr2000_c160307.nc'
     else:
+        #CMIP6 stype (Hurtt v2)
         surffile_orig = ccsm_input+'/lnd/clm2/surfdata_map/surfdata_360x720cru_simyr1850_c180216.nc'
     pftdyn_orig = ccsm_input+'/lnd/clm2/surfdata_map/landuse.timeseries_360x720cru_hist_simyr1850_2015_c180209.nc'
 elif ('f19' in options.res):
@@ -86,9 +86,10 @@ elif ('f09' in options.res):
 
 n_grids=1
 issite = False
+isglobal = False
 lat=[]
 lon=[]
-if (lat_bounds[0] >= -100 and lon_bounds[0] >= -200):
+if (lat_bounds[0] > -90 and lon_bounds[0] > -180):
     print( 'Creating regional datasets')
     if (lon_bounds[0] < 0):
         lon_bounds[0] = lon_bounds[0]+360.
@@ -122,7 +123,7 @@ elif (options.point_list != ''):
         n_grids=n_grids+1
     input_file.close()
     n_grids = n_grids-1
-else:
+elif (options.site != ''):
     print('Creating site-level datasets')
     issite = True
     os.chdir(ccsm_input+'/lnd/clm2/PTCLM/')
@@ -137,6 +138,8 @@ else:
             startyear=int(row[6])
             endyear=int(row[7])
             alignyear = int(row[8])
+else:
+    isglobal=True
 
 #get corresponding 0.5x0.5 and 1.9x2.5 degree grid cells
 if (options.res == 'hcru_hcru'):
@@ -294,7 +297,10 @@ for n in range(0,n_grids):
     print n
     nst = str(100000+n)[1:]
     surffile_new =  csmdir+'/components/clm/tools/clm4_5/pointclm/temp/surfdata'+nst+'.nc'
-    os.system('ncks --fix_rec_dmn time -d lsmlon,'+str(xgrid_min[n])+','+str(xgrid_max[n])+ \
+    if (isglobal):
+        os.system('cp '+surffile_orig+' '+surffile_new)
+    else:
+        os.system('ncks --fix_rec_dmn time -d lsmlon,'+str(xgrid_min[n])+','+str(xgrid_max[n])+ \
              ' -d lsmlat,'+str(ygrid_min[n])+','+str(ygrid_max[n])+' '+surffile_orig+' '+surffile_new)
 
     if (issite):
@@ -435,7 +441,10 @@ if (options.nopftdyn == False):
     if (os.path.isfile(pftdyn_new)):
         print('Warning:  Removing existing pftdyn file')
         os.system('rm -rf '+pftdyn_new)
-    os.system('ncks --fix_rec_dmn time -d lsmlon,'+str(xgrid_min[n])+','+str(xgrid_max[n])+' -d lsmlat,'+str(ygrid_min[n])+ \
+    if (isglobal):
+        os.system('cp '+pftdyn_orig+' '+pftdyn_new)
+    else:
+        os.system('ncks --fix_rec_dmn time -d lsmlon,'+str(xgrid_min[n])+','+str(xgrid_max[n])+' -d lsmlat,'+str(ygrid_min[n])+ \
                   ','+str(ygrid_max[n])+' '+pftdyn_orig+' '+pftdyn_new)
 
     if (issite):

@@ -969,9 +969,11 @@ for i in range(1,int(options.ninst)+1):
     if ('RD' in compset or 'ECA' in compset):
         #soil order parameter file
         output.write(" fsoilordercon = '"+rundir+"/CNP_parameters.nc'\n")
+        #output.write( " stream_fldfilename_ndep = '"+options.ccsm_input+ \
+        #  "/lnd/clm2/ndepdata/fndep_clm_hist_simyr1849-2006_1.9x2.5_" + \
+        #              "c100428.nc'\n")
         output.write( " stream_fldfilename_ndep = '"+options.ccsm_input+ \
-          "/lnd/clm2/ndepdata/fndep_clm_hist_simyr1849-2006_1.9x2.5_" + \
-                      "c100428.nc'\n")
+          "/lnd/clm2/ndepdata/fndep_elm_cbgc_exp_simyr1849-2006_1.9x2.5_c171012.nc'\n")
         if (options.vsoilc):
             output.write(" use_vertsoilc = .true.\n")
         if (options.centbgc):
