@@ -248,6 +248,8 @@ if (options.runroot == '' or (os.path.exists(options.runroot) == False)):
         runroot='/lustre/or-hydra/cades-ccsi/scratch/'+myuser
     elif ('cori' in options.machine):
         runroot='/global/cscratch1/sd/'+myuser
+    elif ('edison' in options.machine):
+        runroot=os.environ.get('CSCRATCH')+'acme_scratch/edison/'
     else:
         runroot = csmdir+'/run'
 else:
