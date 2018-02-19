@@ -19,12 +19,14 @@ parser.add_option("--clean_build", action="store_true", default=False, \
                   help="Perform a clean build")
 parser.add_option("--csmdir", dest="csmdir", default='../../../../..', \
                   help = "base CESM directory (default = ../../..)")
-parser.add_option("--compiler", dest="compiler", default = 'gnu', \
+parser.add_option("--compiler", dest="compiler", default = '', \
                   help = "compiler to use (pgi*, gnu)")
 parser.add_option("--debug", dest="debug", default=False, \
                  action="store_true", help='Use debug queue and options')
 parser.add_option("--ilambvars", dest="ilambvars", default=False, \
                  action="store_true", help="Write special outputs for diagnostics")
+parser.add_option("--dailyvars", dest="dailyvars", default=False, \
+                 action="store_true", help="Write daily ouptut variables")
 parser.add_option("--hist_mfilt_trans", dest="hist_mfilt", default="1", \
                   help = 'number of output timesteps per file (transient only)')
 parser.add_option("--hist_mfilt_spinup", dest="hist_mfilt_spinup", default="-999", \
@@ -39,9 +41,9 @@ parser.add_option("--lat_bounds", dest="lat_bounds", default='-90,90', \
                   help = 'latitude range for regional run')
 parser.add_option("--lon_bounds", dest="lon_bounds", default='-180,180', \
                   help = 'longitude range for regional run')
-parser.add_option("--machine", dest="machine", default = 'oic2', \
-                  help = "machine to use (default = oic2)")
-parser.add_option("--mpilib", dest="mpilib", default="openmpi", \
+parser.add_option("--machine", dest="machine", default = '', \
+                  help = "machine to use")
+parser.add_option("--mpilib", dest="mpilib", default="", \
                       help = "mpi library (openmpi*, mpich, ibm, mpi-serial)")
 parser.add_option("--noad", action="store_true", dest="noad", default=False, \
                   help='Do not perform ad spinup simulation')
@@ -206,6 +208,7 @@ ilamb_outputs = ['FAREA_BURNED', 'CWDC', 'LEAFC', 'TOTLITC', 'STORVEGC', 'LIVEST
                  'FSDS', 'FSR', 'TSA', 'CPOOL', 'NPOOL','FPI','FPG','FPI_P','FPG_P','TOTSOMC_1m']
 
 #----------------------------------------------------------
+
 if (options.ccsm_input != ''):
     ccsm_input = options.ccsm_input
 elif (options.machine == 'titan' or options.machine == 'eos'):
@@ -215,14 +218,21 @@ elif (options.machine == 'cades' or options.machine == 'metis'):
 elif (options.machine == 'edison' or 'cori' in options.machine):
     ccsm_input = '/project/projectdirs/acme/inputdata'
 
-if (options.compiler != ''):
+#default compilers
+if (options.compiler == ''):
     if (options.machine == 'titan' or options.machine == 'metis'):
         options.compiler = 'pgi'
     if (options.machine == 'eos' or options.machine == 'edison' or 'cori' in options.machine):
         options.compiler = 'intel'
     if (options.machine == 'cades'):
         options.compiler = 'gnu'
-    
+#default MPIlibs
+if (options.mpilib == ''):    
+    if ('cori' in options.machine or 'edison' in options.machine):
+        options.mpilib = 'mpt'  
+    elif ('cades' in option.macine):
+        options.mpilib = 'openmpi'
+
 
 mycaseid   = options.mycaseid
 srcmods    = options.srcmods_loc
@@ -237,7 +247,7 @@ else:
 csmdir = os.getcwd()+'/'+options.csmdir
 
 #case run and case root directories
-if (options.runroot == '' or (os.path.exists(options.runroot) == False)):
+if (options.runroot == ''):
     myuser = getpass.getuser()
     if (options.machine == 'titan' or options.machine == 'eos'):
         myinput = open('/ccs/home/'+myuser+'/.cesm_proj','r')
@@ -247,9 +257,9 @@ if (options.runroot == '' or (os.path.exists(options.runroot) == False)):
     elif (options.machine == 'cades' or options.machine == 'metis'):
         runroot='/lustre/or-hydra/cades-ccsi/scratch/'+myuser
     elif ('cori' in options.machine):
-        runroot='/global/cscratch1/sd/'+myuser
+        runroot=os.environ.get('CSCRATCH')+'/acme_scratch'+options.machine
     elif ('edison' in options.machine):
-        runroot=os.environ.get('CSCRATCH')+'acme_scratch/edison/'
+        runroot=os.environ.get('CSCRATCH')+'/acme_scratch/edison/'
     else:
         runroot = csmdir+'/run'
 else:
@@ -375,8 +385,10 @@ if (options.mod_parm_file !=''):
 basecmd = basecmd + ' --np '+str(options.np)
 basecmd = basecmd + ' --tstep '+str(options.tstep)
 basecmd = basecmd + ' --co2_file '+options.co2_file
-basecmd = basecmd + ' --compiler '+options.compiler
-basecmd = basecmd + ' --mpilib '+options.mpilib
+if (options.compiler != ''):
+    basecmd = basecmd + ' --compiler '+options.compiler
+if (options.mpilib != ''):
+    basecmd = basecmd + ' --mpilib '+options.mpilib
 basecmd = basecmd+' --caseroot '+caseroot
 basecmd = basecmd+' --runroot '+runroot
 basecmd = basecmd+' --walltime '+str(options.walltime)
@@ -468,7 +480,9 @@ if (options.trans_varlist != ''):
     cmd_trns = cmd_trns + ' --trans_varlist '+options.trans_varlist
 if (options.ilambvars):
     cmd_trns = cmd_trns + ' --ilambvars'
-        
+if (options.dailyvars):
+    cmd_trns = cmd_trns + ' --dailyvars'        
+
 #transient phase 2 (CRU-NCEP only, without coupler bypass)
 if ((options.cruncep or options.gswp3) and not options.cpl_bypass):
     basecase=basecase.replace('1850','20TR')+'_phase1'

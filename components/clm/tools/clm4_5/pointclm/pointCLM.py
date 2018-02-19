@@ -39,6 +39,8 @@ parser.add_option("--lon_bounds", dest="lon_bounds", default='-999,-999', \
                   help = 'longitude range for regional run')
 parser.add_option("--ilambvars", dest="ilambvars", default=False, \
                  action="store_true", help="Write special outputs for diagnostics")
+parser.add_option("--dailyvars", dest="dailyvars", default=False, \
+                 action="store_true", help="Write daily ouptut variables")
 parser.add_option("--res", dest="res", default="CLM_USRDAT", \
                       help='Resoultion for global simulation')
 parser.add_option("--point_list", dest="point_list", default='', \
@@ -813,7 +815,8 @@ for i in range(1,int(options.ninst)+1):
             'DEADSTEMC_XFER', 'LIVECROOTC_XFER', 'DEADCROOTC_XFER', 'SR', 'HR_vr', 'FIRA', 
             'FSA', 'FSDS', 'FLDS', 'TBOT', 'RAIN', 'SNOW', 'WIND', 'PBOT', 'QBOT', 'QVEGT', 'QVEGE', 'QSOIL', \
             'QFLX_SUB_SNOW', 'QFLX_DEW_GRND', 'QH2OSFC', 'H2OSOI', 'CPOOL_TO_LIVESTEMC', 'TOTLITC', \
-            'TOTSOMC', 'ZWT', 'SNOWDP', 'TLAI','RH2m']
+            'TOTSOMC', 'ZWT', 'SNOWDP', 'TLAI','RH2m','QRUNOFF']
+    #var_list_hourly_bgc   TODO:  Separate SP and BGC variables, 
     var_list_daily = ['TOTLITC', 'TOTSOMC', 'CWDC', 'LITR1C_vr', 'LITR2C_vr', 'LITR3C_vr', 'SOIL1C_vr', \
                       'SOIL2C_vr', 'SOIL3C_vr', 'H2OSFC', 'ZWT', 'SNOWDP', 'TLAI', 'CPOOL','NPOOL','PPOOL', \
                       'FPI','FPI_P','FPG','FPG_P','FPI_vr','FPI_P_vr']
@@ -850,10 +853,10 @@ for i in range(1,int(options.ninst)+1):
                      'LITR1C_TO_SOIL1C', 'LITR2C_TO_SOIL2C', 'LITR3C_TO_SOIL3C', 'LAND_USE_FLUX', \
                      'LITFALL', 'GPP', 'FGR', 'TLAI', 'SNOWLIQ', 'SOILICE', 'SOILLIQ', 'QRUNOFF', \
                      'QOVER', 'SOILWATER_10CM', 'NBP', 'LEAFC_ALLOC', 'WOODC_ALLOC', 'QINTR', \
-                     'AR', 'GR', 'HR', 'MR', 'FSNO', 'SNOWDP', 'QMELT', 'H2OSNO', 'SNOWBCMSL', \
+                     'AR', 'GR', 'HR', 'MR', 'FSNO', 'SNOWDP', 'QSNOMELT', 'H2OSNO', 'SNOBCMSL', \
                      'SNODSTMSL', 'SNOOCMSL', 'QVEGT', 'TSOI', 'WIND', 'EFLX_LH_TOT', 'FCTR', \
                      'FCEV', 'FGEV', 'FSH', 'RH2M', 'Q2M', 'RAIN', 'SNOW', 'PBOT', 'FLDS', 'FIRE', \
-                     'FSDS', 'FSR', 'TSA']
+                     'FSDS', 'FSR', 'TSA', 'QSNOMELT', 'TWS']
     if ('CTC' in compset):
         var_list_daily.append('SOIL4C_vr')
         var_list_spinup.append('SOIL4C')
@@ -867,13 +870,25 @@ for i in range(1,int(options.ninst)+1):
     if (options.hist_mfilt != -1 and not options.diags):
         if (options.ad_spinup):
             output.write(" hist_mfilt = "+str(options.hist_mfilt)+", "+str(options.hist_mfilt)+"\n")
-        else:
-            output.write(" hist_mfilt = "+ str(options.hist_mfilt)+"\n")
+            if (options.dailyvars):     #daily outputs for global runs (use hourly and daily vars)
+                output.write("hist_mfilt = "+ str(options.hist_mfilt)+",365\n")
+                h1varst = "fincl2 = "
+                for v in var_list_hourly:
+                    h1varst = h1varst+"'"+v+"'," 
+                for v in var_list_daily:
+                    h1varst = h1varst+"'"+v+"',"
+                output.write(h1varst+"\n")
+            else:
+                output.write(" hist_mfilt = "+ str(options.hist_mfilt)+"\n")
+
     if (options.hist_nhtfrq != -999 and not options.diags):
         if (options.ad_spinup):
             output.write(" hist_nhtfrq = "+ str(options.hist_nhtfrq)+", "+str(options.hist_nhtfrq)+"\n")
         else:
-            output.write(" hist_nhtfrq = "+ str(options.hist_nhtfrq)+"\n")
+            if (options.dailyvars):
+                output.write(" hist_nhtfrq = "+ str(options.hist_nhtfrq)+",-24\n")
+            else:
+                output.write(" hist_nhtfrq = "+ str(options.hist_nhtfrq)+"\n")
     
     if (options.hist_vars != ''):
         output.write(" hist_empty_htapes = .true.\n")
