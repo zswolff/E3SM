@@ -236,7 +236,10 @@ domainfile_list=''
 for n in range(0,n_grids):
     nst = str(100000+n)[1:]
     domainfile_new = csmdir+'/components/clm/tools/clm4_5/pointclm/temp/domain'+nst+'.nc'
-    os.system('ncks -d ni,'+str(xgrid_min[n])+','+str(xgrid_max[n])+' -d nj,'+str(ygrid_min[n])+ \
+    if (isglobal):
+        os.system('cp '+domainfile_orig+' '+domainfile_new)
+    else:
+        os.system('ncks -d ni,'+str(xgrid_min[n])+','+str(xgrid_max[n])+' -d nj,'+str(ygrid_min[n])+ \
               ','+str(ygrid_max[n])+' '+domainfile_orig+' '+domainfile_new)
 
     if (issite):
