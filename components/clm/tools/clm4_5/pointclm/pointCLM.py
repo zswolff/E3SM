@@ -740,7 +740,7 @@ if ('20TR' in compset):
     
 #no PIO on oic
 #if ('oic' in options.machine or 'eos' in options.machine or 'edison' in options.machine):
-os.system('./xmlchange -file env_run.xml -id PIO_TYPENAME -val netcdf')
+#os.system('./xmlchange -file env_run.xml -id PIO_TYPENAME -val netcdf')
 
 os.system('./xmlchange -file env_mach_pes.xml -id NTASKS_ATM -val '+str(options.np))
 os.system('./xmlchange -file env_mach_pes.xml -id NTASKS_LND -val '+str(options.np))
