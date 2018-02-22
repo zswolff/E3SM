@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import os, time
+import sys,os, time
 import numpy as np
 import netcdf_functions as nffun
 import subprocess
@@ -50,11 +50,11 @@ else:
 
 #Define function to perform ensemble member post-processing
 def postproc(myvars, myyear_start, myyear_end, myday_start, myday_end, \
-             myavg, myfactor, myoffset, thisjob, runroot, case, data, outnum):
+             myavg, myfactor, myoffset, thisjob, runroot, case, data):
     rundir = options.runroot+'/UQ/'+case+'/g'+str(100000+thisjob)[1:]+'/'
     index=0
-    outnum = 0
     ierr = 0
+    thiscol = 0
     for v in myvars:
         ndays_total = 0
         output = []
@@ -73,9 +73,8 @@ def postproc(myvars, myyear_start, myyear_end, myday_start, myday_end, \
                for d in range(myday_start[index]-1,myday_end[index]):
                     output.append(mydata*myfactor[index]+myoffset[index])
         for i in range(0,ndays_total/myavg[index]):
-            print v, index, i
-	    data[outnum,thisjob-1] = sum(output[(i*myavg[index]):((i+1)*myavg[index])])/myavg[index]
-            outnum=outnum+1
+	    data[thiscol] = sum(output[(i*myavg[index]):((i+1)*myavg[index])])/myavg[index]
+            thiscol=thiscol+1
         index = index+1
     return ierr
             
@@ -86,68 +85,67 @@ size=comm.Get_size()
 
 workdir = os.getcwd()
 
-#Master
-if (rank == 0):
-    #get postproc info
-    do_postproc=False
-    if (os.path.isfile(options.postproc_file)):
-        do_postproc=True
-        myvars=[]
-        myyear_start=[]
-        myyear_end=[]
-        myday_start=[]
-        myday_end=[]
-        myavg_pd=[]
-        myfactor=[]
-        myoffset=[]
-        postproc_input = open(options.postproc_file,'r')
-        data_cols = 0
-        for s in postproc_input:
-            if (s[0:1] != '#'):
-                myvars.append(s.split()[0])
-                myyear_start.append(int(s.split()[1]))
-                myyear_end.append(int(s.split()[2]))
-                myday_start.append(int(s.split()[3]))
-                myday_end.append(int(s.split()[4]))
-                myavg_pd.append(int(s.split()[5]))
-                myfactor.append(float(s.split()[6]))
-                myoffset.append(float(s.split()[7]))
-                days_total = (int(s.split()[2]) - int(s.split()[1])+1)*(int(s.split()[4]) - int(s.split()[3])+1)        
-                data_cols = data_cols + days_total / int(s.split()[5])
-                print data_cols
-        data=np.zeros([data_cols,options.n], np.float)-999
-        postproc_input.close()
+#get postproc info
+do_postproc=False
+if (os.path.isfile(options.postproc_file)):
+    do_postproc=True
+    myvars=[]
+    myyear_start=[]
+    myyear_end=[]
+    myday_start=[]
+    myday_end=[]
+    myavg_pd=[]
+    myfactor=[]
+    myoffset=[]
+    time.sleep(rank)
+    postproc_input = open(options.postproc_file,'r')
+    data_cols = 0
+    for s in postproc_input:
+        if (s[0:1] != '#'):
+            myvars.append(s.split()[0])
+            myyear_start.append(int(s.split()[1]))
+            myyear_end.append(int(s.split()[2]))
+            myday_start.append(int(s.split()[3]))
+            myday_end.append(int(s.split()[4]))
+            myavg_pd.append(int(s.split()[5]))
+            myfactor.append(float(s.split()[6]))
+            myoffset.append(float(s.split()[7]))
+            days_total = (int(s.split()[2]) - int(s.split()[1])+1)*(int(s.split()[4]) - int(s.split()[3])+1)        
+            data_cols = data_cols + days_total / int(s.split()[5])
+            print data_cols
+    if (rank == 0):
+        data = np.zeros([data_cols,options.n], np.float)-999
+    data_row = np.zeros([data_cols], np.float)-999
+    postproc_input.close()
 
+if (rank == 0):
     n_done=0
     #send first np-1 jobs where np is number of processes
     for n_job in range(1,size):
         comm.send(n_job, dest=n_job, tag=1)
         comm.send(0,     dest=n_job, tag=2)
-        time.sleep(1)
+        if (options.postproc_only == False):
+            time.sleep(1)
     #Assign rest of jobs on demand
     for n_job in range(size,options.n+1):
         process = comm.recv(source=MPI.ANY_SOURCE, tag=3)
         thisjob = comm.recv(source=process, tag=4)
-        n_done = n_done+1
-        outnum=0
         if (do_postproc):
-            ierr = postproc(myvars, myyear_start, myyear_end, myday_start, \
-                     myday_end, myavg_pd, myfactor, myoffset, thisjob, \
-                     options.runroot, options.casename, data, outnum)
-        print outnum
+            data_row = comm.recv(source=process, tag=5)
+            data[:,thisjob-1] = data_row
+        print 'Received', thisjob
+        n_done = n_done+1
         comm.send(n_job, dest=process, tag=1)
         comm.send(0,     dest=process, tag=2)
     #receive remaining messages and finalize
     while (n_done < options.n):
         process = comm.recv(source=MPI.ANY_SOURCE, tag=3)
         thisjob = comm.recv(source=process, tag=4)
-        n_done = n_done+1
-        outnum = 0
         if (do_postproc):
-            ierr = postproc(myvars, myyear_start, myyear_end, myday_start, \
-                            myday_end, myavg_pd, myfactor, myoffset, thisjob, \
-                            options.runroot, options.casename, data, outnum)
-            #Update post-processed output file
+            data_row = comm.recv(source=process, tag=5)
+            data[:,thisjob-1] = data_row
+        print 'Received', thisjob
+        n_done = n_done+1
         comm.send(-1, dest=process, tag=1)
         comm.send(-1, dest=process, tag=2)
     
@@ -178,7 +176,16 @@ else:
                 os.chdir(rundir)
                 #Run the executable
                 os.system(options.exeroot+'/acme.exe > acme.log')
-            comm.send(rank,  dest=0, tag=3)
-            comm.send(myjob, dest=0, tag=4)
+            if (do_postproc):
+                ierr = postproc(myvars, myyear_start, myyear_end, myday_start, \
+                         myday_end, myavg_pd, myfactor, myoffset, myjob, \
+                         options.runroot, options.casename, data_row)
+                comm.send(rank, dest=0, tag=3)
+                comm.send(myjob, dest=0, tag=4)
+                comm.send(data_row, dest=0, tag=5)
+            else:
+                comm.send(rank,  dest=0, tag=3)
+                comm.send(myjob, dest=0, tag=4)
+
     print rank, ' complete'
     MPI.Finalize()

@@ -493,8 +493,8 @@ for c in range(0,ncases):
                              x[myind] = ystart+(ylast*n*nypf+y*nypf) + nypf*(i*1.0-0.5)/npf
                              mydata[v,myind] = numpy.NaN
                              nsteps=nsteps+1
-                             print myind, ylast, y, x[myind]
-                         print v, nsteps
+                             #print myind, ylast, y, x[myind]
+                         #print v, nsteps
                   
     #perform averaging and write output files 
     if (avtype == 'default'):
@@ -530,7 +530,7 @@ for c in range(0,ncases):
                             mysum_obs[s] = mysum_obs[s]+myobs[v,y*8760+(d-1)*24+h]
                             myct_obs[s] = myct_obs[s]+1
             for s in range(0,snum[c]):
-                print myct_obs[s], s
+                #print myct_obs[s], s
                 if (myct_obs[s] > 0):
                     mysum_obs[s] = mysum_obs[s]/myct_obs[s]
                 else:
@@ -549,7 +549,7 @@ for c in range(0,ncases):
             mycount_obs = numpy.zeros(snum[c], numpy.int)
             for y in range(0,(yend_all-ystart+1)):
                 for s in range(0,snum[c]):
-                    print y, s, mydata[v,y*12+s]
+                    #print y, s, mydata[v,y*12+s]
                     mysum[s]=mysum[s]+mydata[v,(y*12+s)]/float(yend_all-ystart+1)
                     if (myobs[v,(y*12+s)] > -900):
                         mysum_obs[s]=mysum_obs[s]+myobs[v,(y*12+s)]
@@ -620,7 +620,7 @@ for v in range(0,len(myvars)):
             if (c == 0):
                 #myvar = outdata.createVariable(myvars[v],'f',('time','lat','lon'))
                 myvar = outdata.createVariable(myvars[v],'f',('time','gridcell'))
-                print v, myvars[v]
+                #print v, myvars[v]
                 myvar.units=var_units[v]
                 myvar.missing_value=1e36
                 myvar[:,:]=1e36   #changed for gridcell

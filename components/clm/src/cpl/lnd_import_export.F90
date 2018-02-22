@@ -94,13 +94,14 @@ contains
     integer :: stream_year_first_lightng, stream_year_last_lightng, model_year_align_lightng
     integer :: stream_year_first_popdens, stream_year_last_popdens, model_year_align_popdens
     integer :: stream_year_first_ndep,    stream_year_last_ndep,    model_year_align_ndep
+    character(len=CL)  :: metdata_fname  
     character(len=CL)  :: lightngmapalgo = 'bilinear'! Mapping alogrithm
     character(len=CL)  :: popdensmapalgo = 'bilinear' 
     character(len=CL)  :: ndepmapalgo    = 'bilinear' 
     character(len=CL)  :: stream_fldFileName_lightng ! lightning stream filename to read
     character(len=CL)  :: stream_fldFileName_popdens ! poplulation density stream filename
     character(len=CL)  :: stream_fldFileName_ndep    ! nitrogen deposition stream filename
-    logical :: use_sitedata, has_zonefile
+    logical :: use_sitedata, has_zonefile, use_daymet, use_livneh
     data caldaym / 1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366 /	
 
     ! Constants to compute vapor pressure
@@ -200,18 +201,26 @@ contains
 
         if (nstep .eq. 0) then
           !meteorological forcing
-          if (metdata_type(1:4) == 'qian') then 
-            atm2lnd_vars%metsource  = 0   !0 = qian , 1 = cruncep, 2 = Site forcing
-          else if (metdata_type(1:3) == 'cru') then
-            atm2lnd_vars%metsource  = 1   !0 = qian , 1 = cruncep, 2 = Site forcing
-          else if (metdata_type(1:4) == 'site') then 
-            atm2lnd_vars%metsource  = 2
-          else if (metdata_type(1:6) == 'livneh') then 
+          if (scan(metdata_type, 'qian') .gt. 0) then 
+            atm2lnd_vars%metsource = 0   
+          else if (scan(metdata_type,'cru') .gt. 0) then
+            atm2lnd_vars%metsource = 1  
+          else if (scan(metdata_type,'site') .gt. 0) then 
+            atm2lnd_vars%metsource = 2
+          else if (scan(metdata_type,'princeton') .gt. 0) then 
             atm2lnd_vars%metsource = 3
-          else if (metdata_type(1:4) == 'gswp') then
+          else if (scan(metdata_type,'gswp3') .gt. 0) then
             atm2lnd_vars%metsource = 4
-          else if (metdata_type(1:3) == 'cpl') then 
+          else if (scan(metdata_type,'cpl') .gt. 0) then 
             atm2lnd_vars%metsource = 5
+          else
+            call endrun( sub//' ERROR: Invalid met data source for cpl_bypass' )
+          end if
+
+          if(scan(metdata_type, 'livneh') .gt. 0) then 
+              use_livneh = .true.
+          else if (scan(metdata_type, 'daymet') .gt. 0) then 
+              use_daymet = .true.
           else
             call endrun( sub//' ERROR: Invalid met data source for cpl_bypass' )
           end if
@@ -235,21 +244,24 @@ contains
               metvars(12) = 'SNOWC'
               metvars(13) = 'SNOWL'
               metvars(14) = 'V'
+          else
+              metvars(4) = 'FSDS'
+              metvars(5) = 'PRECTmms'
+              metvars(6) = 'WIND'
           end if
 
+          !set defaults
+          atm2lnd_vars%startyear_met       = 1901
+          atm2lnd_vars%endyear_met_spinup  = 1920
           if (atm2lnd_vars%metsource == 0) then 
             metsource_str = 'qian'
             atm2lnd_vars%startyear_met       = 1948
             atm2lnd_vars%endyear_met_spinup  = 1972
             atm2lnd_vars%endyear_met_trans   = 2004
-          end if
-          if (atm2lnd_vars%metsource == 1) then 
+          else if (atm2lnd_vars%metsource == 1) then 
             metsource_str = 'cruncep'
-            atm2lnd_vars%startyear_met      = 1901
-            atm2lnd_vars%endyear_met_spinup = 1920
             atm2lnd_vars%endyear_met_trans  = 2010
-          end if 
-          if (atm2lnd_vars%metsource == 2) then
+          else if (atm2lnd_vars%metsource == 2) then
             metsource_str = 'site'
             !get year information from file
             ierr = nf90_open(trim(metdata_bypass) // '/all_hourly.nc', nf90_nowrite, ncid)
@@ -259,24 +271,24 @@ contains
             ierr = nf90_get_var(ncid, varid, atm2lnd_vars%endyear_met_spinup)
             ierr = nf90_close(ncid)
             atm2lnd_vars%endyear_met_trans = atm2lnd_vars%endyear_met_spinup
-          endif
-         if (atm2lnd_vars%metsource == 3) then
-            metsource_str = 'livneh'
-            atm2lnd_vars%startyear_met      = 1950
-            atm2lnd_vars%endyear_met_spinup = 1969
-            atm2lnd_vars%endyear_met_trans  = 2013
-         end if
-         if (atm2lnd_vars%metsource == 4) then 
-            atm2lnd_vars%startyear_met      = 1901
-            atm2lnd_vars%endyear_met_spinup = 1920
+          else if (atm2lnd_vars%metsource == 3) then 
+            metsource_str = 'princeton'
+            atm2lnd_vars%endyear_met_trans = 2012 
+          else if (atm2lnd_vars%metsource == 4) then 
             atm2lnd_vars%endyear_met_trans  = 2010
-         end if
-         if (atm2lnd_vars%metsource == 5) then
+          else if (atm2lnd_vars%metsource == 5) then
             atm2lnd_vars%startyear_met      = 76
             atm2lnd_vars%endyear_met_spinup = 100
             atm2lnd_vars%endyear_met_trans  = 100
-         end if
+          end if
 
+          if (use_livneh) then 
+              atm2lnd_vars%startyear_met      = 1950
+              atm2lnd_vars%endyear_met_spinup = 1969
+          else if (use_daymet) then 
+              atm2lnd_vars%startyear_met      = 1980
+              atm2lnd_vars%endyear_met_spinup = 2010
+          end if
 
           nyears_spinup = atm2lnd_vars%endyear_met_spinup - &
                              atm2lnd_vars%startyear_met + 1
@@ -324,7 +336,7 @@ contains
             read(9,*) thisline
             site_metdata(:,:)=-999._r8
             do while ((site_metdata(1,1) .lt. ldomain%lonc(g) - 0.01 .or. &
-                       site_metdata(1,1) .gt. ldomain%lonc(g) + 0.01) .and. &
+                    site_metdata(1,1) .gt. ldomain%lonc(g) + 0.01) .and. &
                       (site_metdata(2,1) .lt. ldomain%latc(g) - 0.01 .or. &
                        site_metdata(2,1) .gt. ldomain%latc(g) + 0.01))
               read(9,*) site_metdata(1:7,1)
@@ -339,23 +351,35 @@ contains
           do v=1,met_nvars
             write(zst, '(I3)') 100+ztoget
             if (atm2lnd_vars%metsource == 0) then 
-              ierr = nf90_open(trim(metdata_bypass) // '/' // trim(metsource_str) // '_' // trim(metvars(v)) // &
-                       '_z' // zst(2:3) // '.nc', NF90_NOWRITE, met_ncids(v))
+                metdata_fname =  trim(metsource_str) // '_' // trim(metvars(v)) // '_z' // zst(2:3) // '.nc'
             else if (atm2lnd_vars%metsource == 1) then 
-              ierr = nf90_open(trim(metdata_bypass) // '/CRUNCEP.v5_' // trim(metvars(v)) // &
-                       '_1901-2013_z' // zst(2:3) // '.nc', NF90_NOWRITE, met_ncids(v))
-            else if (atm2lnd_vars%metsource == 2) then 
-              ierr = nf90_open(trim(metdata_bypass) // '/all_hourly.nc', NF90_NOWRITE, met_ncids(v))
-            else if (atm2lnd_vars%metsource == 3) then
-              ierr = nf90_open(trim(metdata_bypass) // '/cruncep.v5_' // trim(metvars(v)) // &
-                     '_1950-2013_z' // zst(2:3) // '.nc', NF90_NOWRITE, met_ncids(v))
+                metdata_fname = 'CRUNCEP.v5_' // trim(metvars(v)) // '_1901-2013_z' // zst(2:3) // '.nc'
+                if (use_livneh .and. ztoget .ge. 16 .and. ztoget .le. 20) then 
+                    metdata_fname = 'cruncep.V5_' // trim(metvars(v)) // '_1901-2013_z' // zst(2:3) // '.nc'
+                else if (use_daymet .and. ztoget .ge. 16 .and. ztoget .le. 20) then 
+                    metdata_fname = 'cruncep.V5_' // trim(metvars(v)) // '_1901-2013_z' // zst(2:3) // '.nc'
+                end if
+            else if (atm2lnd_vars%metsource == 2) then
+                metdata_fname = 'all_hourly.nc'
+            else if (atm2lnd_vars%metsource == 3) then 
+               metdata_fname = 'Princeton_' // trim(metvars(v)) // '_1901-2012_z' // zst(2:3) // '.nc'
+                if (use_livneh .and. ztoget .ge. 16 .and. ztoget .le. 20) then
+                    metdata_fname = 'Princeton_Daymet3_' // trim(metvars(v)) // '_1901-2012_z' // zst(2:3) // '.nc'
+                else if (use_daymet .and. ztoget .ge. 16 .and. ztoget .le. 20) then
+                    metdata_fname = 'Princeton_Livneh_' // trim(metvars(v)) // '_1901-2012_z' // zst(2:3) // '.nc'
+                end if
             else if (atm2lnd_vars%metsource == 4) then 
-              ierr = nf90_open(trim(metdata_bypass) // '/GSWP3.v1_' // trim(metvars(v)) // &
-                     '_1901-2010_z' // zst(2:3) // '.nc', NF90_NOWRITE, met_ncids(v))
+                metdata_fname = 'GSWP3.v1_' // trim(metvars(v)) // '_1901-2010_z' // zst(2:3) // '.nc'
+                if (use_livneh .and. ztoget .ge. 16 .and. ztoget .le. 20) then 
+                    metdata_fname = 'GSWP3_Daymet3_' // trim(metvars(v)) // '_1901-2010_z' // zst(2:3) // '.nc'                
+                else if (use_daymet .and. ztoget .ge. 16 .and. ztoget .le. 20) then 
+                    metdata_fname = 'GSWP3_Livneh_' // trim(metvars(v)) // '_1901-2010_z' // zst(2:3) // '.nc' 
+                end if
             else if (atm2lnd_vars%metsource == 5) then 
-              ierr = nf90_open(trim(metdata_bypass) // '/WCYCL1850S.ne30_' // trim(metvars(v)) // &
-                     '_0076-0100_z' // zst(2:3) // '.nc', NF90_NOWRITE, met_ncids(v))
+                    metdata_fname = 'WCYCL1850S.ne30_' // trim(metvars(v)) // '_0076-0100_z' // zst(2:3) // '.nc'
             end if
+  
+            ierr = nf90_open(trim(metdata_bypass) // '/' // trim(metdata_fname), NF90_NOWRITE, met_ncids(v))
             if (ierr .ne. 0) call endrun(msg=' ERROR: Failed to open cpl_bypass input meteorology file' )
        
             !get timestep information

@@ -20,6 +20,8 @@ parser.add_option("--lat_bounds", dest="lat_bounds", default='-999,-999', \
                   help = 'latitude range for regional run')
 parser.add_option("--lon_bounds", dest="lon_bounds", default='-999,-999', \
                   help = 'longitude range for regional run')
+parser.add_option("--mask", dest="mymask", default='', \
+                  help = 'Mask file to use (regional only)')
 parser.add_option("--pft", dest="mypft", default=-1, \
                   help = 'Replace all gridcell PFT with this value')
 parser.add_option("--csmdir", dest="csmdir", default='../../../../..', \
@@ -135,6 +137,10 @@ elif (options.site != ''):
                 mylon=360.0+float(row[3])
             lon.append(mylon)
             lat.append(float(row[4]))
+            if ('US-SPR' in options.site):
+                lon.append(mylon)
+                lat.append(float(row[4]))
+                n_grids = 2
             startyear=int(row[6])
             endyear=int(row[7])
             alignyear = int(row[8])
@@ -186,7 +192,7 @@ for n in range(0,n_grids):
         elif (lat_bounds[1] >= latixy[i+1]):
             ygrid_max[n] = i
     #print n, lat[n], lon[n], xgrid_max[n], ygrid_max[n]
-if (n_grids > 1):       #remove duplicate points
+if (n_grids > 1 and options.site == ''):       #remove duplicate points
   n_grids_uniq = 1
   n_dups = 0
   xgrid_min_uniq = [xgrid_min[0]]
@@ -269,10 +275,17 @@ for n in range(0,n_grids):
             ierr = nffun.putvar(domainfile_new, 'xv', xv)
             ierr = nffun.putvar(domainfile_new, 'yv', yv)
             ierr = nffun.putvar(domainfile_new, 'area', area)
- 
+       
         ierr = nffun.putvar(domainfile_new, 'frac', frac)
         ierr = nffun.putvar(domainfile_new, 'mask', mask)
         os.system('ncks -O --mk_rec_dim nj '+domainfile_new+' '+domainfile_new)
+    elif (options.mymask != ''):
+       print 'Applying mask from '+options.mymask
+       os.system('ncks -d lon,'+str(xgrid_min[n])+','+str(xgrid_max[n])+' -d lat,'+str(ygrid_min[n])+ \
+              ','+str(ygrid_max[n])+' '+options.mymask+' mask_temp.nc')
+       newmask = nffun.getvar('mask_temp.nc', 'PNW_mask')
+       ierr = nffun.putvar(domainfile_new, 'mask', newmask)
+
     domainfile_list = domainfile_list+' '+domainfile_new
 domainfile_new = csmdir+'/components/clm/tools/clm4_5/pointclm/temp/domain.nc'
 if (os.path.isfile(domainfile_new)):
@@ -280,8 +293,8 @@ if (os.path.isfile(domainfile_new)):
     os.system('rm -rf '+domainfile_new)
 if (n_grids > 1):
     os.system('ncrcat '+domainfile_list+' '+domainfile_new)
-    os.system('nccopy -u  '+domainfile_new+' '+domainfile_new)
-    os.system('ncpdq -O -a ni,nj '+domainfile_new+' '+domainfile_new)
+    os.system('nccopy -u  '+domainfile_new+' '+domainfile_new+'.tmp')
+    os.system('ncpdq -O -a ni,nj '+domainfile_new+'.tmp '+domainfile_new)
     #os.system('ncwa -O -a ni -d ni,0,0 '+domainfile_new+'.tmp1 '+domainfile_new+'.tmp2')
     os.system('ncrename -h -O -d ni,ni_temp '+domainfile_new+' '+domainfile_new+' ')
     os.system('ncrename -h -O -d nj,ni '+domainfile_new+' '+domainfile_new+' ')
@@ -376,6 +389,8 @@ for n in range(0,n_grids):
                 if (mypct_sand > 0.0 or mypct_clay > 0.0):
                     pct_sand[k][0][0]   = mypct_sand
                     pct_clay[k][0][0]   = mypct_clay
+                if ('US-SPR' in options.site):
+                    organic[k][0][0] = 140.0
             for p in range(0,npft):
                 if (sum(mypft_frac[0:17]) > 0.0):
                     pct_pft[p][0][0] = mypft_frac[p]

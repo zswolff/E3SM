@@ -25,6 +25,8 @@ parser.add_option("--caseidprefix", dest="mycaseid", default="", \
                   help="Unique identifier to include as a prefix to the case name")
 parser.add_option("--caseroot", dest="caseroot", default='', \
                   help = "case root directory (default = ./, i.e., under scripts/)")
+parser.add_option("--dailyrunoff", dest="dailyrunoff", default=False, \
+                 action="store_true", help="Write daily output for hydrology")
 parser.add_option("--diags", dest="diags", default=False, \
                  action="store_true", help="Write special outputs for diagnostics")
 parser.add_option("--debug", dest="debug", default=False, \
@@ -37,6 +39,8 @@ parser.add_option("--lat_bounds", dest="lat_bounds", default='-999,-999', \
                   help = 'latitude range for regional run')
 parser.add_option("--lon_bounds", dest="lon_bounds", default='-999,-999', \
                   help = 'longitude range for regional run')
+parser.add_option("--mask", dest="mymask", default='', \
+                  help = 'Mask file to use (regional only)')
 parser.add_option("--ilambvars", dest="ilambvars", default=False, \
                  action="store_true", help="Write special outputs for diagnostics")
 parser.add_option("--dailyvars", dest="dailyvars", default=False, \
@@ -57,10 +61,14 @@ parser.add_option("--compset", dest="compset", default='I1850CNPRDCTCBC', \
                          "Currently supports ONLY *CLM45(CN) compsets")
 parser.add_option("--cruncep", dest="cruncep", default=False, \
                   help = "use cru-ncep data", action="store_true")
+parser.add_option("--cplhist", dest="cplhist", default=False, \
+                  help= "use CPLHIST forcing", action="store_true")
 parser.add_option("--gswp3", dest="gswp3", default=False, \
                   help= "use GSWP3 forcing", action="store_true")
 parser.add_option("--livneh", dest="livneh", default=False, \
                   action="store_true", help = "Livneh correction to CRU precip (CONUS only)")
+parser.add_option("--daymet", dest="daymet", default=False, \
+                  action="store_true", help = "Daymet correction to GSWP3 precip (CONUS only)")
 parser.add_option("--machine", dest="machine", default = 'oic2', \
                   help = "machine to use (default = oic2)\n")
 parser.add_option("--compiler", dest="compiler", default='gnu', \
@@ -364,7 +372,7 @@ if (options.mycaseid != ""):
     casename = options.mycaseid+'_'+casename
 
 #CRU-NCEP 2 transient phases
-if ('CRU' in compset or options.cruncep or options.gswp3):
+if ('CRU' in compset or options.cruncep or options.gswp3 or options.cplhist):
     use_reanalysis = True
 else:
     use_reanalysis = False
@@ -439,10 +447,13 @@ if (options.nopointdata == False):
         ptcmd = ptcmd + ' --include_nonveg'
     if (options.nopftdyn):
         ptcmd = ptcmd + ' --nopftdyn'
+    if (options.mymask != ''):
+        ptcmd = ptcmd + ' --mask '+options.mymask
     if (isglobal):
         ptcmd = ptcmd + ' --res '+options.res
         if (options.point_list != ''):
             ptcmd = ptcmd+' --point_list '+options.point_list
+
     else:
         ptcmd = ptcmd + ' --site '+options.site+' --sitegroup '+options.sitegroup       
 
@@ -761,7 +772,7 @@ if (options.np == 1):
     os.system('./xmlchange -file env_mach_pes.xml -id NTHRDS_WAV -val 1')
 if (int(options.np) > 1):
     os.system('./xmlchange -file env_mach_pes.xml -id MAX_TASKS_PER_NODE -val '+str(ppn))
-    #os.system('./xmlchange -file env_mach_pes.xml -id PES_PER_NODE -val '+str(ppn))
+    os.system('./xmlchange -file env_mach_pes.xml -id MAX_MPITASKS_PER_NODE -val '+str(ppn))
 
 if (int(options.ninst) > 1):
     os.system('./xmlchange -file env_mach_pes.xml -id ' \
@@ -815,7 +826,7 @@ for i in range(1,int(options.ninst)+1):
             'DEADSTEMC_XFER', 'LIVECROOTC_XFER', 'DEADCROOTC_XFER', 'SR', 'HR_vr', 'FIRA', 
             'FSA', 'FSDS', 'FLDS', 'TBOT', 'RAIN', 'SNOW', 'WIND', 'PBOT', 'QBOT', 'QVEGT', 'QVEGE', 'QSOIL', \
             'QFLX_SUB_SNOW', 'QFLX_DEW_GRND', 'QH2OSFC', 'H2OSOI', 'CPOOL_TO_LIVESTEMC', 'TOTLITC', \
-            'TOTSOMC', 'ZWT', 'SNOWDP', 'TLAI','RH2m','QRUNOFF']
+            'TOTSOMC', 'ZWT', 'SNOWDP', 'TLAI','RH2M','QRUNOFF']
     #var_list_hourly_bgc   TODO:  Separate SP and BGC variables, 
     var_list_daily = ['TOTLITC', 'TOTSOMC', 'CWDC', 'LITR1C_vr', 'LITR2C_vr', 'LITR3C_vr', 'SOIL1C_vr', \
                       'SOIL2C_vr', 'SOIL3C_vr', 'H2OSFC', 'ZWT', 'SNOWDP', 'TLAI', 'CPOOL','NPOOL','PPOOL', \
@@ -870,14 +881,9 @@ for i in range(1,int(options.ninst)+1):
     if (options.hist_mfilt != -1 and not options.diags):
         if (options.ad_spinup):
             output.write(" hist_mfilt = "+str(options.hist_mfilt)+", "+str(options.hist_mfilt)+"\n")
-            if (options.dailyvars):     #daily outputs for global runs (use hourly and daily vars)
-                output.write("hist_mfilt = "+ str(options.hist_mfilt)+",365\n")
-                h1varst = "fincl2 = "
-                for v in var_list_hourly:
-                    h1varst = h1varst+"'"+v+"'," 
-                for v in var_list_daily:
-                    h1varst = h1varst+"'"+v+"',"
-                output.write(h1varst+"\n")
+        else:
+            if (options.dailyrunoff or options.dailyyvars):
+                output.write(" hist_mfilt = "+ str(options.hist_mfilt)+",365\n")
             else:
                 output.write(" hist_mfilt = "+ str(options.hist_mfilt)+"\n")
 
@@ -887,9 +893,19 @@ for i in range(1,int(options.ninst)+1):
         else:
             if (options.dailyvars):
                 output.write(" hist_nhtfrq = "+ str(options.hist_nhtfrq)+",-24\n")
+                h1varst = "fincl2 = "
+                for v in var_list_hourly:
+                    h1varst = h1varst+"'"+v+"',"
+                for v in var_list_daily:
+                    h1varst = h1varst+"'"+v+"',"
+                output.write(h1varst+"\n")
+            else if (options.dailyrunoff):
+                output.write(" hist_nhtfrq = "+ str(options.hist_nhtfrq)+",-24\n")
+                output.write(" hist_fincl2 = 'TBOT','QBOT','RAIN','SNOW','QBOT','PBOT','WIND','FPSN','QVEGT'," \
+                        +"'QVEGE','QSOIL','QRUNOFF','QDRAI','QOVER','H2OSFC','ZWT','SNOWDP','H2OSOI','TSOI','TWS'\n")
             else:
                 output.write(" hist_nhtfrq = "+ str(options.hist_nhtfrq)+"\n")
-    
+
     if (options.hist_vars != ''):
         output.write(" hist_empty_htapes = .true.\n")
         #read hist_vars file
@@ -965,7 +981,8 @@ for i in range(1,int(options.ninst)+1):
     elif (options.coldstart == False):
         #user-defined initial data file
         output.write(" finidat = '"+finidat+"'\n")
-        
+
+
     #surface data file
     output.write(" fsurdat = '"+rundir+"/surfdata.nc'\n")
         
@@ -1030,20 +1047,48 @@ for i in range(1,int(options.ninst)+1):
             output.write(" spinup_mortality_factor = 10\n")
     if (cpl_bypass):
         if (use_reanalysis):
-            if (options.livneh):
-                output.write(" metdata_type = 'livneh'\n")
-                output.write(" metdata_bypass = '"+options.ccsm_input+"/atm/datm7/" \
-                         +"atm_forcing.datm7.cruncep_qianFill.0.5d.V5.c140715_Livneh" + \
-                         "/cpl_bypass_full'\n")
-            elif (options.cruncep):
+            if (options.cruncep):
                 output.write(" metdata_type = 'cru-ncep'\n")
                 output.write(" metdata_bypass = '"+options.ccsm_input+"/atm/datm7/" \
                          +"atm_forcing.datm7.cruncep_qianFill.0.5d.V5.c140715/cpl_bypass_full'\n")
-#                         +"atm_forcing.datm7.cruncep.0.5d._v4_c110920.ornl/cpl_bypass_full'\n")
+                if (options.livneh):
+                    output.write(" metdata_type = 'cru-ncep_livneh'\n")
+                    output.write(" metdata_bypass = '"+options.ccsm_input+"/atm/datm7/" \
+                         +"atm_forcing.datm7.cruncep_qianFill.0.5d.V5.c140715.CONUS_Livneh" + \
+                         "/cpl_bypass_full'\n")
+                elif (options.daymet):
+                    output.write(" metdata_type = 'cru-ncep_daymet'\n")
+                    output.write(" metdata_bypass = '"+options.ccsm_input+"/atm/datm7/" \
+                         +"atm_forcing.datm7.runcep_qianFill.0.5d.V5.c140715.CONUS_Daymet3" + \
+                         +"/cpl_bypass_full'\n")
             elif (options.gswp3):
                 output.write(" metdata_type = 'gswp3'\n")
                 output.write(" metdata_bypass = '"+options.ccsm_input+"/atm/datm7/" \
                          +"atm_forcing.datm7.GSWP3.0.5d.v1.c170516/cpl_bypass_full'\n")
+                if (options.livneh):
+                    output.write(" metdata_type = 'gswp3_livneh'\n")
+                    output.write(" metdata_bypass = '"+options.ccsm_input+"/atm/datm7/" \
+                         +"atm_forcing.datm7.GSWP3.0.5d.v1.c170516.CONUS_Livneh/cpl_bypass_full'\n")
+                elif (options.daymet):
+                    output.write(" metdata_type = 'gswp3_daymet'\n")
+                    output.write(" metdata_bypass = '"+options.ccsm_input+"/atm/datm7/" \
+                         +"atm_forcing.datm7.GSWP3.0.5d.v1.c170516.CONUS_Daymet3/cpl_bypass_full'\n")
+            elif (options.princeton):
+                output.write(" metdata_type = 'princeton'\n")
+                output.write(" metdata_bypass = '"+options.ccsm_input+"/atm/datm7/" \
+                         +"atm_forcing.datm7.Princeton.0.5d.v1.c180222/cpl_bypass_full'\n")
+                if (options.livneh):
+                    output.write(" metdata_type = 'princeton_livneh'\n")
+                    output.write(" metdata_bypass = '"+options.ccsm_input+"/atm/datm7/" \
+                         +"atm_forcing.datm7.Princeton.0.5d.v1.c180222.CONUS_Livneh/cpl_bypass_full'\n")
+                elif (options.daymet):
+                    output.write(" metdata_type = 'princeton_daymet'\n")
+                    output.write(" metdata_bypass = '"+options.ccsm_input+"/atm/datm7/" \
+                         +"atm_forcing.datm7.Princeton.0.5d.v1.c180222.CONUS_Daymet3/cpl_bypass_full'\n")
+            elif (options.cplhist):
+                output.write(" metdata_type = 'cplhist'\n")
+                output.write(" metdata_bypass = '"+options.ccsm_input+"/atm/datm7/" \
+                         +"atm_forcing.cpl.WCYCL1850S.ne30.c171204/cpl_bypass_full'\n")
         else:
             output.write("metdata_type = 'site'\n")
             output.write(" metdata_bypass = '"+options.ccsm_input+"/atm/datm7/" \

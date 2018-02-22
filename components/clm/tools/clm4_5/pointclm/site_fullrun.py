@@ -21,7 +21,7 @@ parser.add_option("--csmdir", dest="csmdir", default='../../../../..', \
                   help = "base CESM directory (default = ../../..)")
 parser.add_option("--compiler", dest="compiler", default = 'gnu', \
                   help = "compiler to use (pgi*, gnu)")
-parser.add_option("--diags", dest="diags", default=True, \
+parser.add_option("--diags", dest="diags", default=False, \
                  action="store_true", help="Write special outputs for diagnostics")
 parser.add_option("--debug", dest="debug", default=False, \
                  action="store_true", help='Use debug queue and options')
@@ -123,6 +123,9 @@ parser.add_option("--mc_ensemble", dest="mc_ensemble", default=-1, \
                   help = 'Monte Carlo ensemble (argument is # of simulations)')
 parser.add_option("--ng", dest="ng", default=256, \
                   help = 'number of groups to run in ensemble mode')
+parser.add_option("--fates", dest="fates", default=False, \
+                  help = 'Use fates model', action="store_true")
+
 #Changed by Ming for mesabi
 parser.add_option("--archiveroot", dest="archiveroot", default='', \
                   help = "archive root directory only for mesabi")
@@ -376,8 +379,11 @@ for row in AFdatareader:
             decomp_model = 'CTC'
         if (options.eca):
 	    mymodel = nutrients+'ECA'+decomp_model
+        elif (options.fates):
+            mymodel = 'CLM45ED'
         else:
             mymodel = nutrients+'RD'+decomp_model
+
         mymodel_adsp = mymodel.replace('CNP','CN')
 
         #AD spinup
@@ -547,7 +553,7 @@ for row in AFdatareader:
         case_list.append('spinup_diags')
         if (options.notrans == False):
             case_list.append('transient')
-            case_list.append('trans_diags')
+            #case_list.append('trans_diags')
         
         for c in case_list:
             

@@ -23,6 +23,8 @@ parser.add_option("--compiler", dest="compiler", default = '', \
                   help = "compiler to use (pgi*, gnu)")
 parser.add_option("--debug", dest="debug", default=False, \
                  action="store_true", help='Use debug queue and options')
+parser.add_option("--dailyrunoff", dest="dailyrunoff", default=False, \
+                 action="store_true", help="Write daily output for hydrology")
 parser.add_option("--ilambvars", dest="ilambvars", default=False, \
                  action="store_true", help="Write special outputs for diagnostics")
 parser.add_option("--dailyvars", dest="dailyvars", default=False, \
@@ -41,6 +43,8 @@ parser.add_option("--lat_bounds", dest="lat_bounds", default='-90,90', \
                   help = 'latitude range for regional run')
 parser.add_option("--lon_bounds", dest="lon_bounds", default='-180,180', \
                   help = 'longitude range for regional run')
+parser.add_option("--mask", dest="mymask", default='', \
+                  help = 'Mask file to use (regional only)')
 parser.add_option("--machine", dest="machine", default = '', \
                   help = "machine to use")
 parser.add_option("--mpilib", dest="mpilib", default="", \
@@ -63,6 +67,8 @@ parser.add_option('--runblock', dest="runblock", default=9999, \
                   help="Number of years to run for each submission")
 parser.add_option("--runroot", dest="runroot", default="", \
                   help="Directory where the run would be created")
+parser.add_option("--run_startyear", dest="run_startyear",default=-1, \
+                      help='Starting year for model output (SP only)')
 parser.add_option("--srcmods_loc", dest="srcmods_loc", default='', \
                   help = 'Copy sourcemods from this location')
 parser.add_option("--parm_file", dest="parm_file", default="", \
@@ -111,10 +117,14 @@ parser.add_option("--CH4", dest="CH4", default=False, \
                   help = 'To turn on CN with CLM4me', action="store_true")
 parser.add_option("--cruncep", dest="cruncep", default=True, \
                   action="store_true", help = 'Use CRU-NCEP meteorology')
+parser.add_option("--cplhist", dest="cplhist", default=False, \
+                  help= "use CPLHIST forcing", action="store_true")
 parser.add_option("--gswp3", dest="gswp3", default=False, \
                   action="store_true", help = 'Use GSWP3 meteorology')
 parser.add_option("--livneh", dest="livneh", default=False, \
                   action="store_true", help = "Livneh correction to CRU precip (CONUS only)")
+parser.add_option("--daymet", dest="daymet", default=False, \
+                  action="store_true", help = "Daymet correction to GSWP3 precip (CONUS only)")
 parser.add_option("--cpl_bypass", dest = "cpl_bypass", default=False, \
                   help = "Bypass coupler", action="store_true")
 parser.add_option("--spinup_vars", dest = "spinup_vars", default=False, \
@@ -159,7 +169,7 @@ def get_regional_bounds(myregion):
     elif (myregion == 'conus'):  #CONUS
         bounds = [-125.25,-66.25,23.25,54.75]
     elif (myregion == 'columbia'):   #Columbia river watershed
-        bounds = [-125, -108, 40.0, 55.0]
+        bounds = [-126, -108, 40.0, 55.0]
     elif (myregion == 'ceam'):  #Central America
         bounds = [-115.25,-80.25,9.75,30.25]
     elif (myregion == 'soam'):    #South America
@@ -274,10 +284,14 @@ if (options.cruncep or options.gswp3):
     startyear = 1901
     endyear = 1920
     site_endyear = 2010
-    if (options.livneh):
-        startyear = 1950
-        endyear = 1969
-        site_endyear = 2013
+if (options.livneh):
+    startyear = 1950
+    endyear = 1969
+    site_endyear = 2013
+if (options.daymet):
+     startyear = 1980
+     endyear = 2010
+     site_nyear = 2010
 else:
     #Qian input data
     startyear = 1948
@@ -368,12 +382,18 @@ if (options.cn_only):
     basecmd = basecmd+' --cn_only'
 if (options.CH4):
     basecmd = basecmd+' --CH4'
-if (options.cruncep and not options.gswp3):
+if (options.cruncep and not options.gswp3 and not options.cplhist):
     basecmd = basecmd+' --cruncep'
     if (options.livneh):
         basecmd = basecmd+' --livneh'
 if (options.gswp3):
     basecmd = basecmd+' --gswp3'
+    if (options.daymet):
+      basecmd = basecmd+' --daymet'
+if (options.cplhist):
+    basecmd = basecmd+' --cplhist'
+if (options.mymask != ''):
+    basecmd = basecmd+' --mask '+options.mymask
 if (options.archiveroot !=''):
     basecmd = basecmd+' --archiveroot '+options.archiveroot
 if (options.parm_file !=''):
@@ -418,7 +438,7 @@ mymodel_fnsp = compset_type+'1850'+mymodel+'BC'
 mymodel_adsp = mymodel_fnsp.replace('CNP','CN')
 mymodel_trns = mymodel_fnsp.replace('1850','20TR')
 if (options.sp):
-    mymodel_fnsp = 'ICLM45CB'
+    mymodel_fnsp = compset_type+'CLM45BC'
     options.noad = True
     options.notrans = True
 
@@ -449,8 +469,10 @@ else:
     basecase=res+'_'+mymodel_fnsp
 if (options.noad):
     if (options.sp):
+        if (options.run_startyear < 0):
+            options.run_startyear = startyear
         cmd_fnsp = basecmd+' --run_units nyears --run_n '+str(fsplen)+' --align_year '+ \
-            str(year_align+1)+' --coldstart --run_startyear '+str(startyear)
+            str(year_align+1)+' --coldstart --run_startyear '+str(options.run_startyear)
     else:
         cmd_fnsp = basecmd+' --run_units nyears --run_n '+str(fsplen)+' --align_year '+ \
             str(year_align+1)+' --coldstart'
@@ -468,6 +490,8 @@ else:
         +mymodel_fnsp
 if (options.spinup_vars):
     cmd_fnsp = cmd_fnsp+' --spinup_vars'
+if (options.dailyrunoff):
+    cmd_fnsp = cmd_fnsp+' --dailyrunoff'
 
 #transient
 cmd_trns = basecmd+' --finidat_case '+basecase+ \
@@ -534,7 +558,7 @@ for c in cases:
         run_n_total = int(ny_ad)
     elif ('1850' in c):
         run_n_total = int(fsplen)
-    elif ('20TR' in c):
+    elif ('20TR' in c or 'ICBCLM45' in c):
         run_n_total = int(translen)
         model_startdate = 1850
     else:
@@ -559,8 +583,6 @@ for c in cases:
                 output.write("#!/bin/csh -f\n")
                 if (mysubmit_type == 'qsub'):
                     output.write('#PBS -l walltime='+timestr+'\n')
-                    if ('cades' in options.machine):
-                        output.write('#PBS -W x=FLAGS:ADVRES:system.5872\n')  #TEMPORARY
                 else:
                     output.write('#SBATCH --time='+timestr+'\n')
                     if ('cori' in options.machine or 'edison' in options.machine):
@@ -569,7 +591,8 @@ for c in cases:
                          else:
                              output.write('#SBATCH --partition=regular\n')
             elif ("#!" in s or "#PBS" in s or "#SBATCH" in s):
-                output.write(s.replace('cades-ccsi','cades-user'))
+                #output.write(s.replace('cades-ccsi','cades-user'))
+                output.write(s)
         input.close()
         output.write("\n")
    
