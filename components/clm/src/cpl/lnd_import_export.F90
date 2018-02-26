@@ -201,28 +201,28 @@ contains
 
         if (nstep .eq. 0) then
           !meteorological forcing
-          if (scan(metdata_type, 'qian') .gt. 0) then 
+          if (index(metdata_type, 'qian') .gt. 0) then 
             atm2lnd_vars%metsource = 0   
-          else if (scan(metdata_type,'cru') .gt. 0) then
+          else if (index(metdata_type,'cru') .gt. 0) then
             atm2lnd_vars%metsource = 1  
-          else if (scan(metdata_type,'site') .gt. 0) then 
+          else if (index(metdata_type,'site') .gt. 0) then 
             atm2lnd_vars%metsource = 2
-          else if (scan(metdata_type,'princeton') .gt. 0) then 
+          else if (index(metdata_type,'princeton') .gt. 0) then 
             atm2lnd_vars%metsource = 3
-          else if (scan(metdata_type,'gswp3') .gt. 0) then
+          else if (index(metdata_type,'gswp3') .gt. 0) then
             atm2lnd_vars%metsource = 4
-          else if (scan(metdata_type,'cpl') .gt. 0) then 
+          else if (index(metdata_type,'cpl') .gt. 0) then 
             atm2lnd_vars%metsource = 5
           else
             call endrun( sub//' ERROR: Invalid met data source for cpl_bypass' )
           end if
 
-          if(scan(metdata_type, 'livneh') .gt. 0) then 
+          use_livneh = .false.
+          use_daymet = .false.
+          if(index(metdata_type, 'livneh') .gt. 0) then 
               use_livneh = .true.
-          else if (scan(metdata_type, 'daymet') .gt. 0) then 
+          else if (index(metdata_type, 'daymet') .gt. 0) then 
               use_daymet = .true.
-          else
-            call endrun( sub//' ERROR: Invalid met data source for cpl_bypass' )
           end if
  
           metvars(1) = 'TBOT'
@@ -260,7 +260,7 @@ contains
             atm2lnd_vars%endyear_met_trans   = 2004
           else if (atm2lnd_vars%metsource == 1) then 
             metsource_str = 'cruncep'
-            atm2lnd_vars%endyear_met_trans  = 2010
+            atm2lnd_vars%endyear_met_trans  = 2016
           else if (atm2lnd_vars%metsource == 2) then
             metsource_str = 'site'
             !get year information from file
@@ -353,7 +353,7 @@ contains
             if (atm2lnd_vars%metsource == 0) then 
                 metdata_fname =  trim(metsource_str) // '_' // trim(metvars(v)) // '_z' // zst(2:3) // '.nc'
             else if (atm2lnd_vars%metsource == 1) then 
-                metdata_fname = 'CRUNCEP.v5_' // trim(metvars(v)) // '_1901-2013_z' // zst(2:3) // '.nc'
+                metdata_fname = 'cruncep_' // trim(metvars(v)) // '_1901-2016_z' // zst(2:3) // '.nc'
                 if (use_livneh .and. ztoget .ge. 16 .and. ztoget .le. 20) then 
                     metdata_fname = 'cruncep.V5_' // trim(metvars(v)) // '_1901-2013_z' // zst(2:3) // '.nc'
                 else if (use_daymet .and. ztoget .ge. 16 .and. ztoget .le. 20) then 

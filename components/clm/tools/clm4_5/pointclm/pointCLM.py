@@ -256,10 +256,10 @@ else:
     caseroot = os.path.abspath(options.caseroot)
 
 #case run root directory
-if (options.runroot == '' or (os.path.exists(options.runroot) == False)):
-    runroot = csmdir+'/run'
-else:
-    runroot = os.path.abspath(options.runroot)
+#if (options.runroot == '' or (os.path.exists(options.runroot) == False)):
+#    runroot = csmdir+'/run'
+#else:
+runroot = os.path.abspath(options.runroot)
 
 #check for valid input data directory
 print(options.ccsm_input)
@@ -882,7 +882,7 @@ for i in range(1,int(options.ninst)+1):
         if (options.ad_spinup):
             output.write(" hist_mfilt = "+str(options.hist_mfilt)+", "+str(options.hist_mfilt)+"\n")
         else:
-            if (options.dailyrunoff or options.dailyyvars):
+            if (options.dailyrunoff or options.dailyvars):
                 output.write(" hist_mfilt = "+ str(options.hist_mfilt)+",365\n")
             else:
                 output.write(" hist_mfilt = "+ str(options.hist_mfilt)+"\n")
@@ -899,7 +899,7 @@ for i in range(1,int(options.ninst)+1):
                 for v in var_list_daily:
                     h1varst = h1varst+"'"+v+"',"
                 output.write(h1varst+"\n")
-            else if (options.dailyrunoff):
+            elif (options.dailyrunoff):
                 output.write(" hist_nhtfrq = "+ str(options.hist_nhtfrq)+",-24\n")
                 output.write(" hist_fincl2 = 'TBOT','QBOT','RAIN','SNOW','QBOT','PBOT','WIND','FPSN','QVEGT'," \
                         +"'QVEGE','QSOIL','QRUNOFF','QDRAI','QOVER','H2OSFC','ZWT','SNOWDP','H2OSOI','TSOI','TWS'\n")
@@ -1050,7 +1050,7 @@ for i in range(1,int(options.ninst)+1):
             if (options.cruncep):
                 output.write(" metdata_type = 'cru-ncep'\n")
                 output.write(" metdata_bypass = '"+options.ccsm_input+"/atm/datm7/" \
-                         +"atm_forcing.datm7.cruncep_qianFill.0.5d.V5.c140715/cpl_bypass_full'\n")
+                         +"atm_forcing.datm7.cruncep_qianFill.0.5d.V7.c160715/cpl_bypass_full'\n")
                 if (options.livneh):
                     output.write(" metdata_type = 'cru-ncep_livneh'\n")
                     output.write(" metdata_bypass = '"+options.ccsm_input+"/atm/datm7/" \

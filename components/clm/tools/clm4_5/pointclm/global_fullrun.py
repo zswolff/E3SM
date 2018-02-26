@@ -267,7 +267,7 @@ if (options.runroot == ''):
     elif (options.machine == 'cades' or options.machine == 'metis'):
         runroot='/lustre/or-hydra/cades-ccsi/scratch/'+myuser
     elif ('cori' in options.machine):
-        runroot=os.environ.get('CSCRATCH')+'/acme_scratch'+options.machine
+        runroot=os.environ.get('CSCRATCH')+'/acme_scratch/'+options.machine+'/'
     elif ('edison' in options.machine):
         runroot=os.environ.get('CSCRATCH')+'/acme_scratch/edison/'
     else:
@@ -278,7 +278,6 @@ if (options.caseroot == '' or (os.path.exists(options.caseroot) == False)):
     caseroot = os.path.abspath(csmdir+'/cime/scripts')
 else:
     caseroot = os.path.abspath(options.caseroot)
-
 
 if (options.cruncep or options.gswp3):
     startyear = 1901
@@ -292,11 +291,11 @@ if (options.daymet):
      startyear = 1980
      endyear = 2010
      site_nyear = 2010
-else:
-    #Qian input data
-    startyear = 1948
-    endyear   = 1972
-    site_endyear = 2004
+#if (options.qian):
+#    #Qian input data
+#    startyear = 1948
+#    endyear   = 1972
+#    site_endyear = 2004
 
 ncycle   = endyear-startyear+1   #number of years in met cycle
 ny_ad = options.ny_ad
@@ -575,7 +574,7 @@ for c in cases:
     for n in range(0,n_submits):
         output = open('./temp/global_'+c+'_'+str(n)+'.pbs','w')
         if (options.cpl_bypass):
-            input = open(caseroot+'/'+c+'/case.run')
+            input = open(caseroot+'/'+c+'/.case.run')
         for s in input:
             if ("perl" in s or "python" in s):
                 timestr=str(int(float(options.walltime)))+':'+str(int((float(options.walltime)- \
