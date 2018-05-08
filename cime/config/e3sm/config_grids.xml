@@ -1356,10 +1356,10 @@
       <nx>192899</nx>
       <ny>1</ny>
       <desc>1-deg with 1/8-deg over the Continental United States (version 1):</desc>
-      <file atm_mask="oRRS18to6v3">domain.lnd.conusx8v1_oRRS18to6v3.180507.nc</file>
-      <file ice_mask="oRRS18to6v3">domain.ocn.conusx8v1_oRRS18to6v3.180507.nc</file>
-      <file lnd_mask="oRRS18to6v3">domain.lnd.conusx8v1_oRRS18to6v3.180507.nc</file>
-      <file ocn_mask="oRRS18to6v3">domain.ocn.conusx8v1_oRRS18to6v3.180507.nc</file>
+      <file atm_mask="oRRS18to6v3">domain.lnd.conusx8v1_oRRS18to6v3.180508.nc</file>
+      <file ice_mask="oRRS18to6v3">domain.ocn.conusx8v1_oRRS18to6v3.180508.nc</file>
+      <file lnd_mask="oRRS18to6v3">domain.lnd.conusx8v1_oRRS18to6v3.180508.nc</file>
+      <file ocn_mask="oRRS18to6v3">domain.ocn.conusx8v1_oRRS18to6v3.180508.nc</file>
     </domain>
 
     <domain name="ne0np4_conus_x4v1_lowcon">
