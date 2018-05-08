@@ -437,6 +437,20 @@
       <alias>enax4v1_ne30_enax4v1</alias>
     </grid>
 
+    <!-- Tropical Western Pacific 1 to 1/4 degree RRM grid -->
+    <grid compset="(DOCN|XOCN|SOCN|AQP1)">
+      <sname>ne0np4_twpx4v1_ne0np4_twpx4v1</sname>
+      <lname>a%ne0np4_twpx4v1_l%ne0np4_twpx4v1_oi%ne0np4_twpx4v1_r%null_m%oRRS18to6v3_g%null_w%null</lname>
+      <alias>twpx4v1_twpx4v1</alias>
+    </grid>
+
+    <!-- Continental United States 1 to 1/8 degree RRM grid -->
+    <grid compset="(DOCN|XOCN|SOCN|AQP1)">
+      <sname>ne0np4_conusx8v1_ne0np4_conusx8v1</sname>
+      <lname>a%ne0np4_conusx8v1_l%ne0np4_conusx8v1_oi%ne0np4_conusx8v1_r%null_m%oRRS18to6v3_g%null_w%null</lname>
+      <alias>conusx8v1_conusx8v1</alias>
+    </grid>
+
    <grid compset="(DOCN|XOCN|SOCN|AQP1)">
       <sname>ne16np4_ne16np4</sname>
       <alias>ne16_ne16</alias>
@@ -679,12 +693,6 @@
       <sname>ne30np4_oRRS30to10v3wLI</sname>
       <lname>a%ne30np4_l%ne30np4_oi%oRRS30to10v3wLI_r%r05_m%oRRS30to10v3wLI_g%null_w%null</lname>
       <alias>ne30_oRRS30v3wLI</alias>
-    </grid>
-
-    <grid compset="(DOCN|XOCN|SOCN|AQP1)">
-      <sname>ne0np4_twpx4v1_ne0np4_twpx4v1</sname>
-      <lname>a%ne0np4_twpx4v1_l%ne0np4_twpx4v1_oi%ne0np4_twpx4v1_r%null_m%oRRS18to6v3_g%null_w%null</lname>
-      <alias>twpx4v1_twpx4v1</alias>
     </grid>
 
     <grid compset="MPASO.*_MALI">
@@ -1342,6 +1350,16 @@
       <file ice_mask="oRRS18to6v3">domain.ocn.twpx4v1_oRRS18to6v3.170629.nc</file>
       <file lnd_mask="oRRS18to6v3">domain.lnd.twpx4v1_oRRS18to6v3.170629.nc</file>
       <file ocn_mask="oRRS18to6v3">domain.ocn.twpx4v1_oRRS18to6v3.170629.nc</file>
+    </domain>
+
+    <domain name="ne0np4_conusx8v1">
+      <nx>192899</nx>
+      <ny>1</ny>
+      <desc>1-deg with 1/8-deg over the Continental United States (version 1):</desc>
+      <file atm_mask="oRRS18to6v3">domain.lnd.conusx8v1_oRRS18to6v3.180507.nc</file>
+      <file ice_mask="oRRS18to6v3">domain.ocn.conusx8v1_oRRS18to6v3.180507.nc</file>
+      <file lnd_mask="oRRS18to6v3">domain.lnd.conusx8v1_oRRS18to6v3.180507.nc</file>
+      <file ocn_mask="oRRS18to6v3">domain.ocn.conusx8v1_oRRS18to6v3.180507.nc</file>
     </domain>
 
     <domain name="ne0np4_conus_x4v1_lowcon">
