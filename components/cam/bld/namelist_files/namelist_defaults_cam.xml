@@ -28,6 +28,7 @@
 <dtime dyn="se"    hgrid="ne0np4_sooberingoa_x4x8v1_lowcon"  >600</dtime>
 <dtime dyn="se"    hgrid="ne0np4_enax4v1">900</dtime>
 <dtime dyn="se"    hgrid="ne0np4_twpx4v1">900</dtime>
+<dtime dyn="se"    hgrid="ne0np4_conusx8v1">600</dtime>
 
 <dtime dyn="sld"                   >3600</dtime>
 
