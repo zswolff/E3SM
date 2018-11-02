@@ -740,6 +740,7 @@
         <command name="load">acme-env</command>
         <command name="load">sems-git</command>
         <command name="load">acme-binutils</command>
+        <command name="load">acme-perllibxml/2.01</command>
         <command name="load">sems-python/2.7.9</command>
         <command name="load">sems-cmake/2.8.12</command>
       </modules>
