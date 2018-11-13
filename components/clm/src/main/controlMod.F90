@@ -10,7 +10,7 @@ module controlMod
   !       Display the file in a browser to see it neatly formatted in html.
   !
   ! !USES:
-  use clm_varctl   
+  use clm_varctl
   use shr_kind_mod            , only: r8 => shr_kind_r8, SHR_KIND_CL
   use shr_nl_mod              , only: shr_nl_find_group_name
   use shr_const_mod           , only: SHR_CONST_CDAY
@@ -19,20 +19,20 @@ module controlMod
   use spmdMod                 , only: masterproc
   use decompMod               , only: clump_pproc
   use clm_varpar              , only: maxpatch_pft, maxpatch_glcmec, more_vertlayers, nsoilorder
-  use histFileMod             , only: max_tapes, max_namlen 
-  use histFileMod             , only: hist_empty_htapes, hist_dov2xy, hist_avgflag_pertape, hist_type1d_pertape 
+  use histFileMod             , only: max_tapes, max_namlen
+  use histFileMod             , only: hist_empty_htapes, hist_dov2xy, hist_avgflag_pertape, hist_type1d_pertape
   use histFileMod             , only: hist_nhtfrq, hist_ndens, hist_mfilt, hist_fincl1, hist_fincl2, hist_fincl3
   use histFileMod             , only: hist_fincl4, hist_fincl5, hist_fincl6, hist_fexcl1, hist_fexcl2, hist_fexcl3
   use histFileMod             , only: hist_fexcl4, hist_fexcl5, hist_fexcl6
-  use LakeCon                 , only: deepmixing_depthcrit, deepmixing_mixfact 
+  use LakeCon                 , only: deepmixing_depthcrit, deepmixing_mixfact
   use CNAllocationMod         , only: suplnitro
   use CNAllocationMod         , only: suplphos
   use CNCarbonFluxType        , only: nfix_timeconst
   use CNNitrifDenitrifMod     , only: no_frozen_nitrif_denitrif
   use CNC14DecayMod           , only: use_c14_bombspike, atm_c14_filename
   use CNSoilLittVertTranspMod , only: som_adv_flux, max_depth_cryoturb
-  use CNVerticalProfileMod    , only: exponential_rooting_profile, rootprof_exp 
-  use CNVerticalProfileMod    , only: surfprof_exp, pftspecific_rootingprofile  
+  use CNVerticalProfileMod    , only: exponential_rooting_profile, rootprof_exp
+  use CNVerticalProfileMod    , only: surfprof_exp, pftspecific_rootingprofile
   use CNSharedParamsMod       , only: anoxia_wtsat
   use CanopyfluxesMod         , only: perchroot, perchroot_alt
   use CanopyHydrologyMod      , only: CanopyHydrology_readnl
@@ -40,7 +40,7 @@ module controlMod
   use UrbanParamsType         , only: urban_hac, urban_traffic
   use clm_varcon              , only: h2osno_max
   use clm_varctl              , only: use_dynroot
-  use CNAllocationMod         , only: nu_com_phosphatase,nu_com_nfix 
+  use CNAllocationMod         , only: nu_com_phosphatase,nu_com_nfix
   use clm_varctl              , only: nu_com, use_var_soil_thick
   use seq_drydep_mod          , only: drydep_method, DD_XLND, n_drydep
   use clm_varctl              , only: forest_fert_exp
@@ -173,7 +173,7 @@ contains
          ECA_Pconst_RGspin
     namelist /clm_inparm/ &
          NFIX_PTASE_plant
-         
+
     namelist /clm_inparm/  &
          suplnitro,suplphos
     namelist /clm_inparm/ &
@@ -197,9 +197,9 @@ contains
     ! lake_melt_icealb is of dimension numrad
 
     ! Glacier_mec info
-    namelist /clm_inparm/ &    
+    namelist /clm_inparm/ &
          maxpatch_glcmec, glc_smb, glc_do_dynglacier, glcmec_downscale_rain_snow_convert, &
-         glcmec_downscale_longwave, glc_snow_persistence_max_days, glc_grid, fglcmask 
+         glcmec_downscale_longwave, glc_snow_persistence_max_days, glc_grid, fglcmask
 
     ! Other options
 
@@ -217,7 +217,7 @@ contains
          som_adv_flux, max_depth_cryoturb
 
     ! C and N input vertical profiles
-    namelist /clm_inparm/  & 
+    namelist /clm_inparm/  &
           exponential_rooting_profile, rootprof_exp, surfprof_exp, pftspecific_rootingprofile
 
     namelist /clm_inparm / no_frozen_nitrif_denitrif
@@ -231,14 +231,14 @@ contains
           use_fates_inventory_init,                     &
           fates_inventory_ctrl_filename
 
-    namelist /clm_inparm / use_betr
-        
+    namelist /clm_inparm / use_betr, lbgcalib
+
     namelist /clm_inparm / use_lai_streams
 
     namelist /clm_inparm/  &
          use_c14_bombspike, atm_c14_filename
 
-    ! All old cpp-ifdefs are below and have been converted to namelist variables 
+    ! All old cpp-ifdefs are below and have been converted to namelist variables
 
     ! max number of plant functional types in naturally vegetated landunit
     namelist /clm_inparm/ maxpatch_pft
@@ -295,7 +295,7 @@ contains
     if (masterproc) then
 
        ! ----------------------------------------------------------------------
-       ! Read namelist from standard input. 
+       ! Read namelist from standard input.
        ! ----------------------------------------------------------------------
 
        if ( len_trim(NLFilename) == 0  )then
@@ -312,7 +312,7 @@ contains
              call endrun(msg='ERROR reading clm_inparm namelist'//errMsg(__FILE__, __LINE__))
           end if
        end if
-       
+
        print*,"X.YANG debug SUPL NITROGEN and PHOSPHORUS ",suplnitro,suplphos
        call relavu( unitn )
 
@@ -337,7 +337,7 @@ contains
           endif
        end do
 
-       ! Override start-type (can only override to branch (3)  and only 
+       ! Override start-type (can only override to branch (3)  and only
        ! if the driver is a startup type
        if ( override_nsrest /= nsrest )then
            if ( override_nsrest /= nsrBranch .and. nsrest /= nsrStartup )then
@@ -347,14 +347,14 @@ contains
            end if
            call clm_varctl_set( nsrest_in=override_nsrest )
        end if
-       
+
        if (maxpatch_glcmec > 0) then
           create_glacier_mec_landunit = .true.
        else
           create_glacier_mec_landunit = .false.
        end if
 
-       ! Check compatibility with the FATES model 
+       ! Check compatibility with the FATES model
        if ( use_fates ) then
 
           use_voc = .false.
@@ -363,12 +363,12 @@ contains
              call endrun(msg=' ERROR: use_cn and use_fates cannot both be set to true.'//&
                    errMsg(__FILE__, __LINE__))
           end if
-          
+
           if ( use_crop ) then
              call endrun(msg=' ERROR: use_crop and use_fates cannot both be set to true.'//&
                    errMsg(__FILE__, __LINE__))
           end if
-          
+
           if( use_lch4 ) then
              call endrun(msg=' ERROR: use_lch4 (methane) and use_fates cannot both be set to true.'//&
                    errMsg(__FILE__, __LINE__))
@@ -386,18 +386,18 @@ contains
           call endrun(msg=' ERROR:: CROP and C13/C14 can NOT be on at the same time'//&
             errMsg(__FILE__, __LINE__))
        end if
-       
+
        if (use_crop .and. .not. create_crop_landunit) then
           call endrun(msg=' ERROR: prognostic crop Patches require create_crop_landunit=.true.'//&
             errMsg(__FILE__, __LINE__))
        end if
-       
+
        if (.not. use_crop .and. irrigate) then
           call endrun(msg=' ERROR: irrigate = .true. requires CROP model active.'//&
             errMsg(__FILE__, __LINE__))
        end if
-       
-       if (use_lch4 .and. use_vertsoilc) then 
+
+       if (use_lch4 .and. use_vertsoilc) then
           anoxia = .true.
        else
           anoxia = .false.
@@ -439,7 +439,7 @@ contains
     !For future version, I suggest to  put the following two calls inside their
     !own modules, which are called from their own initializing methods
     call init_hydrology( NLFilename )
-    
+
     call CanopyHydrology_readnl( NLFilename )
 
     ! ----------------------------------------------------------------------
@@ -447,7 +447,7 @@ contains
     ! ----------------------------------------------------------------------
 
     call control_spmd()
-    
+
     if (use_pflotran) then
        call clm_pf_readnl(NLFilename)
     end if
@@ -455,7 +455,7 @@ contains
     if (use_betr) then
        call set_betr_cnpbgc(suplnitro,suplphos, spinup_state)
        call betr_readNL( NLFilename, use_c13, use_c14, nsoilorder)
-    endif    
+    endif
 
     ! ----------------------------------------------------------------------
     ! consistency checks
@@ -470,7 +470,7 @@ contains
 
     ! Check on run type
     if (nsrest == iundef) then
-       call endrun(msg=' ERROR:: must set nsrest'//& 
+       call endrun(msg=' ERROR:: must set nsrest'//&
             errMsg(__FILE__, __LINE__))
     end if
     if (nsrest == nsrBranch .and. nrevsn == ' ') then
@@ -480,7 +480,7 @@ contains
 
     ! Consistency settings for co2_ppvm
     if ( (co2_ppmv <= 0.0_r8) .or. (co2_ppmv > 3000.0_r8) ) then
-       call endrun(msg=' ERROR: co2_ppmv is out of a reasonable range'//& 
+       call endrun(msg=' ERROR: co2_ppmv is out of a reasonable range'//&
             errMsg(__FILE__, __LINE__))
     end if
 
@@ -548,9 +548,9 @@ contains
   subroutine control_spmd()
     !
     ! !DESCRIPTION:
-    ! Distribute namelist data all processors. All program i/o is 
-    ! funnelled through the master processor. Processor 0 either 
-    ! reads restart/history data from the disk and distributes 
+    ! Distribute namelist data all processors. All program i/o is
+    ! funnelled through the master processor. Processor 0 either
+    ! reads restart/history data from the disk and distributes
     ! it to all processors, or collects data from
     ! all processors and writes it to disk.
     !
@@ -652,6 +652,8 @@ contains
 
     call mpi_bcast (use_betr, 1, MPI_LOGICAL, 0, mpicom, ier)
 
+    call mpi_bcast (lbgcalib, 1, MPI_LOGICAL, 0, mpicom, ier)
+
     call mpi_bcast (use_lai_streams, 1, MPI_LOGICAL, 0, mpicom, ier)
 
     call mpi_bcast (use_dynroot, 1, MPI_LOGICAL, 0, mpicom, ier)
@@ -668,7 +670,7 @@ contains
        call mpi_bcast (pftspecific_rootingprofile,        1, MPI_LOGICAL,  0, mpicom, ier)
     end if
 
-    if (use_cn .and. use_nitrif_denitrif) then 
+    if (use_cn .and. use_nitrif_denitrif) then
        call mpi_bcast (no_frozen_nitrif_denitrif,  1, MPI_LOGICAL, 0, mpicom, ier)
     end if
 
@@ -753,7 +755,7 @@ contains
     call mpi_bcast (use_clm_interface, 1, MPI_LOGICAL, 0, mpicom, ier)
     call mpi_bcast (use_clm_bgc, 1, MPI_LOGICAL, 0, mpicom, ier)
     call mpi_bcast (use_pflotran, 1, MPI_LOGICAL, 0, mpicom, ier)
-    
+
     !cpl_bypass
      call mpi_bcast (metdata_type,   len(metdata_type),   MPI_CHARACTER, 0, mpicom, ier)
      call mpi_bcast (metdata_bypass, len(metdata_bypass), MPI_CHARACTER, 0, mpicom, ier)
@@ -819,6 +821,7 @@ contains
     write(iulog,*) '    use_mexicocity = ', use_mexicocity
     write(iulog,*) '    use_noio = ', use_noio
     write(iulog,*) '    use_betr = ', use_betr
+    write(iulog,*) '    lbgcalib = ', lbgcalib
     write(iulog,*) 'input data files:'
     write(iulog,*) '   PFT physiology and parameters file = ',trim(paramfile)
     write(iulog,*) '   Soil order dependent parameters file = ',trim(fsoilordercon)
@@ -847,13 +850,13 @@ contains
           write(iulog,*) '   Supplemental Nitrogen mode is set to run over Patches: ', &
                trim(suplnitro)
        end if
-       
+
        if (nfix_timeconst /= 0._r8) then
           write(iulog,*) '   nfix_timeconst, timescale for smoothing npp in N fixation term: ', nfix_timeconst
        else
           write(iulog,*) '   nfix_timeconst == zero, use standard N fixation scheme. '
        end if
-       
+
        write(iulog,*) '   spinup_state, (0 = normal mode; 1 = AD spinup)         : ', spinup_state
        if ( spinup_state .eq. 0 ) then
           write(iulog,*) '   model is currently NOT in AD spinup mode.'
@@ -865,7 +868,7 @@ contains
           call endrun(msg=' error: spinup_state can only have integer value of 0 or 1'//&
                errMsg(__FILE__, __LINE__))
        end if
-       
+
        write(iulog,*) '   override_bgc_restart_mismatch_dump                     : ', override_bgc_restart_mismatch_dump
     end if
        if (suplphos /= suplpNon)then
@@ -876,14 +879,14 @@ contains
     if (use_cn .and. use_vertsoilc) then
        write(iulog, *) '   som_adv_flux, the advection term in soil mixing (m/s) : ', som_adv_flux
        write(iulog, *) '   max_depth_cryoturb (m)                                : ', max_depth_cryoturb
-       
+
        write(iulog, *) '   exponential_rooting_profile                           : ', exponential_rooting_profile
        write(iulog, *) '   rootprof_exp                                          : ', rootprof_exp
        write(iulog, *) '   surfprof_exp                                          : ', surfprof_exp
        write(iulog, *) '   pftspecific_rootingprofile                            : ', pftspecific_rootingprofile
        write(iulog, *) '   dynamic roots                                         : ', use_dynroot
     end if
-       
+
     if (use_cn .and. .not. use_nitrif_denitrif) then
        write(iulog, *) '   no_frozen_nitrif_denitrif                             : ', no_frozen_nitrif_denitrif
     end if
@@ -910,7 +913,7 @@ contains
        write(iulog,*) '   glc number of elevation classes =', maxpatch_glcmec
        write(iulog,*) '   glc grid for glacier mask file = ',trim(glc_grid)
        write(iulog,*) '   glc glacier mask file = ',trim(fglcmask)
-       
+
        write(iulog,*) '   Max snow depth (mm) =', h2osno_max
        if (glcmec_downscale_rain_snow_convert) then
           write(iulog,*) '   Rain and snow will be converted based on surface temperature'
