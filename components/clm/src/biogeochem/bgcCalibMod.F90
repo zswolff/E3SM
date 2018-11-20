@@ -23,7 +23,6 @@ contains
   call getfil (fsurdat, locfn, 0)
   call ncd_pio_openfile (ncid, locfn, 0)
 
-
   data_in=> vmax_plant_p_calg
   call ncd_io(ncid=ncid, varname='vmax_plant_p', flag='read', data=data_in, dim1name=grlnd, readvar=readvar)
   if ( .not. readv ) call endrun(msg=' ERROR: error in reading in vmax_plant_p'//errMsg(__FILE__, __LINE__))

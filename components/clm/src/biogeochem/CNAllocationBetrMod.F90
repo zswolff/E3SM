@@ -790,7 +790,8 @@ contains
   real(r8) :: leaf_totn
   real(r8) :: leaf_totp
   integer :: p, c, fc, j
-
+  real(r8) :: km_den_c, km_nit_c, km_decomp_p_c, km_decomp_nh4_c,km_decomp_no3_c
+  real(r8) :: km_plant_p_p, km_plant_nh4_p, km_plant_no3_p
   real(r8), parameter :: cn_stoich_var=0.2_r8    ! variability of CN ratio
   real(r8), parameter :: cp_stoich_var=0.4_r8    ! variability of CP ratio
 
@@ -880,9 +881,15 @@ contains
       endif
     enddo
   enddo
+
   do j = 1, nlevdecomp
     do fc=1,num_soilc
       c = filter_soilc(fc)
+      km_den_c = km_den
+      km_nit_c = km_nit
+      km_decomp_p_c = km_decomp_p
+      km_decomp_no3_c = km_decomp_no3
+      km_decomp_nh4_c = km_decomp_nh4
       if(isoilorder(c)==16)then
         vmax_minsurf_p_vr_col(c,j) = 0._r8
         km_minsurf_p_vr_col(c,j) = 1.e+20_r8
@@ -903,15 +910,19 @@ contains
       endif
       !the following is temporary set using alm, in the future, it will be
       !set through the betr_alm interface
-      km_den_no3_vr_col(c,j) = km_den
-      km_nit_nh4_vr_col(c,j) = km_nit
-      km_decomp_p_vr_col(c,j) = km_decomp_p
-      km_decomp_no3_vr_col(c,j) = km_decomp_no3
-      km_decomp_nh4_vr_col(c,j) = km_decomp_nh4
+      km_den_no3_vr_col(c,j) = km_den_c
+      km_nit_nh4_vr_col(c,j) = km_nit_c
+      km_decomp_p_vr_col(c,j) = km_decomp_p_c
+      km_decomp_no3_vr_col(c,j) = km_decomp_no3_c
+      km_decomp_nh4_vr_col(c,j) = km_decomp_nh4_c
       decomp_eff_ncompet_b(c,j) = 0._r8
       decomp_eff_pcompet_b(c,j) = 0._r8
       do p = col_pp%pfti(c), col_pp%pftf(c)
         if (veg_pp%active(p) .and. (veg_pp%itype(p) /= noveg)) then
+          km_plant_nh4_p = km_plant_nh4(ivt(p))
+          km_plant_no3_p = km_plant_no3(ivt(p))
+          km_plant_p_p = km_plant_p(ivt(p))
+
           plant_eff_frootc_vr_patch(p,j) = frootc(p) * froot_prof(p,j)
 
           if (cnallocate_carbon_only() .or. cnallocate_carbonphosphorus_only()) then
@@ -930,9 +941,9 @@ contains
             plant_p_vmax_vr_patch(p,j) = vmax_plant_p(ivt(p)) * t_scalar(c,j)  * &
                              cp_scalar(p)  / e_plant_scalar
           endif
-          plant_nh4_km_vr_patch(p,j) = km_plant_nh4(ivt(p))
-          plant_no3_km_vr_patch(p,j) = km_plant_no3(ivt(p))
-          plant_p_km_vr_patch(p,j) = km_plant_p(ivt(p))
+          plant_nh4_km_vr_patch(p,j) = km_plant_nh4_p
+          plant_no3_km_vr_patch(p,j) = km_plant_no3_p
+          plant_p_km_vr_patch(p,j) = km_plant_p_p
 
           plant_eff_frootc_vr_patch(p,j) = plant_eff_frootc_vr_patch(p,j) * veg_pp%wtcol(p)
           plant_eff_ncompet_b(p,j) = e_plant_scalar*frootc(p)*froot_prof(p,j) * veg_pp%wtcol(p)
@@ -956,7 +967,6 @@ contains
               e_decomp_scalar*decompmicc_patch_vr(ivt(p),j)*veg_pp%wtcol(p)
 
       end do
-
 
       !lines below are a crude approximation
       den_eff_ncompet_b(c,j) = decomp_eff_ncompet_b(c,j)
