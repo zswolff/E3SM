@@ -454,7 +454,7 @@ contains
 
     if (use_betr) then
        call set_betr_cnpbgc(suplnitro,suplphos, spinup_state)
-       call betr_readNL( NLFilename, use_c13, use_c14, nsoilorder)
+       call betr_readNL( NLFilename, use_c13, use_c14, nsoilorder,lbgcalib)
     endif
 
     ! ----------------------------------------------------------------------

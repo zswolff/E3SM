@@ -631,7 +631,8 @@ contains
     use shr_sys_mod      , only : shr_sys_flush
     use clm_varcon       , only : secspday, spval
     use pftvarcon        , only : noveg
-
+    use bgcCalibMod      , only : calb_inst
+    use clm_varctl       , only : lbgcalib
     !
     ! !ARGUMENTS:
     integer                 , intent(in)    :: num_soilc       ! number of soil columns in filter
@@ -646,7 +647,7 @@ contains
     type(phosphorusstate_type)  , intent(inout) :: phosphorusstate_vars
     !
     ! !LOCAL VARIABLES:
-    integer  :: c,fc,p                     ! indices
+    integer  :: c,fc,p,g                     ! indices
     real(r8) :: r_fix                      ! carbon cost of N2 fixation, gC/gN
     real(r8) :: r_nup                      ! carbon cost of root N uptake, gC/gN
     real(r8) :: f_nodule                   ! empirical, fraction of root that is nodulated
@@ -678,7 +679,11 @@ contains
           nfix_to_ecosysn(c) = 0._r8
           do p = col_pp%pfti(c), col_pp%pftf(c)
               if (veg_pp%active(p).and. (veg_pp%itype(p) .ne. noveg)) then
-                  vmax_nfix_p = vmax_nfix(veg_pp%itype(p))
+                  if(lbgcalib)then
+                    vmax_nfix_p =calb_inst%vmax_nfix_calg(col_pp%gridcell(c))
+                  else
+                    vmax_nfix_p = vmax_nfix(veg_pp%itype(p))
+                  endif
                   ! calculate c cost of n2 fixation: fisher 2010 gbc doi:10.1029/2009gb003621
                   r_fix = -6.25_r8*(exp(-3.62_r8 + 0.27_r8*(t_soi10cm_col(c)-273.15_r8)*(1.0_r8-0.5_r8&
                        *(t_soi10cm_col(c)-273.15_r8)/25.15_r8))-2.0_r8)

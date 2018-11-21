@@ -428,7 +428,7 @@ contains
     use tracer_varcon         , only : is_active_betr_bgc,fix_ip
     use clm_time_manager      , only : is_restart
     use ALMbetrNLMod          , only : betr_namelist_buffer
-    use bgcCalibMod           , only : bgcCalibMod
+    use bgcCalibMod           , only : initCalib
     !
     ! !ARGUMENTS
     implicit none
@@ -961,7 +961,7 @@ contains
     call t_stopf('init_wlog')
 
     if(lbgcalib)then
-      call bgcCalibMod(bounds_proc)
+      call initCalib(bounds_proc)
     endif
     call t_stopf('clm_init2')
 

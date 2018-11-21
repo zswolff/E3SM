@@ -611,7 +611,8 @@ contains
     use clm_varpar             , only : ndecomp_pools
     use clm_time_manager       , only : get_step_size
     use CNDecompCascadeConType , only : decomp_cascade_con
-
+    use clm_varctl             , only : lbgcalib
+    use bgcCalibMod            , only : calb_inst
     !
     ! !ARGUMENTS:
     type(bounds_type)          , intent(in)    :: bounds
@@ -663,7 +664,11 @@ contains
             biochem_pmin_to_ecosysp_vr_col_pot(c,j) = 0._r8
             do p = col_pp%pfti(c), col_pp%pftf(c)
                 if (veg_pp%active(p).and. (veg_pp%itype(p) .ne. noveg)) then
-                    vmax_ptase_p = vmax_ptase(veg_pp%itype(p))
+                    if(lbgcalib)then
+                      vmax_ptase_p = calb_inst%vmax_ptase_calg(col_pp%gridcell(c))
+                    else
+                      vmax_ptase_p = vmax_ptase(veg_pp%itype(p))
+                    endif
                     !lamda_up = npimbalance(p) ! partial_vcmax/partial_lpc / partial_vcmax/partial_lnc
                     lamda_up = cp_scalar(p)/max(cn_scalar(p),1e-20_r8)
                     lamda_up = min(max(lamda_up,0.0_r8), 150.0_r8)
