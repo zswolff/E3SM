@@ -20,7 +20,7 @@ module nctopo_util_mod
   use dimensions_mod,     only: nelemd, nlev, np, npsq
   implicit none
   private
-  public nctopo_util_inidat, nctopo_util_driver
+  public nctopo_util_inidat, nctopo_util_driver, nctopo_util_finalize
 
 
   real(r8),allocatable :: SGHdyn(:,:,:),SGH30dyn(:,:,:),PHISdyn(:,:,:)
@@ -143,14 +143,10 @@ contains
     end do
     call FreeEdgeBuffer(edge)
      
-    
+    ! Free allocated memory
     deallocate(tmp)
-    deallocate(PHISdyn)
-    deallocate(SGHdyn)
-    deallocate(SGH30dyn)
 
   end subroutine nctopo_util_inidat
-
 
 
   subroutine nctopo_util_driver(elem,hybrid,nets,nete)
@@ -166,9 +162,20 @@ contains
     if (smooth_phis_numcycle==0) return
     call smooth_topo_datasets(phisdyn,sghdyn,sgh30dyn,elem,hybrid,nets,nete)
 
-
   end subroutine 
 
+  
+  subroutine nctopo_util_finalize()
+
+    ! Should be able to deallocate memory now that we've run
+    ! smooth_topo_datasets, because this should only be run during
+    ! initialization. It might be better to call this explicitly at the end of a
+    ! run to make sure, but this should do for now.
+    deallocate(PHISdyn)
+    deallocate(SGHdyn)
+    deallocate(SGH30dyn)
+
+  end subroutine nctopo_util_finalize
 
 
 end module nctopo_util_mod 
