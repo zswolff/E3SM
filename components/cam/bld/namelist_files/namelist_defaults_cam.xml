@@ -1330,6 +1330,7 @@
 <nu hgrid="ne0np4_svalbard_x8v1_lowcon"  > 8.0e-8</nu>
 <nu hgrid="ne0np4_sooberingoa_x4x8v1_lowcon"  > 8.0e-8</nu>
 <nu hgrid="ne0np4_twpx4v1" >8.0e-8</nu>
+<nu hgrid="ne0np4_conusx8v1">8.0e-8</nu>
 
 <!-- This will set nu_q to nu internally. -->
 <nu_q> -1.0 </nu_q>
@@ -1348,6 +1349,7 @@
 <nu_p hgrid="ne0np4_sooberingoa_x4x8v1_lowcon"  > 8.0e-8</nu_p>
 <nu_p hgrid="ne0np4_enax4v1">8.0e-8</nu_p>
 <nu_p hgrid="ne0np4_twpx4v1" >8.0e-8</nu_p>
+<nu_p hgrid="ne0np4_conusx8v1" >8.0e-8</nu_p>
 
 
 <nu_div>                   2.5e15 </nu_div>
@@ -1364,6 +1366,7 @@
 <nu_div hgrid="ne0np4_sooberingoa_x4x8v1_lowcon"  > 20.0e-8</nu_div>
 <nu_div hgrid="ne0np4_enax4v1">20.0e-8</nu_div>
 <nu_div hgrid="ne0np4_twpx4v1" >20.0e-8</nu_div>
+<nu_div hgrid="ne0np4_conusx8v1" >20.0e-8</nu_div>
 
 <hypervis_order >     2 </hypervis_order>
 
@@ -1382,6 +1385,7 @@
 <hypervis_subcycle hgrid="ne0np4_sooberingoa_x4x8v1_lowcon"  > 8 </hypervis_subcycle>
 <hypervis_subcycle hgrid="ne0np4_enax4v1">7</hypervis_subcycle>
 <hypervis_subcycle hgrid="ne0np4_twpx4v1" > 7 </hypervis_subcycle>
+<hypervis_subcycle hgrid="ne0np4_conusx8v1" > 8 </hypervis_subcycle>
 
 <hypervis_subcycle_q> 1 </hypervis_subcycle_q>
 
@@ -1412,6 +1416,7 @@
 <se_nsplit hgrid="ne0np4_sooberingoa_x4x8v1_lowcon"  > 5 </se_nsplit>
 <se_nsplit hgrid="ne0np4_enax4v1">4</se_nsplit>
 <se_nsplit hgrid="ne0np4_twpx4v1" > 4 </se_nsplit>
+<se_nsplit hgrid="ne0np4_conusx8v1" > 5 </se_nsplit>
 
 <se_nsplit hgrid="ne11np4"  waccm_phys="1">  5 </se_nsplit>
 <se_nsplit hgrid="ne16np4"  waccm_phys="1">  5 </se_nsplit>
@@ -1427,6 +1432,7 @@
 <hypervis_scaling  hgrid="ne0np4_sooberingoa_x4x8v1_lowcon"  > 3.2 </hypervis_scaling>
 <hypervis_scaling  hgrid="ne0np4_enax4v1">3.2</hypervis_scaling>
 <hypervis_scaling  hgrid="ne0np4_twpx4v1" > 3.2 </hypervis_scaling>
+<hypervis_scaling  hgrid="ne0np4_conusx8v1" > 3.2 </hypervis_scaling>
 
 <se_ne hgrid="ne0np4_arm_x8v3_lowcon"  > 0 </se_ne>
 <se_ne hgrid="ne0np4_conus_x4v1_lowcon"  > 0 </se_ne>
@@ -1434,6 +1440,7 @@
 <se_ne hgrid="ne0np4_sooberingoa_x4x8v1_lowcon"  > 0 </se_ne>
 <se_ne hgrid="ne0np4_enax4v1">0</se_ne>
 <se_ne hgrid="ne0np4_twpx4v1" > 0 </se_ne>
+<se_ne hgrid="ne0np4_conusx8v1" > 0 </se_ne>
 
 
 <se_ftype> 0 </se_ftype>

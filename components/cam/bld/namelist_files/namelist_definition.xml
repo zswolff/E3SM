@@ -5898,7 +5898,15 @@ Number of vertical threads.
 Default: 1.
 </entry>
 
+<entry id="smooth_phis_numcycle" type="integer" category="se" 
+       group="ctl_nl" valid_values="" >
+For topography smoothing.
+</entry>
 
+<entry id="smooth_phis_nudt" type="real" category="se" 
+       group="ctl_nl" valid_values="" >
+For topography smoothing.
+</entry>
 
 <!-- CAM I/O  -->
 
