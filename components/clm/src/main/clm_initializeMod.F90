@@ -423,7 +423,7 @@ contains
     use glc2lndMod            , only : glc2lnd_type
     use lnd2glcMod            , only : lnd2glc_type
     use SoilWaterRetentionCurveFactoryMod   , only : create_soil_water_retention_curve
-    use clm_varctl                          , only : use_clm_interface, use_pflotran
+    use clm_varctl                          , only : use_clm_interface, use_pflotran,lbgcalib
     use clm_interface_pflotranMod           , only : clm_pf_interface_init !, clm_pf_set_restart_stamp
     use tracer_varcon         , only : is_active_betr_bgc,fix_ip
     use clm_time_manager      , only : is_restart

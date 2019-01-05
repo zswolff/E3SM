@@ -667,6 +667,8 @@ sub write_filepath_cesmbld
                      "external_models/sbetr/src/betr/betr_core",
                      "external_models/sbetr/src/betr/betr_dtype",
                      "external_models/sbetr/src/betr/betr_bgc",
+                     "external_models/sbetr/src/betr/betr_echem",
+                     "external_models/sbetr/src/betr/betr_transport",
                      "external_models/sbetr/src/betr/betr_grid",
                      "external_models/sbetr/src/betr/betr_para",
                      "external_models/sbetr/src/betr/betr_main",

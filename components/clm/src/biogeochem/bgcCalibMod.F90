@@ -38,48 +38,50 @@ contains
   logical               :: readvar
   character(len=48) :: tstring
 
+  call AllocCalib(bounds)
+
   call getfil (fsurdat, locfn, 0)
   call ncd_pio_openfile (ncid, locfn, 0)
 
   data_in=> calb_inst%km_den_no3_calg; tstring='km_den_no3'
   call ncd_io(ncid=ncid, varname=trim(tstring), flag='read', data=data_in, dim1name=grlnd, readvar=readvar)
-  if ( .not. readv ) call endrun(msg=' ERROR: error in reading in '//trim(tstring)//errMsg(__FILE__, __LINE__))
+  if ( .not. readvar ) call endrun(msg=' ERROR: error in reading in '//trim(tstring)//errMsg(__FILE__, __LINE__))
 
   data_in=> calb_inst%km_nit_nh4_calg; tstring='km_nit_nh4'
   call ncd_io(ncid=ncid, varname=trim(tstring), flag='read', data=data_in, dim1name=grlnd, readvar=readvar)
-  if ( .not. readv ) call endrun(msg=' ERROR: error in reading in '//trim(tstring)//errMsg(__FILE__, __LINE__))
+  if ( .not. readvar ) call endrun(msg=' ERROR: error in reading in '//trim(tstring)//errMsg(__FILE__, __LINE__))
 
   data_in=> calb_inst%km_decomp_nh4_calg; tstring='km_decomp_nh4'
   call ncd_io(ncid=ncid, varname=trim(tstring), flag='read', data=data_in, dim1name=grlnd, readvar=readvar)
-  if ( .not. readv ) call endrun(msg=' ERROR: error in reading in '//trim(tstring)//errMsg(__FILE__, __LINE__))
+  if ( .not. readvar ) call endrun(msg=' ERROR: error in reading in '//trim(tstring)//errMsg(__FILE__, __LINE__))
 
   data_in=> calb_inst%km_decomp_no3_calg; tstring='km_decomp_no3'
   call ncd_io(ncid=ncid, varname=trim(tstring), flag='read', data=data_in, dim1name=grlnd, readvar=readvar)
-  if ( .not. readv ) call endrun(msg=' ERROR: error in reading in '//trim(tstring)//errMsg(__FILE__, __LINE__))
+  if ( .not. readvar)  call endrun(msg=' ERROR: error in reading in '//trim(tstring)//errMsg(__FILE__, __LINE__))
 
   data_in=> calb_inst%km_decomp_p_calg; tstring='km_decomp_p'
   call ncd_io(ncid=ncid, varname=trim(tstring), flag='read', data=data_in, dim1name=grlnd, readvar=readvar)
-  if ( .not. readv ) call endrun(msg=' ERROR: error in reading in '//trim(tstring)//errMsg(__FILE__, __LINE__))
+  if ( .not. readvar ) call endrun(msg=' ERROR: error in reading in '//trim(tstring)//errMsg(__FILE__, __LINE__))
 
   data_in=> calb_inst%vmax_ptase_calg; tstring='vmax_ptase'
   call ncd_io(ncid=ncid, varname=trim(tstring), flag='read', data=data_in, dim1name=grlnd, readvar=readvar)
-  if ( .not. readv ) call endrun(msg=' ERROR: error in reading in '//trim(tstring)//errMsg(__FILE__, __LINE__))
+  if ( .not. readvar)  call endrun(msg=' ERROR: error in reading in '//trim(tstring)//errMsg(__FILE__, __LINE__))
 
   data_in=> calb_inst%vmax_nfix_calg; tstring='vmax_nfix'
   call ncd_io(ncid=ncid, varname=trim(tstring), flag='read', data=data_in, dim1name=grlnd, readvar=readvar)
-  if ( .not. readv ) call endrun(msg=' ERROR: error in reading in '//trim(tstring)//errMsg(__FILE__, __LINE__))
+  if ( .not. readvar ) call endrun(msg=' ERROR: error in reading in '//trim(tstring)//errMsg(__FILE__, __LINE__))
 
   data_in=> calb_inst%km_plant_nh4_calg; tstring='km_plant_nh4'
   call ncd_io(ncid=ncid, varname=trim(tstring), flag='read', data=data_in, dim1name=grlnd, readvar=readvar)
-  if ( .not. readv ) call endrun(msg=' ERROR: error in reading in '//trim(tstring)//errMsg(__FILE__, __LINE__))
+  if ( .not. readvar ) call endrun(msg=' ERROR: error in reading in '//trim(tstring)//errMsg(__FILE__, __LINE__))
 
   data_in=> calb_inst%km_plant_no3_calg; tstring='km_plant_no3'
   call ncd_io(ncid=ncid, varname=trim(tstring), flag='read', data=data_in, dim1name=grlnd, readvar=readvar)
-  if ( .not. readv ) call endrun(msg=' ERROR: error in reading in '//trim(tstring)//errMsg(__FILE__, __LINE__))
+  if ( .not. readvar ) call endrun(msg=' ERROR: error in reading in '//trim(tstring)//errMsg(__FILE__, __LINE__))
 
   data_in=> calb_inst%km_plant_p_calg; tstring='km_plant_p'
   call ncd_io(ncid=ncid, varname=trim(tstring), flag='read', data=data_in, dim1name=grlnd, readvar=readvar)
-  if ( .not. readv ) call endrun(msg=' ERROR: error in reading in '//trim(tstring)//errMsg(__FILE__, __LINE__))
+  if ( .not. readvar ) call endrun(msg=' ERROR: error in reading in '//trim(tstring)//errMsg(__FILE__, __LINE__))
 
   call ncd_pio_closefile(ncid)
 
