@@ -5936,7 +5936,15 @@ Number of vertical threads.
 Default: 1.
 </entry>
 
-
+<entry id="cubed_sphere_map" type="integer" category="se"
+       group="ctl_nl" valid_values="-1,0,1,2" >
+Mapping mode between the element reference coordinate and the sphere. Valid values:
+    cubed_sphere_map = -1: let HOMME decide
+    cubed_sphere_map =  0: equi-angle Gnomonic (default, non-RRM, no Tempest maps)
+    cubed_sphere_map =  1: equi-spaced Gnomonic
+    cubed_sphere_map =  2: element-local projection (use when using Tempest maps)
+Default: 0 for non-RRM, 2 for RRM (Set in HOMME).
+</entry>
 
 <!-- CAM I/O  -->
 
