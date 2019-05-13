@@ -1070,9 +1070,12 @@ contains
   end subroutine clean_iodesc_list
 
   subroutine cam_pio_createfile(file, fname, mode_in)
-    use pio, only : pio_createfile, file_desc_t, pio_noerr, pio_clobber,      &
-         pio_64bit_offset, pio_iotask_rank
-    use cam_abortutils, only : endrun
+    use pio,            only: pio_createfile, file_desc_t, &
+                              pio_noerr, pio_iotask_rank
+    use cam_abortutils, only: endrun
+    use cam_instance,   only: atm_id
+    use shr_pio_mod,    only: shr_pio_getioformat
+
 
     ! Dummy arguments
     type(file_desc_t),          intent(inout) :: file
@@ -1083,10 +1086,13 @@ contains
     integer                                   :: ierr
     integer                                   :: mode
     
-    mode = ior(PIO_CLOBBER, PIO_64BIT_OFFSET)
     if (present(mode_in)) then
-      mode = ior(mode, mode_in)
+       mode = mode_in
+    else
+       mode = shr_pio_getioformat(atm_id)
     end if
+    ! OVERWRITE FOR DEBUGGING
+    mode = shr_pio_getioformat(atm_id)
 
     ierr = pio_createfile(pio_subsystem, file, pio_iotype, fname, mode)
 
