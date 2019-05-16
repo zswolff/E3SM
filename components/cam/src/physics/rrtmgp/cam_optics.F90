@@ -248,6 +248,11 @@ contains
       type(physics_buffer_desc), pointer :: pbuf(:)
       type(cam_optics_type), intent(inout) :: optics_out
 
+      ! Stuff from microphysics to calculate optical props
+      real(r8), pointer :: cld_liq_path(:,:), &
+                           shape_param (:,:), &
+                           slope_param (:,:)
+
       ! Cloud and snow fractions, used to weight optical properties by
       ! contributions due to cloud vs snow
       real(r8), pointer :: cloud_fraction(:,:), snow_fraction(:,:)
@@ -257,6 +262,7 @@ contains
             ice_tau, liq_tau, snow_tau, cloud_tau, combined_tau
 
       integer :: iband, ncol
+
 
       ! Number of columns in this chunk
       ncol = state%ncol
@@ -272,7 +278,10 @@ contains
       call get_ice_optics_lw(state, pbuf, ice_tau)
 
       ! Get liquid optics
-      call get_liquid_optics_lw(state, pbuf, liq_tau)
+      call pbuf_get_field(pbuf, pbuf_get_index('ICLWP')  , cld_liq_path)
+      call pbuf_get_field(pbuf, pbuf_get_index('LAMBDAC'), slope_param )
+      call pbuf_get_field(pbuf, pbuf_get_index('MU')     , shape_param )
+      call get_liquid_optics_lw(cld_liq_path, shape_param, slope_param, liq_tau)
 
       ! Get snow optics?
       call get_snow_optics_lw(state, pbuf, snow_tau)

@@ -346,35 +346,28 @@ end subroutine get_liquid_optics_sw
 
 !==============================================================================
 
-subroutine get_liquid_optics_lw(state, pbuf, abs_od)
-   type(physics_state), intent(in)    :: state
-   type(physics_buffer_desc),pointer  :: pbuf(:)
-   real(r8), intent(out) :: abs_od(nlwbands,pcols,pver)
-
-   integer :: lchnk, ncol
-   real(r8), pointer, dimension(:,:) :: lamc, pgam, iclwpth
-
+subroutine get_liquid_optics_lw(cld_liq_path, shape_param, slope_param, abs_od)
+   real(r8), intent(in)  :: cld_liq_path(:,:)  ! In-cloud liquid water path
+   real(r8), intent(in)  :: shape_param(:,:)   ! size distribution shape param
+   real(r8), intent(in)  :: slope_param(:,:)   ! Size distribution slope param
+   real(r8), intent(out) :: abs_od(nlwbands,pcols,pver)  ! Absorption optical depth
+   integer :: ncol
    integer lwband, i, k
 
+   ! Initialize outputs to zero; need to do this to zero out all pcols in the
+   ! event that ncol < pcols, since we only operate over ncol columns of pcols.
    abs_od = 0._r8
 
-   lchnk = state%lchnk
-   ncol = state%ncol
-
-   call pbuf_get_field(pbuf, i_lambda,  lamc)
-   call pbuf_get_field(pbuf, i_mu,      pgam)
-   call pbuf_get_field(pbuf, i_iclwp,   iclwpth)
-
+   ncol = size(cld_liq_path, 1)
    do k = 1,pver
       do i = 1,ncol
-         if(lamc(i,k) > 0._r8) then ! This seems to be the clue for no cloud from microphysics formulation
-            call gam_liquid_lw(iclwpth(i,k), lamc(i,k), pgam(i,k), abs_od(1:nlwbands,i,k))
+         if(slope_param(i,k) > 0._r8) then ! This seems to be the clue for no cloud from microphysics formulation
+            call gam_liquid_lw(cld_liq_path(i,k), slope_param(i,k), shape_param(i,k), abs_od(1:nlwbands,i,k))
          else
             abs_od(1:nlwbands,i,k) = 0._r8
          endif
       enddo
    enddo
-
 end subroutine get_liquid_optics_lw
 
 !==============================================================================
