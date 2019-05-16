@@ -27,8 +27,7 @@ public :: &
    get_ice_optics_lw,             & ! Mitchell LW ice rad props
    get_liquid_optics_sw,          & ! return Conley SW rad props
    get_liquid_optics_lw,          & ! return Conley LW rad props
-   get_snow_optics_sw,            &
-   get_snow_optics_lw
+   get_snow_optics_sw
 
 integer :: nmu, nlambda
 real(r8), allocatable :: g_mu(:)           ! mu samples on grid
@@ -290,19 +289,38 @@ end subroutine get_ice_optics_sw
 
 !==============================================================================
 
-subroutine get_ice_optics_lw(state, pbuf, abs_od)
-   type(physics_state), intent(in)     :: state
-   type(physics_buffer_desc), pointer  :: pbuf(:)
-   real(r8), intent(out) :: abs_od(nlwbands,pcols,pver)
+subroutine get_ice_optics_lw(ncol, iciwpth, dei, abs_od)
 
-   real(r8), pointer :: iciwpth(:,:), dei(:,:)
+  integer, intent(in) :: ncol
+  real(r8), intent(in) :: iciwpth(pcols,pver)
+  real(r8), intent(in) :: dei(pcols,pver)
 
-   ! Get relevant pbuf fields, and interpolate optical properties from
-   ! the lookup tables.
-   call pbuf_get_field(pbuf, i_iciwp, iciwpth)
-   call pbuf_get_field(pbuf, i_dei,   dei)
+  real(r8),intent(out) :: abs_od(nlwbands,pcols,pver)
 
-   call interpolate_ice_optics_lw(state%ncol,iciwpth, dei, abs_od)
+  type(interp_type) :: dei_wgts
+
+  integer :: i, k, lwband
+  real(r8) :: absor(nlwbands)
+
+  do k = 1,pver
+     do i = 1,ncol
+        ! if ice water path is too small, OD := 0
+        if( iciwpth(i,k) < 1.e-80_r8 .or. dei(i,k) == 0._r8) then
+           abs_od (:,i,k) = 0._r8
+        else
+           ! for each cell interpolate to find weights in g_d_eff grid.
+           call lininterp_init(g_d_eff, n_g_d, dei(i:i,k), 1, &
+                extrap_method_bndry, dei_wgts)
+           ! interpolate into grid and extract radiative properties
+           do lwband = 1, nlwbands
+              call lininterp(abs_lw_ice(:,lwband), n_g_d, &
+                   absor(lwband:lwband), 1, dei_wgts)
+           enddo
+           abs_od(:,i,k) = iciwpth(i,k) * absor
+           call lininterp_finish(dei_wgts)
+        endif
+     enddo
+  enddo
 
 end subroutine get_ice_optics_lw
 
@@ -395,22 +413,6 @@ end subroutine get_snow_optics_sw
 
 !==============================================================================
 
-subroutine get_snow_optics_lw(state, pbuf, abs_od)
-   type(physics_state), intent(in)    :: state
-   type(physics_buffer_desc), pointer :: pbuf(:)
-   real(r8), intent(out) :: abs_od(nlwbands,pcols,pver)
-
-   real(r8), pointer :: icswpth(:,:), des(:,:)
-
-   ! This does the same thing as ice_cloud_get_rad_props_lw, except with a
-   ! different water path and effective diameter.
-   call pbuf_get_field(pbuf, i_icswp, icswpth)
-   call pbuf_get_field(pbuf, i_des,   des)
-
-   call interpolate_ice_optics_lw(state%ncol,icswpth, des, abs_od)
-
-end subroutine get_snow_optics_lw
-
 !==============================================================================
 ! Private methods
 !==============================================================================
@@ -463,43 +465,6 @@ subroutine interpolate_ice_optics_sw(ncol, iciwpth, dei, tau, tau_w, &
   enddo
 
 end subroutine interpolate_ice_optics_sw
-
-!==============================================================================
-
-subroutine interpolate_ice_optics_lw(ncol, iciwpth, dei, abs_od)
-
-  integer, intent(in) :: ncol
-  real(r8), intent(in) :: iciwpth(pcols,pver)
-  real(r8), intent(in) :: dei(pcols,pver)
-
-  real(r8),intent(out) :: abs_od(nlwbands,pcols,pver)
-
-  type(interp_type) :: dei_wgts
-
-  integer :: i, k, lwband
-  real(r8) :: absor(nlwbands)
-
-  do k = 1,pver
-     do i = 1,ncol
-        ! if ice water path is too small, OD := 0
-        if( iciwpth(i,k) < 1.e-80_r8 .or. dei(i,k) == 0._r8) then
-           abs_od (:,i,k) = 0._r8
-        else
-           ! for each cell interpolate to find weights in g_d_eff grid.
-           call lininterp_init(g_d_eff, n_g_d, dei(i:i,k), 1, &
-                extrap_method_bndry, dei_wgts)
-           ! interpolate into grid and extract radiative properties
-           do lwband = 1, nlwbands
-              call lininterp(abs_lw_ice(:,lwband), n_g_d, &
-                   absor(lwband:lwband), 1, dei_wgts)
-           enddo
-           abs_od(:,i,k) = iciwpth(i,k) * absor
-           call lininterp_finish(dei_wgts)
-        endif
-     enddo
-  enddo
-
-end subroutine interpolate_ice_optics_lw
 
 !==============================================================================
 

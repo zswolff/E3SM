@@ -240,8 +240,7 @@ contains
       use physics_buffer, only: physics_buffer_desc, pbuf_get_field, &
                                 pbuf_get_index
       use cloud_rad_props, only: get_liquid_optics_lw, &
-                                 get_ice_optics_lw, &
-                                 get_snow_optics_lw
+                                 get_ice_optics_lw
       use radconstants, only: nlwbands
 
       type(physics_state), intent(in) :: state
@@ -249,9 +248,13 @@ contains
       type(cam_optics_type), intent(inout) :: optics_out
 
       ! Stuff from microphysics to calculate optical props
-      real(r8), pointer :: cld_liq_path(:,:), &
-                           shape_param (:,:), &
-                           slope_param (:,:)
+      real(r8), pointer :: cld_liq_path (:,:), &
+                           shape_param  (:,:), &
+                           slope_param  (:,:), &
+                           cld_ice_path (:,:), &
+                           ice_diameter (:,:), &
+                           cld_snow_path(:,:), &
+                           snow_diameter(:,:)
 
       ! Cloud and snow fractions, used to weight optical properties by
       ! contributions due to cloud vs snow
@@ -275,7 +278,9 @@ contains
       combined_tau(:,:,:) = 0.0
 
       ! Get ice optics
-      call get_ice_optics_lw(state, pbuf, ice_tau)
+      call pbuf_get_field(pbuf, pbuf_get_index('ICIWP'), cld_ice_path)
+      call pbuf_get_field(pbuf, pbuf_get_index('DEI')  , ice_diameter)
+      call get_ice_optics_lw(ncol, cld_ice_path, ice_diameter, ice_tau)
 
       ! Get liquid optics
       call pbuf_get_field(pbuf, pbuf_get_index('ICLWP')  , cld_liq_path)
@@ -283,8 +288,11 @@ contains
       call pbuf_get_field(pbuf, pbuf_get_index('MU')     , shape_param )
       call get_liquid_optics_lw(cld_liq_path, shape_param, slope_param, liq_tau)
 
-      ! Get snow optics?
-      call get_snow_optics_lw(state, pbuf, snow_tau)
+      ! Get snow optics? Just interpolates using the ice tables, so we call the
+      ! same routine as above but with snow water path and snow diameter
+      call pbuf_get_field(pbuf, pbuf_get_index('ICSWP'), cld_snow_path)
+      call pbuf_get_field(pbuf, pbuf_get_index('DES')  , snow_diameter)
+      call get_ice_optics_lw(ncol, cld_snow_path, snow_diameter, snow_tau)
 
       ! Get cloud and snow fractions. This is used to weight the contribution to
       ! the total lw absorption by the fraction of the column that contains
