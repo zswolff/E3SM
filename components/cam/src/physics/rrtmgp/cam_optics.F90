@@ -68,8 +68,7 @@ contains
       use physics_types, only: physics_state
       use physics_buffer, only: physics_buffer_desc, pbuf_get_field, pbuf_get_index
       use cloud_rad_props, only: get_ice_optics_sw, &
-                                 get_liquid_optics_sw, &
-                                 get_snow_optics_sw
+                                 get_liquid_optics_sw
 
       ! Inputs. Right now, this uses state and pbuf, and passes these along to the
       ! individual get_*_optics routines from cloud_rad_props. This is not very
@@ -140,9 +139,11 @@ contains
 
       ! Get ice cloud optics
       ncol = state%ncol
-      call get_ice_optics_sw(state, pbuf, &
-                             ice_tau, ice_tau_ssa, &
-                             ice_tau_ssa_g, ice_tau_ssa_f)
+      call pbuf_get_field(pbuf, pbuf_get_index('ICIWP'), cld_ice_path)
+      call pbuf_get_field(pbuf, pbuf_get_index('DEI')  , ice_diameter)
+      call get_ice_optics_sw(ncol, cld_ice_path, ice_diameter, &
+                             ice_tau, ice_tau_ssa            , &
+                             ice_tau_ssa_g, ice_tau_ssa_f      )
       
       ! Get liquid cloud optics
       call pbuf_get_field(pbuf, pbuf_get_index('ICLWP')  , cld_liq_path)
@@ -166,9 +167,11 @@ contains
       ! Get snow cloud optics
       if (do_snow_optics) then
          ! Doing snow optics; call procedure to get these from CAM state and pbuf
-         call get_snow_optics_sw(state, pbuf, &
-                                 snow_tau, snow_tau_ssa, &
-                                 snow_tau_ssa_g, snow_tau_ssa_f)
+         call pbuf_get_field(pbuf, pbuf_get_index('ICSWP'), cld_snow_path)
+         call pbuf_get_field(pbuf, pbuf_get_index('DES')  , snow_diameter)
+         call get_ice_optics_sw(ncol, cld_snow_path, snow_diameter, &
+                                snow_tau, snow_tau_ssa            , &
+                                snow_tau_ssa_g, snow_tau_ssa_f      )
       else
          ! We are not doing snow optics, so set these to zero so we can still use 
          ! the arrays without additional logic

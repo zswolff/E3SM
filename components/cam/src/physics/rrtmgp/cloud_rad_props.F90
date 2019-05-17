@@ -22,12 +22,11 @@ private
 save
 
 public :: &
-   cloud_rad_props_init,          &
-   get_ice_optics_sw,             & ! return Mitchell SW ice radiative properties
-   get_ice_optics_lw,             & ! Mitchell LW ice rad props
-   get_liquid_optics_sw,          & ! return Conley SW rad props
-   get_liquid_optics_lw,          & ! return Conley LW rad props
-   get_snow_optics_sw
+   cloud_rad_props_init,  & ! Initialize module (read data)
+   get_ice_optics_sw,     & ! return Mitchell SW ice radiative properties
+   get_ice_optics_lw,     & ! Mitchell LW ice rad props
+   get_liquid_optics_sw,  & ! return Conley SW rad props
+   get_liquid_optics_lw     ! return Conley LW rad props
 
 integer :: nmu, nlambda
 real(r8), allocatable :: g_mu(:)           ! mu samples on grid
@@ -266,24 +265,51 @@ end subroutine cloud_rad_props_init
 
 !==============================================================================
 
-subroutine get_ice_optics_sw(state, pbuf, tau, tau_w, tau_w_g, tau_w_f)
-   type(physics_state), intent(in)   :: state
-   type(physics_buffer_desc),pointer :: pbuf(:)
+subroutine get_ice_optics_sw(ncol, iciwpth, dei, &
+                             tau, tau_w, tau_w_g, tau_w_f)
+    
+  integer , intent(in ) :: ncol                ! Number of columns to operate on
+  real(r8), intent(in ) :: iciwpth(pcols,pver) ! In-cloud ice water path
+  real(r8), intent(in ) :: dei(pcols,pver)     ! Ice effective diameter
+  real(r8), intent(out) :: tau    (nswbands,pcols,pver) ! extinction optical depth
+  real(r8), intent(out) :: tau_w  (nswbands,pcols,pver) ! single scattering albedo * tau
+  real(r8), intent(out) :: tau_w_g(nswbands,pcols,pver) ! assymetry parameter * tau * w
+  real(r8), intent(out) :: tau_w_f(nswbands,pcols,pver) ! forward scattered fraction * tau * w
 
-   ! NOTE: should be nswbands,ncols,pver
-   real(r8),intent(out) :: tau    (nswbands,pcols,pver) ! extinction optical depth
-   real(r8),intent(out) :: tau_w  (nswbands,pcols,pver) ! single scattering albedo * tau
-   real(r8),intent(out) :: tau_w_g(nswbands,pcols,pver) ! assymetry parameter * tau * w
-   real(r8),intent(out) :: tau_w_f(nswbands,pcols,pver) ! forward scattered fraction * tau * w
+  type(interp_type) :: dei_wgts
 
-   real(r8), pointer :: iciwpth(:,:), dei(:,:)
+  integer :: i, k, swband
+  real(r8) :: ext(nswbands), ssa(nswbands), asm(nswbands)
 
-   ! Get relevant pbuf fields, and interpolate optical properties from
-   ! the lookup tables.
-   call pbuf_get_field(pbuf, i_iciwp, iciwpth)
-   call pbuf_get_field(pbuf, i_dei,   dei)
-   call interpolate_ice_optics_sw(state%ncol, iciwpth, dei, tau, tau_w, &
-                                  tau_w_g, tau_w_f)
+  do k = 1,pver
+     do i = 1,ncol
+        if( iciwpth(i,k) < 1.e-80_r8 .or. dei(i,k) == 0._r8) then
+           ! if ice water path is too small, OD := 0
+           tau    (:,i,k) = 0._r8
+           tau_w  (:,i,k) = 0._r8
+           tau_w_g(:,i,k) = 0._r8
+           tau_w_f(:,i,k) = 0._r8
+        else
+           ! for each cell interpolate to find weights in g_d_eff grid.
+           call lininterp_init(g_d_eff, n_g_d, dei(i:i,k), 1, &
+                extrap_method_bndry, dei_wgts)
+           ! interpolate into grid and extract radiative properties
+           do swband = 1, nswbands
+              call lininterp(ext_sw_ice(:,swband), n_g_d, &
+                   ext(swband:swband), 1, dei_wgts)
+              call lininterp(ssa_sw_ice(:,swband), n_g_d, &
+                   ssa(swband:swband), 1, dei_wgts)
+              call lininterp(asm_sw_ice(:,swband), n_g_d, &
+                   asm(swband:swband), 1, dei_wgts)
+           end do
+           tau    (:,i,k) = iciwpth(i,k) * ext
+           tau_w  (:,i,k) = tau(:,i,k) * ssa
+           tau_w_g(:,i,k) = tau_w(:,i,k) * asm
+           tau_w_f(:,i,k) = tau_w_g(:,i,k) * asm
+           call lininterp_finish(dei_wgts)
+        endif
+     enddo
+  enddo
 
 end subroutine get_ice_optics_sw
 
@@ -383,83 +409,7 @@ subroutine get_liquid_optics_lw(cld_liq_path, shape_param, slope_param, abs_od)
 end subroutine get_liquid_optics_lw
 
 !==============================================================================
-
-subroutine get_snow_optics_sw(state, pbuf, tau, tau_w, tau_w_g, tau_w_f)
-   type(physics_state), intent(in)   :: state
-   type(physics_buffer_desc),pointer :: pbuf(:)
-
-   real(r8),intent(out) :: tau    (nswbands,pcols,pver) ! extinction optical depth
-   real(r8),intent(out) :: tau_w  (nswbands,pcols,pver) ! single scattering albedo * tau
-   real(r8),intent(out) :: tau_w_g(nswbands,pcols,pver) ! assymetry parameter * tau * w
-   real(r8),intent(out) :: tau_w_f(nswbands,pcols,pver) ! forward scattered fraction * tau * w
-
-   real(r8), pointer :: icswpth(:,:), des(:,:)
-
-   ! This does the same thing as get_ice_optics_sw, except with a different
-   ! water path and effective diameter.
-   call pbuf_get_field(pbuf, i_icswp, icswpth)
-   call pbuf_get_field(pbuf, i_des,   des)
-
-   call interpolate_ice_optics_sw(state%ncol, icswpth, des, tau, tau_w, &
-        tau_w_g, tau_w_f)
-
-end subroutine get_snow_optics_sw   
-
-!==============================================================================
-
-!==============================================================================
 ! Private methods
-!==============================================================================
-
-subroutine interpolate_ice_optics_sw(ncol, iciwpth, dei, tau, tau_w, &
-     tau_w_g, tau_w_f)
-
-  integer, intent(in) :: ncol
-  real(r8), intent(in) :: iciwpth(pcols,pver)
-  real(r8), intent(in) :: dei(pcols,pver)
-
-  real(r8),intent(out) :: tau    (nswbands,pcols,pver) ! extinction optical depth
-  real(r8),intent(out) :: tau_w  (nswbands,pcols,pver) ! single scattering albedo * tau
-  real(r8),intent(out) :: tau_w_g(nswbands,pcols,pver) ! assymetry parameter * tau * w
-  real(r8),intent(out) :: tau_w_f(nswbands,pcols,pver) ! forward scattered fraction * tau * w
-
-  type(interp_type) :: dei_wgts
-
-  integer :: i, k, swband
-  real(r8) :: ext(nswbands), ssa(nswbands), asm(nswbands)
-
-  do k = 1,pver
-     do i = 1,ncol
-        if( iciwpth(i,k) < 1.e-80_r8 .or. dei(i,k) == 0._r8) then
-           ! if ice water path is too small, OD := 0
-           tau    (:,i,k) = 0._r8
-           tau_w  (:,i,k) = 0._r8
-           tau_w_g(:,i,k) = 0._r8
-           tau_w_f(:,i,k) = 0._r8
-        else
-           ! for each cell interpolate to find weights in g_d_eff grid.
-           call lininterp_init(g_d_eff, n_g_d, dei(i:i,k), 1, &
-                extrap_method_bndry, dei_wgts)
-           ! interpolate into grid and extract radiative properties
-           do swband = 1, nswbands
-              call lininterp(ext_sw_ice(:,swband), n_g_d, &
-                   ext(swband:swband), 1, dei_wgts)
-              call lininterp(ssa_sw_ice(:,swband), n_g_d, &
-                   ssa(swband:swband), 1, dei_wgts)
-              call lininterp(asm_sw_ice(:,swband), n_g_d, &
-                   asm(swband:swband), 1, dei_wgts)
-           end do
-           tau    (:,i,k) = iciwpth(i,k) * ext
-           tau_w  (:,i,k) = tau(:,i,k) * ssa
-           tau_w_g(:,i,k) = tau_w(:,i,k) * asm
-           tau_w_f(:,i,k) = tau_w_g(:,i,k) * asm
-           call lininterp_finish(dei_wgts)
-        endif
-     enddo
-  enddo
-
-end subroutine interpolate_ice_optics_sw
-
 !==============================================================================
 
 subroutine gam_liquid_lw(clwptn, lamc, pgam, abs_od)
