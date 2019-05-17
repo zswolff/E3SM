@@ -4,11 +4,10 @@ module cloud_rad_props
 !------------------------------------------------------------------------------------------------
 
 use shr_kind_mod,     only: r8 => shr_kind_r8
-use ppgrid,           only: pcols, pver, pverp
+use ppgrid,           only: pcols, pver
 use physics_types,    only: physics_state
-use physics_buffer,   only: physics_buffer_desc, pbuf_get_index, pbuf_get_field, pbuf_old_tim_idx
 
-use radconstants,     only: nswbands, nlwbands, idx_sw_diag, ot_length, idx_lw_diag
+use radconstants,     only: nswbands, nlwbands
 use rad_constituents, only: iceopticsfile, liqopticsfile
 
 use interpolate_data, only: interp_type, lininterp_init, lininterp, &
@@ -43,12 +42,6 @@ real(r8), allocatable :: ssa_sw_ice(:,:)
 real(r8), allocatable :: asm_sw_ice(:,:)
 real(r8), allocatable :: abs_lw_ice(:,:)
 
-! 
-! indices into pbuf for optical parameters of MG clouds
-! 
-   integer :: i_dei, i_mu, i_lambda, i_iciwp, i_iclwp, i_des, i_icswp
-
-
 !==============================================================================
 contains
 !==============================================================================
@@ -82,27 +75,6 @@ subroutine cloud_rad_props_init()
 
    liquidfile = liqopticsfile 
    icefile = iceopticsfile
-
-   ! Ice effective diameter?
-   i_dei    = pbuf_get_index('DEI',errcode=err)
-
-   ! Snow effective diameter?
-   i_des    = pbuf_get_index('DES',errcode=err)
-
-   ! Shape parameter for droplet distrubtion?
-   i_mu     = pbuf_get_index('MU',errcode=err)
-
-   ! Slope of droplet distribution?
-   i_lambda = pbuf_get_index('LAMBDAC',errcode=err)
-
-   ! In-cloud ice water path
-   i_iciwp  = pbuf_get_index('ICIWP',errcode=err)
-   
-   ! In-cloud liquid water path
-   i_iclwp  = pbuf_get_index('ICLWP',errcode=err)
-
-   ! In-cloud snow water path
-   i_icswp  = pbuf_get_index('ICSWP',errcode=err)
 
    ! read liquid cloud optics
    if(masterproc) then
@@ -226,10 +198,8 @@ subroutine cloud_rad_props_init()
           'checking dimensions of ext_sw_ice')
       call handle_ncerr(nf90_inquire_dimension( ncid, vdimids(1), len=templen),&
           'getting first dimension sw_ext')
-      !write(iulog,*) 'expected length',n_g_d,'actual len',templen
       call handle_ncerr(nf90_inquire_dimension( ncid, vdimids(2), len=templen),&
           'getting first dimension sw_ext')
-      !write(iulog,*) 'expected length',nswbands,'actual len',templen
       call handle_ncerr( nf90_get_var(ncid, ext_sw_ice_id, ext_sw_ice),&
          'read cloud optics ext_sw_ice values')
 
