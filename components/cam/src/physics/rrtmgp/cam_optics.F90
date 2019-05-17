@@ -101,8 +101,16 @@ contains
             combined_tau, combined_tau_ssa, combined_tau_ssa_g, combined_tau_ssa_f
 
       ! Pointers to fields on the physics buffer
-      real(r8), pointer :: iciwp(:,:), dei(:,:)
       real(r8), pointer :: cloud_fraction(:,:), snow_fraction(:,:)
+
+      ! Stuff from microphysics to calculate optical props
+      real(r8), pointer :: cld_liq_path (:,:), &
+                           shape_param  (:,:), &
+                           slope_param  (:,:), &
+                           cld_ice_path (:,:), &
+                           ice_diameter (:,:), &
+                           cld_snow_path(:,:), &
+                           snow_diameter(:,:)
 
       ! Flag to see if we should be doing snow optics. To set this, we can look for
       ! the "snow cloud fraction" on the physics buffer, and if found then set this
@@ -131,21 +139,18 @@ contains
       combined_tau_ssa_f = 0
 
       ! Get ice cloud optics
-      !call pbuf_get_field(pbuf, pbuf_get_index('ICIWP'), iciwp)
-      !call pbuf_get_field(pbuf, pbuf_get_index('DEI'), dei)
       ncol = state%ncol
       call get_ice_optics_sw(state, pbuf, &
                              ice_tau, ice_tau_ssa, &
                              ice_tau_ssa_g, ice_tau_ssa_f)
-      call assert_range(ice_tau(1:nswbands,1:ncol,1:pver), 0._r8, 1e20_r8, &
-                        'get_cloud_optics_sw: ice_tau')
       
       ! Get liquid cloud optics
-      call get_liquid_optics_sw(state, pbuf, &
-                                liquid_tau, liquid_tau_ssa, &
-                                liquid_tau_ssa_g, liquid_tau_ssa_f)
-      call assert_range(liquid_tau(1:nswbands,1:ncol,1:pver), 0._r8, 1e20_r8, &
-                        'get_cloud_optics_sw: liquid_tau')
+      call pbuf_get_field(pbuf, pbuf_get_index('ICLWP')  , cld_liq_path)
+      call pbuf_get_field(pbuf, pbuf_get_index('LAMBDAC'), slope_param )
+      call pbuf_get_field(pbuf, pbuf_get_index('MU')     , shape_param )
+      call get_liquid_optics_sw(cld_liq_path, shape_param, slope_param, &
+                                liquid_tau      , liquid_tau_ssa      , &
+                                liquid_tau_ssa_g, liquid_tau_ssa_f      )
 
       ! Should we do snow optics? Check for existence of "cldfsnow" variable
       ! NOTE: turned off for now...we need to figure out how to adjust the cloud

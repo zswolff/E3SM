@@ -326,31 +326,25 @@ end subroutine get_ice_optics_lw
 
 !==============================================================================
 
-subroutine get_liquid_optics_sw(state, pbuf, tau, tau_w, tau_w_g, tau_w_f)
-   type(physics_state), intent(in)   :: state
-   type(physics_buffer_desc),pointer :: pbuf(:)
+subroutine get_liquid_optics_sw(cld_liq_path, shape_param, slope_param, &
+                                tau, tau_w, tau_w_g, tau_w_f            )
+   real(r8), intent(in)  :: cld_liq_path(:,:)  ! In-cloud liquid water path
+   real(r8), intent(in)  :: shape_param(:,:)   ! size distribution shape param
+   real(r8), intent(in)  :: slope_param(:,:)   ! Size distribution slope param
+   real(r8), intent(out) :: tau    (nswbands,pcols,pver) ! extinction optical depth
+   real(r8), intent(out) :: tau_w  (nswbands,pcols,pver) ! single scattering albedo * tau
+   real(r8), intent(out) :: tau_w_g(nswbands,pcols,pver) ! asymetry parameter * tau * w
+   real(r8), intent(out) :: tau_w_f(nswbands,pcols,pver) ! forward scattered fraction * tau * w
 
-   real(r8),intent(out) :: tau    (nswbands,pcols,pver) ! extinction optical depth
-   real(r8),intent(out) :: tau_w  (nswbands,pcols,pver) ! single scattering albedo * tau
-   real(r8),intent(out) :: tau_w_g(nswbands,pcols,pver) ! asymetry parameter * tau * w
-   real(r8),intent(out) :: tau_w_f(nswbands,pcols,pver) ! forward scattered fraction * tau * w
+   integer :: i, k, ncol
 
-   real(r8), pointer, dimension(:,:) :: lamc, pgam, iclwpth
-   real(r8), dimension(pcols,pver) :: kext
-   integer i,k,swband,lchnk,ncol
-
-   lchnk = state%lchnk
-   ncol = state%ncol
-
-   call pbuf_get_field(pbuf, i_lambda,  lamc)
-   call pbuf_get_field(pbuf, i_mu,      pgam)
-   call pbuf_get_field(pbuf, i_iclwp,   iclwpth)
-
+   ncol = size(cld_liq_path, 1)
    do k = 1,pver
       do i = 1,ncol
-         if(lamc(i,k) > 0._r8) then ! This seems to be clue from microphysics of no cloud
-            call gam_liquid_sw(iclwpth(i,k), lamc(i,k), pgam(i,k), &
-                tau(1:nswbands,i,k), tau_w(1:nswbands,i,k), tau_w_g(1:nswbands,i,k), tau_w_f(1:nswbands,i,k))
+         if(shape_param(i,k) > 0._r8) then ! This seems to be clue from microphysics of no cloud
+            call gam_liquid_sw(cld_liq_path(i,k), slope_param(i,k), shape_param(i,k), &
+                               tau    (1:nswbands,i,k), tau_w  (1:nswbands,i,k)     , &
+                               tau_w_g(1:nswbands,i,k), tau_w_f(1:nswbands,i,k)       )
          else
             tau(1:nswbands,i,k) = 0._r8
             tau_w(1:nswbands,i,k) = 0._r8
