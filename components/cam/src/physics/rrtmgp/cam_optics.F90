@@ -93,10 +93,11 @@ contains
       !                    size(optics_out%optical_depth,2), &
       !                    size(optics_out%optical_depth,3)) :: &
       real(r8), dimension(nswbands,pcols,pver) :: &
-            liquid_tau, liquid_tau_ssa, liquid_tau_ssa_g, liquid_tau_ssa_f, &
-            ice_tau, ice_tau_ssa, ice_tau_ssa_g, ice_tau_ssa_f, &
-            cloud_tau, cloud_tau_ssa, cloud_tau_ssa_g, cloud_tau_ssa_f, &
-            snow_tau, snow_tau_ssa, snow_tau_ssa_g, snow_tau_ssa_f, &
+            liquid_tau  , liquid_ssa      , liquid_g          , liquid_f          , &
+            ice_tau     , ice_ssa         , ice_g             , ice_f             , &
+            snow_tau    , snow_ssa        , snow_g            , snow_f            , &
+            cloud_tau   , cloud_tau_ssa   , cloud_tau_ssa_g   , cloud_tau_ssa_f   , &
+            snow_tau_ssa, snow_tau_ssa_g  ,                                         &
             combined_tau, combined_tau_ssa, combined_tau_ssa_g, combined_tau_ssa_f
 
       ! Pointers to fields on the physics buffer
@@ -121,17 +122,17 @@ contains
 
       ! Initialize
       ice_tau = 0
-      ice_tau_ssa = 0
-      ice_tau_ssa_g = 0
-      ice_tau_ssa_f = 0
+      ice_ssa = 0
+      ice_g = 0
+      ice_f = 0
       liquid_tau = 0
-      liquid_tau_ssa = 0
-      liquid_tau_ssa_g = 0
-      liquid_tau_ssa_f = 0
+      liquid_ssa = 0
+      liquid_g = 0
+      liquid_f = 0
       snow_tau = 0
-      snow_tau_ssa = 0
-      snow_tau_ssa_g = 0
-      snow_tau_ssa_f = 0
+      snow_ssa = 0
+      snow_g = 0
+      snow_f = 0
       combined_tau = 0
       combined_tau_ssa = 0
       combined_tau_ssa_g = 0
@@ -141,17 +142,17 @@ contains
       ncol = state%ncol
       call pbuf_get_field(pbuf, pbuf_get_index('ICIWP'), cld_ice_path)
       call pbuf_get_field(pbuf, pbuf_get_index('DEI')  , ice_diameter)
-      call get_ice_optics_sw(ncol, cld_ice_path, ice_diameter, &
-                             ice_tau, ice_tau_ssa            , &
-                             ice_tau_ssa_g, ice_tau_ssa_f      )
+      call get_ice_optics_sw(ncol   , cld_ice_path, ice_diameter, &
+                             ice_tau, ice_ssa     ,               &
+                             ice_g  , ice_f                       )
       
       ! Get liquid cloud optics
       call pbuf_get_field(pbuf, pbuf_get_index('ICLWP')  , cld_liq_path)
       call pbuf_get_field(pbuf, pbuf_get_index('LAMBDAC'), slope_param )
       call pbuf_get_field(pbuf, pbuf_get_index('MU')     , shape_param )
       call get_liquid_optics_sw(cld_liq_path, shape_param, slope_param, &
-                                liquid_tau      , liquid_tau_ssa      , &
-                                liquid_tau_ssa_g, liquid_tau_ssa_f      )
+                                liquid_tau  , liquid_ssa ,              &
+                                liquid_g    , liquid_f                  )
 
       ! Should we do snow optics? Check for existence of "cldfsnow" variable
       ! NOTE: turned off for now...we need to figure out how to adjust the cloud
@@ -169,16 +170,16 @@ contains
          ! Doing snow optics; call procedure to get these from CAM state and pbuf
          call pbuf_get_field(pbuf, pbuf_get_index('ICSWP'), cld_snow_path)
          call pbuf_get_field(pbuf, pbuf_get_index('DES')  , snow_diameter)
-         call get_ice_optics_sw(ncol, cld_snow_path, snow_diameter, &
-                                snow_tau, snow_tau_ssa            , &
-                                snow_tau_ssa_g, snow_tau_ssa_f      )
+         call get_ice_optics_sw(ncol    , cld_snow_path, snow_diameter, &
+                                snow_tau, snow_ssa     ,                &
+                                snow_g  , snow_f                        )
       else
          ! We are not doing snow optics, so set these to zero so we can still use 
          ! the arrays without additional logic
          snow_tau(:,:,:) = 0.0
-         snow_tau_ssa(:,:,:) = 0.0
-         snow_tau_ssa_g(:,:,:) = 0.0
-         snow_tau_ssa_f(:,:,:) = 0.0
+         snow_ssa(:,:,:) = 0.0
+         snow_g(:,:,:) = 0.0
+         snow_f(:,:,:) = 0.0
       end if
 
       ! Get cloud and snow fractions. This is used to weight the contribution to
@@ -187,22 +188,25 @@ contains
       call pbuf_get_field(pbuf, pbuf_get_index('CLD'), cloud_fraction)
       call pbuf_get_field(pbuf, pbuf_get_index('CLDFSNOW'), snow_fraction)
 
-      ! Combine all cloud optics from CAM routines
+      ! Combine all cloud optics from CAM routines; note we need to calculate products to combine
+      ! cloud optical properties.
       cloud_tau = ice_tau + liquid_tau
-      cloud_tau_ssa = ice_tau_ssa + liquid_tau_ssa
-      cloud_tau_ssa_g = ice_tau_ssa_g + liquid_tau_ssa_g
+      cloud_tau_ssa = ice_tau * ice_ssa + liquid_tau * liquid_ssa
+      cloud_tau_ssa_g = ice_tau * ice_ssa * ice_g + liquid_tau * liquid_ssa * liquid_g
       call combine_properties( &
          nswbands, ncol, pver, &
          cloud_fraction(1:ncol,1:pver), cloud_tau(1:nswbands,1:ncol,1:pver), &
          snow_fraction(1:ncol,1:pver), snow_tau(1:nswbands,1:ncol,1:pver), &
          combined_tau(1:nswbands,1:ncol,1:pver) &
       )
+      snow_tau_ssa = snow_tau * snow_ssa
       call combine_properties( &
          nswbands, ncol, pver, &
          cloud_fraction(1:ncol,1:pver), cloud_tau_ssa(1:nswbands,1:ncol,1:pver), &
          snow_fraction(1:ncol,1:pver), snow_tau_ssa(1:nswbands,1:ncol,1:pver), &
          combined_tau_ssa(1:nswbands,1:ncol,1:pver) &
       )
+      snow_tau_ssa_g = snow_tau_ssa * snow_g
       call combine_properties( &
          nswbands, ncol, pver, &
          cloud_fraction(1:ncol,1:pver), cloud_tau_ssa_g(1:nswbands,1:ncol,1:pver), &
@@ -231,11 +235,11 @@ contains
       end do
 
       ! Check values
-      call assert_range(optics_out%optical_depth, 0._r8, 1e20_r8, &
+      call assert_range(optics_out%optical_depth(:ncol,:pver,:nswbands), 0._r8, 1e20_r8, &
                         'get_cloud_optics_sw: optics_out%optical_depth')
-      call assert_range(optics_out%single_scattering_albedo, 0._r8, 1._r8, &
+      call assert_range(optics_out%single_scattering_albedo(:ncol,:pver,:nswbands), 0._r8, 1._r8, &
                         'get_cloud_optics_sw: optics_out%single_scattering_albedo')
-      call assert_range(optics_out%assymmetry_parameter, -1._r8, 1._r8, &
+      call assert_range(optics_out%assymmetry_parameter(:ncol,:pver,:nswbands), -1._r8, 1._r8, &
                         'get_cloud_optics_sw: optics_out%assymmetry_parameter')
    end subroutine get_cloud_optics_sw
 
