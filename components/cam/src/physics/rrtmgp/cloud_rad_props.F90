@@ -233,76 +233,67 @@ contains
 
    !==============================================================================
 
-   subroutine get_ice_optics_sw(ncol, iciwpth           , dei            ,             &
-                                tau , single_scat_albedo, asymmetry_param, forward_scat)
-       
-     integer , intent(in ) :: ncol                ! Number of columns to operate on
-     real(r8), intent(in ) :: iciwpth(pcols,pver) ! In-cloud ice water path
-     real(r8), intent(in ) :: dei(pcols,pver)     ! Ice effective diameter
-     real(r8), intent(out) :: tau               (nswbands,pcols,pver) ! extinction optical depth
-     real(r8), intent(out) :: single_scat_albedo(nswbands,pcols,pver) ! single scattering albedo * tau
-     real(r8), intent(out) :: asymmetry_param   (nswbands,pcols,pver) ! asymmetry parameter
-     real(r8), intent(out) :: forward_scat      (nswbands,pcols,pver) ! forward scattered fraction
+   subroutine get_ice_optics_sw(ncol, iwp, dei, tau, ssa, asm, fsf)
+                               
+     integer , intent(in ) :: ncol                     ! Number of columns to operate on
+     real(r8), intent(in ) :: iwp(pcols,pver)          ! In-cloud ice water path
+     real(r8), intent(in ) :: dei(pcols,pver)          ! Ice effective diameter
+     real(r8), intent(out) :: tau(nswbands,pcols,pver) ! extinction optical depth
+     real(r8), intent(out) :: ssa(nswbands,pcols,pver) ! single scattering albedo * tau
+     real(r8), intent(out) :: asm(nswbands,pcols,pver) ! asymmetry parameter
+     real(r8), intent(out) :: fsf(nswbands,pcols,pver) ! forward scattered fraction
 
      type(interp_type) :: dei_wgts
-
      integer :: i, k, swband
-     real(r8) :: ext(nswbands), ssa(nswbands), asm(nswbands)
 
      do k = 1,pver
         do i = 1,ncol
-           if( iciwpth(i,k) < 1.e-80_r8 .or. dei(i,k) == 0._r8) then
-              ! if ice water path is too small, OD := 0
-              tau               (:,i,k) = 0._r8
-              single_scat_albedo(:,i,k) = 0._r8
-              asymmetry_param   (:,i,k) = 0._r8
-              forward_scat      (:,i,k) = 0._r8
+           if( iwp(i,k) < 1.e-80_r8 .or. dei(i,k) == 0._r8) then
+               ! if ice water path is too small, OD := 0
+               tau(:,i,k) = 0._r8
+               ssa(:,i,k) = 0._r8
+               asm(:,i,k) = 0._r8
+               fsf(:,i,k) = 0._r8
            else
-              ! for each cell interpolate to find weights in g_d_eff grid.
-              call lininterp_init(g_d_eff, n_g_d, dei(i:i,k), 1, &
-                                  extrap_method_bndry, dei_wgts)
-              ! interpolate into grid and extract radiative properties
-              do swband = 1, nswbands
-                 call lininterp(ext_sw_ice(:,swband), n_g_d, &
-                                ext(swband:swband), 1, dei_wgts)
-                 call lininterp(ssa_sw_ice(:,swband), n_g_d, &
-                                ssa(swband:swband), 1, dei_wgts)
-                 call lininterp(asm_sw_ice(:,swband), n_g_d, &
-                                asm(swband:swband), 1, dei_wgts)
-              end do
+               ! for each cell interpolate to find weights in g_d_eff grid.
+               call lininterp_init(g_d_eff, n_g_d, dei(i:i,k), 1, &
+                                   extrap_method_bndry, dei_wgts)
+               ! interpolate into grid and extract radiative properties
+               do swband = 1, nswbands
+                  call lininterp(ext_sw_ice(:,swband), n_g_d, &
+                                 tau(swband:swband,i,k), 1, dei_wgts)
+                  call lininterp(ssa_sw_ice(:,swband), n_g_d, &
+                                 ssa(swband:swband,i,k), 1, dei_wgts)
+                  call lininterp(asm_sw_ice(:,swband), n_g_d, &
+                                 asm(swband:swband,i,k), 1, dei_wgts)
+                  tau(swband,i,k) = iwp(i,k) * tau(swband,i,k)
+                  fsf(swband,i,k) = asm(swband,i,k) * asm(swband,i,k)
+               end do
 
-              ! copy to output arrays
-              tau               (:,i,k) = iciwpth(i,k) * ext
-              single_scat_albedo(:,i,k) = ssa
-              asymmetry_param   (:,i,k) = asm
-              forward_scat      (:,i,k) = asm * asm
-
-              ! finalize interpolation
-              call lininterp_finish(dei_wgts)
-           end if
-        end do
-     end do
+               ! finalize interpolation
+               call lininterp_finish(dei_wgts)
+            end if
+         end do
+      end do
 
    end subroutine get_ice_optics_sw
 
    !============================================================================
 
-   subroutine get_ice_optics_lw(ncol, iciwpth, dei, abs_od)
+   subroutine get_ice_optics_lw(ncol, iwp, dei, abs_od)
 
-      integer , intent(in) :: ncol
-      real(r8), intent(in) :: iciwpth(pcols,pver)
-      real(r8), intent(in) :: dei(pcols,pver)
-      real(r8),intent(out) :: abs_od(nlwbands,pcols,pver)
+      integer , intent(in)  :: ncol                        ! Number of columns to operate on
+      real(r8), intent(in)  :: iwp(pcols,pver)             ! In-cloud ice water path
+      real(r8), intent(in)  :: dei(pcols,pver)             ! Ice effective diameter
+      real(r8), intent(out) :: abs_od(nlwbands,pcols,pver) ! Absorption optical depth
  
       type(interp_type) :: dei_wgts
- 
       integer :: i, k, lwband
-      real(r8) :: absor(nlwbands)
  
       do k = 1,pver
          do i = 1,ncol
             ! if ice water path is too small, OD := 0
-            if( iciwpth(i,k) < 1.e-80_r8 .or. dei(i,k) == 0._r8) then
+            if( iwp(i,k) < 1.e-80_r8 .or. dei(i,k) == 0._r8) then
                abs_od (:,i,k) = 0._r8
             else
                ! for each cell interpolate to find weights in g_d_eff grid.
@@ -311,9 +302,9 @@ contains
                ! interpolate into grid and extract radiative properties
                do lwband = 1, nlwbands
                   call lininterp(abs_lw_ice(:,lwband), n_g_d, &
-                                 absor(lwband:lwband), 1, dei_wgts)
+                                 abs_od(lwband:lwband,i,k), 1, dei_wgts)
+                  abs_od(lwband,i,k) = iwp(i,k) * abs_od(lwband,i,k)
                end do
-               abs_od(:,i,k) = iciwpth(i,k) * absor
                call lininterp_finish(dei_wgts)
             end if
          end do
@@ -323,30 +314,41 @@ contains
 
    !============================================================================
 
-   subroutine get_liquid_optics_sw(ncol, cld_liq_path      , shape_param    , slope_param , &
-                                   tau , single_scat_albedo, asymmetry_param, forward_scat  )
-      integer , intent(in)  :: ncol
-      real(r8), intent(in)  :: cld_liq_path(:,:)  ! In-cloud liquid water path
-      real(r8), intent(in)  :: shape_param(:,:)   ! size distribution shape param
-      real(r8), intent(in)  :: slope_param(:,:)   ! Size distribution slope param
-      real(r8), intent(out) :: tau               (nswbands,pcols,pver) ! extinction optical depth
-      real(r8), intent(out) :: single_scat_albedo(nswbands,pcols,pver) ! single scattering albedo * tau
-      real(r8), intent(out) :: asymmetry_param   (nswbands,pcols,pver) ! asymetry parameter * tau * w
-      real(r8), intent(out) :: forward_scat      (nswbands,pcols,pver) ! forward scattered fraction * tau * w
+   subroutine get_liquid_optics_sw(ncol, lwp, mu, lambda, tau, ssa, asm, fsf)
 
-      integer :: i, k
+      integer , intent(in)  :: ncol         ! Number of columns to operate on
+      real(r8), intent(in)  :: lwp(:,:)     ! In-cloud liquid water path
+      real(r8), intent(in)  :: mu(:,:)      ! size distribution shape param
+      real(r8), intent(in)  :: lambda(:,:)  ! Size distribution slope param
+      real(r8), intent(out) :: tau(nswbands,pcols,pver) ! extinction optical depth
+      real(r8), intent(out) :: ssa(nswbands,pcols,pver) ! single scattering albedo
+      real(r8), intent(out) :: asm(nswbands,pcols,pver) ! asymetry parameter
+      real(r8), intent(out) :: fsf(nswbands,pcols,pver) ! forward scattered fraction
+
+      integer :: i, k, swband
+      type(interp_type) :: mu_wgts
+      type(interp_type) :: lambda_wgts
 
       do k = 1,pver
          do i = 1,ncol
-            if(shape_param(i,k) > 0._r8) then ! This seems to be clue from microphysics of no cloud
-               call gam_liquid_sw(cld_liq_path(i,k), slope_param(i,k), shape_param(i,k)              , &
-                                  tau            (1:nswbands,i,k), single_scat_albedo(1:nswbands,i,k), &
-                                  asymmetry_param(1:nswbands,i,k), forward_scat      (1:nswbands,i,k)  )
+            if(mu(i,k) > 0._r8 .and. lwp(i,k) > 0._r8) then ! This seems to be clue from microphysics of no cloud
+               call get_mu_lambda_weights(lambda(i,k), mu(i,k), mu_wgts, lambda_wgts)
+               do swband = 1,nswbands
+                  call lininterp(ext_sw_liq(:,:,swband), nmu, nlambda, &
+                                 tau(swband:swband,i,k), 1, mu_wgts, lambda_wgts)
+                  call lininterp(ssa_sw_liq(:,:,swband), nmu, nlambda, &
+                                 ssa(swband:swband,i,k), 1, mu_wgts, lambda_wgts)
+                  call lininterp(asm_sw_liq(:,:,swband), nmu, nlambda, &
+                                 asm(swband:swband,i,k), 1, mu_wgts, lambda_wgts)
+                  tau(swband,i,k) = lwp(i,k) * tau(swband,i,k)
+                  fsf(swband,i,k) = asm(swband,i,k) * asm(swband,i,k)
+               end do
+               call lininterp_finish(mu_wgts)
+               call lininterp_finish(lambda_wgts)
             else
-               tau               (1:nswbands,i,k) = 0._r8
-               single_scat_albedo(1:nswbands,i,k) = 0._r8
-               asymmetry_param   (1:nswbands,i,k) = 0._r8
-               forward_scat      (1:nswbands,i,k) = 0._r8
+               tau(1:nswbands,i,k) = 0._r8
+               ssa(1:nswbands,i,k) = 0._r8
+               asm(1:nswbands,i,k) = 0._r8
             end if
          end do
       end do
@@ -355,13 +357,16 @@ contains
 
    !============================================================================
 
-   subroutine get_liquid_optics_lw(ncol, cld_liq_path, shape_param, slope_param, abs_od)
-      integer , intent(in)  :: ncol
-      real(r8), intent(in)  :: cld_liq_path(:,:)  ! In-cloud liquid water path
-      real(r8), intent(in)  :: shape_param(:,:)   ! size distribution shape param
-      real(r8), intent(in)  :: slope_param(:,:)   ! Size distribution slope param
+   subroutine get_liquid_optics_lw(ncol, lwp, mu, lambda, abs_od)
+
+      integer , intent(in)  :: ncol         ! Number of columns to operate on
+      real(r8), intent(in)  :: lwp(:,:)     ! In-cloud liquid water path
+      real(r8), intent(in)  :: mu(:,:)      ! Size distribution shape param
+      real(r8), intent(in)  :: lambda(:,:)  ! Size distribution slope param
       real(r8), intent(out) :: abs_od(nlwbands,pcols,pver)  ! Absorption optical depth
-      integer lwband, i, k
+      integer :: lwband, i, k
+      type(interp_type) :: mu_wgts
+      type(interp_type) :: lambda_wgts
 
       ! Initialize outputs to zero; need to do this to zero out all pcols in the
       ! event that ncol < pcols, since we only operate over ncol columns of pcols.
@@ -369,101 +374,29 @@ contains
 
       do k = 1,pver
          do i = 1,ncol
-            if(slope_param(i,k) > 0._r8) then ! This seems to be the clue for no cloud from microphysics formulation
-               call gam_liquid_lw(cld_liq_path(i,k), slope_param(i,k), shape_param(i,k), abs_od(1:nlwbands,i,k))
+            if(lambda(i,k) > 0._r8 .and. lwp(i,k) > 0._r8) then ! This seems to be the clue for no cloud from microphysics formulation
+               call get_mu_lambda_weights(lambda(i,k), mu(i,k), mu_wgts, lambda_wgts)
+               do lwband = 1,nlwbands
+                  call lininterp(abs_lw_liq(:,:,lwband), nmu, nlambda, &
+                                 abs_od(lwband:lwband,i,k), 1, mu_wgts, lambda_wgts)
+                  abs_od(lwband,i,k) = lwp(i,k) * abs_od(lwband,i,k)
+               end do
+               call lininterp_finish(mu_wgts)
+               call lininterp_finish(lambda_wgts)
             else
                abs_od(1:nlwbands,i,k) = 0._r8
             end if
          end do
       end do
+
    end subroutine get_liquid_optics_lw
 
    !============================================================================
    ! Private methods
    !============================================================================
 
-   subroutine gam_liquid_lw(clwptn, lamc, pgam, abs_od)
-      real(r8), intent(in) :: clwptn ! cloud water liquid path new (in cloud) (in g/m^2)?
-      real(r8), intent(in) :: lamc   ! prognosed value of lambda for cloud
-      real(r8), intent(in) :: pgam   ! prognosed value of mu for cloud
-      real(r8), intent(out) :: abs_od(1:nlwbands)
- 
-      integer :: lwband ! sw band index
- 
-      type(interp_type) :: mu_wgts
-      type(interp_type) :: lambda_wgts
- 
-      if (clwptn < 1.e-80_r8) then
-        abs_od = 0._r8
-        return
-      end if
- 
-      call get_mu_lambda_weights(lamc, pgam, mu_wgts, lambda_wgts)
- 
-      do lwband = 1, nlwbands
-         call lininterp(abs_lw_liq(:,:,lwband), nmu, nlambda, &
-                        abs_od(lwband:lwband), 1, mu_wgts, lambda_wgts)
-      end do
- 
-      abs_od = clwptn * abs_od
- 
-      call lininterp_finish(mu_wgts)
-      call lininterp_finish(lambda_wgts)
- 
-   end subroutine gam_liquid_lw
-
-   !============================================================================
-
-   subroutine gam_liquid_sw(clwptn, lamc, pgam, &
-                            tau, single_scat_albedo, asymmetry_param, forward_scat)
-      real(r8), intent(in) :: clwptn ! cloud water liquid path new (in cloud) (in g/m^2)?
-      real(r8), intent(in) :: lamc   ! prognosed value of lambda for cloud
-      real(r8), intent(in) :: pgam   ! prognosed value of mu for cloud
-      real(r8), intent(out) :: tau               (1:nswbands), &
-                               single_scat_albedo(1:nswbands), &
-                               asymmetry_param   (1:nswbands), &
-                               forward_scat      (1:nswbands)
- 
-      integer :: swband ! sw band index
- 
-      real(r8) :: ext(nswbands), ssa(nswbands), asm(nswbands)
- 
-      type(interp_type) :: mu_wgts
-      type(interp_type) :: lambda_wgts
- 
-      if (clwptn < 1.e-80_r8) then
-        tau                = 0._r8
-        single_scat_albedo = 0._r8
-        asymmetry_param    = 0._r8
-        forward_scat       = 0._r8
-        return
-      end if
- 
-      call get_mu_lambda_weights(lamc, pgam, mu_wgts, lambda_wgts)
- 
-      do swband = 1, nswbands
-         call lininterp(ext_sw_liq(:,:,swband), nmu, nlambda, &
-                        ext(swband:swband), 1, mu_wgts, lambda_wgts)
-         call lininterp(ssa_sw_liq(:,:,swband), nmu, nlambda, &
-                        ssa(swband:swband), 1, mu_wgts, lambda_wgts)
-         call lininterp(asm_sw_liq(:,:,swband), nmu, nlambda, &
-                        asm(swband:swband), 1, mu_wgts, lambda_wgts)
-      end do
- 
-      ! copy to output arrays
-      tau                = clwptn * ext
-      single_scat_albedo = ssa
-      asymmetry_param    = asm
-      forward_scat       = asm * asm
- 
-      call lininterp_finish(mu_wgts)
-      call lininterp_finish(lambda_wgts)
- 
-   end subroutine gam_liquid_sw
-
-   !============================================================================
-
    subroutine get_mu_lambda_weights(lamc, pgam, mu_wgts, lambda_wgts)
+
       real(r8), intent(in) :: lamc   ! prognosed value of lambda for cloud
       real(r8), intent(in) :: pgam   ! prognosed value of mu for cloud
       ! Output interpolation weights. Caller is responsible for freeing these.
@@ -478,7 +411,7 @@ contains
       call lininterp_init(g_mu, nmu, [pgam], 1, extrap_method_bndry, mu_wgts)
  
       ! Use mu weights to interpolate to a row in the lambda table.
-      do ilambda = 1, nlambda
+      do ilambda = 1,nlambda
          call lininterp(g_lambda(:,ilambda), nmu, &
                         g_lambda_interp(ilambda:ilambda), 1, mu_wgts)
       end do
