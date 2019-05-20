@@ -145,14 +145,13 @@ contains
       call get_ice_optics_sw(ncol   , cld_ice_path, ice_diameter, &
                              ice_tau, ice_ssa     ,               &
                              ice_g  , ice_f                       )
-      
+
       ! Get liquid cloud optics
       call pbuf_get_field(pbuf, pbuf_get_index('ICLWP')  , cld_liq_path)
       call pbuf_get_field(pbuf, pbuf_get_index('LAMBDAC'), slope_param )
       call pbuf_get_field(pbuf, pbuf_get_index('MU')     , shape_param )
-      call get_liquid_optics_sw(cld_liq_path, shape_param, slope_param, &
-                                liquid_tau  , liquid_ssa ,              &
-                                liquid_g    , liquid_f                  )
+      call get_liquid_optics_sw(ncol      , cld_liq_path, shape_param, slope_param, &
+                                liquid_tau, liquid_ssa  , liquid_g   , liquid_f     )
 
       ! Should we do snow optics? Check for existence of "cldfsnow" variable
       ! NOTE: turned off for now...we need to figure out how to adjust the cloud
@@ -170,9 +169,8 @@ contains
          ! Doing snow optics; call procedure to get these from CAM state and pbuf
          call pbuf_get_field(pbuf, pbuf_get_index('ICSWP'), cld_snow_path)
          call pbuf_get_field(pbuf, pbuf_get_index('DES')  , snow_diameter)
-         call get_ice_optics_sw(ncol    , cld_snow_path, snow_diameter, &
-                                snow_tau, snow_ssa     ,                &
-                                snow_g  , snow_f                        )
+         call get_ice_optics_sw(ncol    , cld_snow_path, snow_diameter,       &
+                                snow_tau, snow_ssa     , snow_g       , snow_f)
       else
          ! We are not doing snow optics, so set these to zero so we can still use 
          ! the arrays without additional logic
@@ -298,7 +296,7 @@ contains
       call pbuf_get_field(pbuf, pbuf_get_index('ICLWP')  , cld_liq_path)
       call pbuf_get_field(pbuf, pbuf_get_index('LAMBDAC'), slope_param )
       call pbuf_get_field(pbuf, pbuf_get_index('MU')     , shape_param )
-      call get_liquid_optics_lw(cld_liq_path, shape_param, slope_param, liq_tau)
+      call get_liquid_optics_lw(ncol, cld_liq_path, shape_param, slope_param, liq_tau)
 
       ! Get snow optics? Just interpolates using the ice tables, so we call the
       ! same routine as above but with snow water path and snow diameter

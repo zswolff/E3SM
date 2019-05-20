@@ -233,8 +233,8 @@ contains
 
    !==============================================================================
 
-   subroutine get_ice_optics_sw(ncol, iciwpth, dei, &
-                                tau, single_scat_albedo, asymmetry_param, forward_scat)
+   subroutine get_ice_optics_sw(ncol, iciwpth           , dei            ,             &
+                                tau , single_scat_albedo, asymmetry_param, forward_scat)
        
      integer , intent(in ) :: ncol                ! Number of columns to operate on
      real(r8), intent(in ) :: iciwpth(pcols,pver) ! In-cloud ice water path
@@ -289,10 +289,9 @@ contains
 
    subroutine get_ice_optics_lw(ncol, iciwpth, dei, abs_od)
 
-      integer, intent(in) :: ncol
+      integer , intent(in) :: ncol
       real(r8), intent(in) :: iciwpth(pcols,pver)
       real(r8), intent(in) :: dei(pcols,pver)
- 
       real(r8),intent(out) :: abs_od(nlwbands,pcols,pver)
  
       type(interp_type) :: dei_wgts
@@ -324,8 +323,9 @@ contains
 
    !============================================================================
 
-   subroutine get_liquid_optics_sw(cld_liq_path, shape_param, slope_param, &
-                                   tau, single_scat_albedo, asymmetry_param, forward_scat)
+   subroutine get_liquid_optics_sw(ncol, cld_liq_path      , shape_param    , slope_param , &
+                                   tau , single_scat_albedo, asymmetry_param, forward_scat  )
+      integer , intent(in)  :: ncol
       real(r8), intent(in)  :: cld_liq_path(:,:)  ! In-cloud liquid water path
       real(r8), intent(in)  :: shape_param(:,:)   ! size distribution shape param
       real(r8), intent(in)  :: slope_param(:,:)   ! Size distribution slope param
@@ -334,9 +334,8 @@ contains
       real(r8), intent(out) :: asymmetry_param   (nswbands,pcols,pver) ! asymetry parameter * tau * w
       real(r8), intent(out) :: forward_scat      (nswbands,pcols,pver) ! forward scattered fraction * tau * w
 
-      integer :: i, k, ncol
+      integer :: i, k
 
-      ncol = size(cld_liq_path, 1)
       do k = 1,pver
          do i = 1,ncol
             if(shape_param(i,k) > 0._r8) then ! This seems to be clue from microphysics of no cloud
@@ -356,19 +355,18 @@ contains
 
    !============================================================================
 
-   subroutine get_liquid_optics_lw(cld_liq_path, shape_param, slope_param, abs_od)
+   subroutine get_liquid_optics_lw(ncol, cld_liq_path, shape_param, slope_param, abs_od)
+      integer , intent(in)  :: ncol
       real(r8), intent(in)  :: cld_liq_path(:,:)  ! In-cloud liquid water path
       real(r8), intent(in)  :: shape_param(:,:)   ! size distribution shape param
       real(r8), intent(in)  :: slope_param(:,:)   ! Size distribution slope param
       real(r8), intent(out) :: abs_od(nlwbands,pcols,pver)  ! Absorption optical depth
-      integer :: ncol
       integer lwband, i, k
 
       ! Initialize outputs to zero; need to do this to zero out all pcols in the
       ! event that ncol < pcols, since we only operate over ncol columns of pcols.
       abs_od = 0._r8
 
-      ncol = size(cld_liq_path, 1)
       do k = 1,pver
          do i = 1,ncol
             if(slope_param(i,k) > 0._r8) then ! This seems to be the clue for no cloud from microphysics formulation
