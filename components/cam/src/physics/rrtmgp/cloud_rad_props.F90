@@ -234,27 +234,27 @@ contains
 
    subroutine get_ice_optics_sw(ncol, nlev, iwp, dei, tau, ssa, asm, fsf)
                                
-     integer , intent(in)  :: ncol       ! Number of columns to operate on
-     integer , intent(in)  :: nlev       ! Number of levels to operate on
-     real(r8), intent(in ) :: iwp(:,:)   ! In-cloud ice water path
-     real(r8), intent(in ) :: dei(:,:)   ! Ice effective diameter
-     real(r8), intent(out) :: tau(:,:,:) ! extinction optical depth
-     real(r8), intent(out) :: ssa(:,:,:) ! single scattering albedo * tau
-     real(r8), intent(out) :: asm(:,:,:) ! asymmetry parameter
-     real(r8), intent(out) :: fsf(:,:,:) ! forward scattered fraction
+      integer , intent(in)  :: ncol       ! Number of columns to operate on
+      integer , intent(in)  :: nlev       ! Number of levels to operate on
+      real(r8), intent(in ) :: iwp(:,:)   ! In-cloud ice water path
+      real(r8), intent(in ) :: dei(:,:)   ! Ice effective diameter
+      real(r8), intent(out) :: tau(:,:,:) ! extinction optical depth
+      real(r8), intent(out) :: ssa(:,:,:) ! single scattering albedo * tau
+      real(r8), intent(out) :: asm(:,:,:) ! asymmetry parameter
+      real(r8), intent(out) :: fsf(:,:,:) ! forward scattered fraction
 
-     type(interp_type) :: dei_wgts
-     integer :: i, k, swband
+      type(interp_type) :: dei_wgts
+      integer :: i, k, swband
 
-     do k = 1,nlev
-        do i = 1,ncol
-           if( iwp(i,k) < 1.e-80_r8 .or. dei(i,k) == 0._r8) then
+      do k = 1,nlev
+         do i = 1,ncol
+            if( iwp(i,k) < 1.e-80_r8 .or. dei(i,k) == 0._r8) then
                ! if ice water path is too small, OD := 0
                tau(:,i,k) = 0._r8
                ssa(:,i,k) = 0._r8
                asm(:,i,k) = 0._r8
                fsf(:,i,k) = 0._r8
-           else
+            else
                ! for each cell interpolate to find weights in g_d_eff grid.
                call lininterp_init(g_d_eff, n_g_d, dei(i:i,k), 1, &
                                    extrap_method_bndry, dei_wgts)
