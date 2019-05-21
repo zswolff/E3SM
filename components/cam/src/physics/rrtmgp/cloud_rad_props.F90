@@ -3,7 +3,6 @@ module cloud_rad_props
    !----------------------------------------------------------------------------
 
    use shr_kind_mod,     only: r8 => shr_kind_r8
-   use ppgrid,           only: pcols, pver
    use physics_types,    only: physics_state
    use radconstants,     only: nswbands, nlwbands
    use rad_constituents, only: iceopticsfile, liqopticsfile
@@ -233,20 +232,21 @@ contains
 
    !==============================================================================
 
-   subroutine get_ice_optics_sw(ncol, iwp, dei, tau, ssa, asm, fsf)
+   subroutine get_ice_optics_sw(ncol, nlev, iwp, dei, tau, ssa, asm, fsf)
                                
-     integer , intent(in ) :: ncol                     ! Number of columns to operate on
-     real(r8), intent(in ) :: iwp(pcols,pver)          ! In-cloud ice water path
-     real(r8), intent(in ) :: dei(pcols,pver)          ! Ice effective diameter
-     real(r8), intent(out) :: tau(nswbands,pcols,pver) ! extinction optical depth
-     real(r8), intent(out) :: ssa(nswbands,pcols,pver) ! single scattering albedo * tau
-     real(r8), intent(out) :: asm(nswbands,pcols,pver) ! asymmetry parameter
-     real(r8), intent(out) :: fsf(nswbands,pcols,pver) ! forward scattered fraction
+     integer , intent(in)  :: ncol       ! Number of columns to operate on
+     integer , intent(in)  :: nlev       ! Number of levels to operate on
+     real(r8), intent(in ) :: iwp(:,:)   ! In-cloud ice water path
+     real(r8), intent(in ) :: dei(:,:)   ! Ice effective diameter
+     real(r8), intent(out) :: tau(:,:,:) ! extinction optical depth
+     real(r8), intent(out) :: ssa(:,:,:) ! single scattering albedo * tau
+     real(r8), intent(out) :: asm(:,:,:) ! asymmetry parameter
+     real(r8), intent(out) :: fsf(:,:,:) ! forward scattered fraction
 
      type(interp_type) :: dei_wgts
      integer :: i, k, swband
 
-     do k = 1,pver
+     do k = 1,nlev
         do i = 1,ncol
            if( iwp(i,k) < 1.e-80_r8 .or. dei(i,k) == 0._r8) then
                ! if ice water path is too small, OD := 0
@@ -280,17 +280,18 @@ contains
 
    !============================================================================
 
-   subroutine get_ice_optics_lw(ncol, iwp, dei, abs_od)
+   subroutine get_ice_optics_lw(ncol, nlev, iwp, dei, abs_od)
 
-      integer , intent(in)  :: ncol                        ! Number of columns to operate on
-      real(r8), intent(in)  :: iwp(pcols,pver)             ! In-cloud ice water path
-      real(r8), intent(in)  :: dei(pcols,pver)             ! Ice effective diameter
-      real(r8), intent(out) :: abs_od(nlwbands,pcols,pver) ! Absorption optical depth
+      integer , intent(in)  :: ncol          ! Number of columns to operate on
+      integer , intent(in)  :: nlev          ! Number of levels to operate on
+      real(r8), intent(in)  :: iwp(:,:)      ! In-cloud ice water path
+      real(r8), intent(in)  :: dei(:,:)      ! Ice effective diameter
+      real(r8), intent(out) :: abs_od(:,:,:) ! Absorption optical depth
  
       type(interp_type) :: dei_wgts
       integer :: i, k, lwband
  
-      do k = 1,pver
+      do k = 1,nlev
          do i = 1,ncol
             ! if ice water path is too small, OD := 0
             if( iwp(i,k) < 1.e-80_r8 .or. dei(i,k) == 0._r8) then
@@ -314,22 +315,23 @@ contains
 
    !============================================================================
 
-   subroutine get_liquid_optics_sw(ncol, lwp, mu, lambda, tau, ssa, asm, fsf)
+   subroutine get_liquid_optics_sw(ncol, nlev, lwp, mu, lambda, tau, ssa, asm, fsf)
 
       integer , intent(in)  :: ncol         ! Number of columns to operate on
+      integer , intent(in)  :: nlev         ! Number of levels to operate on
       real(r8), intent(in)  :: lwp(:,:)     ! In-cloud liquid water path
       real(r8), intent(in)  :: mu(:,:)      ! size distribution shape param
       real(r8), intent(in)  :: lambda(:,:)  ! Size distribution slope param
-      real(r8), intent(out) :: tau(nswbands,pcols,pver) ! extinction optical depth
-      real(r8), intent(out) :: ssa(nswbands,pcols,pver) ! single scattering albedo
-      real(r8), intent(out) :: asm(nswbands,pcols,pver) ! asymetry parameter
-      real(r8), intent(out) :: fsf(nswbands,pcols,pver) ! forward scattered fraction
+      real(r8), intent(out) :: tau(:,:,:)   ! extinction optical depth
+      real(r8), intent(out) :: ssa(:,:,:)   ! single scattering albedo
+      real(r8), intent(out) :: asm(:,:,:)   ! asymetry parameter
+      real(r8), intent(out) :: fsf(:,:,:)   ! forward scattered fraction
 
       integer :: i, k, swband
       type(interp_type) :: mu_wgts
       type(interp_type) :: lambda_wgts
 
-      do k = 1,pver
+      do k = 1,nlev
          do i = 1,ncol
             if(mu(i,k) > 0._r8 .and. lwp(i,k) > 0._r8) then ! This seems to be clue from microphysics of no cloud
                call get_mu_lambda_weights(lambda(i,k), mu(i,k), mu_wgts, lambda_wgts)
@@ -357,22 +359,22 @@ contains
 
    !============================================================================
 
-   subroutine get_liquid_optics_lw(ncol, lwp, mu, lambda, abs_od)
+   subroutine get_liquid_optics_lw(ncol, nlev, lwp, mu, lambda, abs_od)
 
-      integer , intent(in)  :: ncol         ! Number of columns to operate on
-      real(r8), intent(in)  :: lwp(:,:)     ! In-cloud liquid water path
-      real(r8), intent(in)  :: mu(:,:)      ! Size distribution shape param
-      real(r8), intent(in)  :: lambda(:,:)  ! Size distribution slope param
-      real(r8), intent(out) :: abs_od(nlwbands,pcols,pver)  ! Absorption optical depth
+      integer , intent(in)  :: ncol          ! Number of columns to operate on
+      integer , intent(in)  :: nlev          ! Number of levels to operate on
+      real(r8), intent(in)  :: lwp(:,:)      ! In-cloud liquid water path
+      real(r8), intent(in)  :: mu(:,:)       ! Size distribution shape param
+      real(r8), intent(in)  :: lambda(:,:)   ! Size distribution slope param
+      real(r8), intent(out) :: abs_od(:,:,:) ! Absorption optical depth
       integer :: lwband, i, k
       type(interp_type) :: mu_wgts
       type(interp_type) :: lambda_wgts
 
-      ! Initialize outputs to zero; need to do this to zero out all pcols in the
-      ! event that ncol < pcols, since we only operate over ncol columns of pcols.
+      ! Initialize outputs to zero
       abs_od = 0._r8
 
-      do k = 1,pver
+      do k = 1,nlev
          do i = 1,ncol
             if(lambda(i,k) > 0._r8 .and. lwp(i,k) > 0._r8) then ! This seems to be the clue for no cloud from microphysics formulation
                call get_mu_lambda_weights(lambda(i,k), mu(i,k), mu_wgts, lambda_wgts)
