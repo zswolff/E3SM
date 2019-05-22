@@ -149,6 +149,9 @@ contains
       cloud_tau = ice_tau + liquid_tau
       cloud_tau_ssa = ice_tau * ice_ssa + liquid_tau * liquid_ssa
       cloud_tau_ssa_g = ice_tau * ice_ssa * ice_g + liquid_tau * liquid_ssa * liquid_g
+
+      !call combine_optics_sw(cloud_fraction, cloud_tau, cloud_ssa, cloud_g, &
+      !                       snow_fraction , snow_tau , snow_ssa , snow_g , )
       call combine_properties( &
          nswbands, ncol, pver, &
          cloud_fraction(1:ncol,1:pver), cloud_tau(1:nswbands,1:ncol,1:pver), &
@@ -372,6 +375,7 @@ contains
       logical, allocatable :: iscloudy(:,:,:)
 
       real(r8) :: tau(pcols,pver,nswbands), ssa(pcols,pver,nswbands), asm(pcols,pver,nswbands)
+      real(r8), dimension(:,:,:), allocatable :: tau_gpt, ssa_gpt, asm_gpt
 
       ! Loop variables
       integer :: icol, ilev, igpt, iband, iday, ilev_cam, ilev_rad
@@ -410,11 +414,6 @@ contains
       ! Send in-cloud optical depth for visible band to history buffer
       call output_cloud_optics_sw(state, tau, ssa, asm)
 
-      ! Initialize (or reset) output cloud optics object
-      optics_out%tau = 0.0
-      optics_out%ssa = 1.0
-      optics_out%g = 0.0
-
       ! Set pointer to cloud fraction; this is used by McICA routines
       ! TODO: why the extra arguments to pbuf_get_field here? Are these necessary?
       !call pbuf_get_field(pbuf, pbuf_get_index('CLD'), cloud_fraction, &
@@ -434,43 +433,37 @@ contains
                              combined_cloud_fraction(1:ncol,1:pver), &
                              iscloudy(1:ngpt,1:ncol,1:pver))
       
-      ! -- generate subcolumns for homogeneous clouds -----
-      ! where there is a cloud, set the subcolumn cloud properties;
+      ! Map bands to gpts
+      allocate(tau_gpt(ncol,pver,ngpt), ssa_gpt(ncol,pver,ngpt), asm_gpt(ncol,pver,ngpt))
+      call mcica_bands_to_gpoints(kdist, iscloudy, tau, tau_gpt)
+      call mcica_bands_to_gpoints(kdist, iscloudy, ssa, ssa_gpt)
+      call mcica_bands_to_gpoints(kdist, iscloudy, asm, asm_gpt)
+
+      ! Map to rad levels
       optics_out%tau(:,:,:) = 0
       optics_out%ssa(:,:,:) = 1
       optics_out%g(:,:,:) = 0
-      do ilev_cam = 1,pver  ! Loop over indices on the CAM grid
+      do igpt = 1,ngpt
+         do ilev_cam = 1,pver  ! Loop over indices on the CAM grid
 
-         ! Index to radiation grid
-         ilev_rad = ilev_cam + (nlev_rad - pver)
+            ! Index to radiation grid
+            ilev_rad = ilev_cam + (nlev_rad - pver)
 
-         ! Loop over columns and map CAM columns to those on radiation grid
-         ! (daytime-only columns)
-         do iday = 1,size(day_indices)
+            ! Loop over columns and map CAM columns to those on radiation grid
+            ! (daytime-only columns)
+            do iday = 1,size(day_indices)
 
-            ! Map daytime to column indices
-            icol = day_indices(iday)
+               ! Map daytime to column indices
+               icol = day_indices(iday)
 
-            ! Loop over g-points and map bands to g-points; each subcolumn
-            ! corresponds to a single g-point. This is how this code implements the
-            ! McICA assumptions: simultaneously sampling over cloud state and
-            ! g-point.
-            do igpt = 1,ngpt
-               if (iscloudy(igpt,icol,ilev_cam) .and. &
-                   combined_cloud_fraction(icol,ilev_cam) > 0._r8) then
-               
-                  iband = kdist%convert_gpt2band(igpt)
-                  optics_out%tau(iday,ilev_rad,igpt) = tau(icol,ilev_cam,iband)
-                  optics_out%ssa(iday,ilev_rad,igpt) = ssa(icol,ilev_cam,iband)
-                  optics_out%g(iday,ilev_rad,igpt)   = asm(icol,ilev_cam,iband)
-               else
-                  optics_out%tau(iday,ilev_rad,igpt) = 0._r8
-                  optics_out%ssa(iday,ilev_rad,igpt) = 1._r8
-                  optics_out%g(iday,ilev_rad,igpt) = 0._r8
-               end if
-            end do  ! igpt
-         end do  ! iday
-      end do  ! ilev_cam
+               optics_out%tau(iday,ilev_rad,igpt) = tau_gpt(icol,ilev_cam,igpt)
+               optics_out%ssa(iday,ilev_rad,igpt) = ssa_gpt(icol,ilev_cam,igpt)
+               optics_out%g(iday,ilev_rad,igpt)   = asm_gpt(icol,ilev_cam,igpt)
+
+            end do  ! iday
+         end do  ! ilev_cam
+      end do  ! igpt
+      deallocate(iscloudy, tau_gpt, ssa_gpt, asm_gpt)
 
       ! Apply delta scaling to account for forward-scattering
       ! TODO: delta_scale takes the forward scattering fraction as an optional
@@ -483,8 +476,6 @@ contains
 
       ! Check cloud optics_sw
       call handle_error(optics_out%validate())
-
-      deallocate(iscloudy)
 
    end subroutine set_cloud_optics_sw
 
@@ -510,6 +501,7 @@ contains
       real(r8) :: combined_cloud_fraction(pcols,pver)
 
       real(r8) :: tau(pcols,pver,nlwbands)
+      real(r8), allocatable :: tau_gpt(:,:,:)
 
       ! For MCICA sampling routine
       integer, parameter :: changeseed = 1
@@ -532,12 +524,6 @@ contains
 
       ! Allocate array to hold subcolumn cloudy flag
       allocate(iscloudy(ngpt,ncol,pver))
-
-      ! Initialize cloud optics object; cloud_optics_lw will be indexed by
-      ! g-point, rather than by band, and subcolumn routines will associate each
-      ! g-point with a stochastically-sampled cloud state
-      call handle_error(optics_out%alloc_1scl(ncol, nlev_rad, kdist))
-      call optics_out%set_name('longwave cloud optics')
 
       ! Get cloud optics using CAM routines. This should combine cloud with snow
       ! optics, if "snow clouds" are being considered
@@ -568,30 +554,25 @@ contains
                              iscloudy(1:ngpt,1:ncol,1:pver))
 
       ! ... and now map optics to g-points, selecting a single subcolumn for each
-      ! g-point. This implementation generates homogeneous clouds, but it would be
-      ! straightforward to extend this to handle horizontally heterogeneous clouds
-      ! as well.
-      ! NOTE: incoming optics should be in-cloud quantites and not grid-averaged 
-      ! quantities!
+      ! g-point. 
+      allocate(tau_gpt(ncol,pver,ngpt))
+      call mcica_bands_to_gpoints(kdist, iscloudy, tau, tau_gpt)
+
+      ! Initialize cloud optics object; cloud_optics_lw will be indexed by
+      ! g-point, rather than by band, and subcolumn routines will associate each
+      ! g-point with a stochastically-sampled cloud state
+      call handle_error(optics_out%alloc_1scl(ncol, nlev_rad, kdist))
+      call optics_out%set_name('longwave cloud optics')
+
+      ! Map to radiation levels from CAM levels
       optics_out%tau = 0
       do ilev_cam = 1,pver
-
          ! Get level index on CAM grid (i.e., the index that this rad level
          ! corresponds to in CAM fields). If this index is above the model top
          ! (index less than 0) then skip setting the optical properties for this
          ! level (leave set to zero)
          ilev_rad = ilev_cam + (nlev_rad - pver)
-
-         do icol = 1,ncol
-            do igpt = 1,ngpt
-               if (iscloudy(igpt,icol,ilev_cam) .and. (combined_cloud_fraction(icol,ilev_cam) > 0._r8) ) then
-                  iband = kdist%convert_gpt2band(igpt)
-                  optics_out%tau(icol,ilev_rad,igpt) = tau(icol,ilev_cam,iband)
-               else
-                  optics_out%tau(icol,ilev_rad,igpt) = 0._r8
-               end if
-            end do
-         end do
+         optics_out%tau(:,ilev_rad,:) = tau_gpt(:,ilev_cam,:)
       end do
 
       ! Apply delta scaling to account for forward-scattering
@@ -610,9 +591,40 @@ contains
       ! Check cloud optics
       call handle_error(optics_out%validate())
 
-      deallocate(iscloudy)
+      deallocate(iscloudy, tau_gpt)
 
    end subroutine set_cloud_optics_lw
+
+   !----------------------------------------------------------------------------
+
+   subroutine mcica_bands_to_gpoints(kdist, iscloudy, optics_by_band, optics_by_gpt)
+      use mo_gas_optics_rrtmgp, only: ty_gas_optics_rrtmgp
+
+      type(ty_gas_optics_rrtmgp), intent(in) :: kdist
+      logical, intent(in) :: iscloudy(:,:,:)
+      real(r8), intent(in) :: optics_by_band(:,:,:)
+      real(r8), intent(out) :: optics_by_gpt(:,:,:)
+      integer :: icol, ilev, igpt, iband
+
+      ! This implementation generates homogeneous clouds, but it would be
+      ! straightforward to extend this to handle horizontally heterogeneous clouds
+      ! as well.
+      ! NOTE: incoming optics should be in-cloud quantites and not grid-averaged 
+      ! quantities!
+      do igpt = 1,size(optics_by_gpt, 3)
+         do ilev = 1,size(optics_by_gpt, 2)
+            do icol = 1,size(optics_by_gpt, 1)
+               if (iscloudy(igpt,icol,ilev)) then
+                  iband = kdist%convert_gpt2band(igpt)
+                  optics_by_gpt(icol,ilev,igpt) = optics_by_band(icol,ilev,iband)
+               else
+                  optics_by_gpt(icol,ilev,igpt) = 0
+               end if
+            end do
+         end do
+      end do
+
+   end subroutine mcica_bands_to_gpoints
 
    !----------------------------------------------------------------------------
 
