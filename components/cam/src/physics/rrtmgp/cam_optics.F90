@@ -279,13 +279,10 @@ contains
          combined_tau(1:nlwbands,1:ncol,1:pver) &
       )
 
-      ! Set optics_out
+      ! Re-order dimensions
       do iband = 1,nlwbands
          tau(1:ncol,1:pver,iband) = combined_tau(iband,1:ncol,1:pver)
       end do
-
-      ! Check values
-      call assert_range(tau, 0._r8, 1e20_r8, 'get_cloud_optics_lw: tau')
 
    end subroutine get_cloud_optics_lw
 
@@ -523,10 +520,6 @@ contains
       ! optics, if "snow clouds" are being considered
       call get_cloud_optics_lw(state, pbuf, tau)
 
-      ! Check values
-      call assert_range(tau, 0._r8, 1e20_r8, &
-                        'set_cloud_optics_lw: tau')
-
       ! Send cloud optics to history buffer
       call output_cloud_optics_lw(state, tau)
 
@@ -562,13 +555,8 @@ contains
       ! pass the foward scattering fraction that the CAM cloud optics_lw assumes.
       call handle_error(optics_out%delta_scale())
 
-      ! Check values
-      call assert_range(optics_out%tau, 0._r8, 1e20_r8, &
-                        'set_cloud_optics_lw: optics_out%tau')
-
       ! Check cloud optics
       call handle_error(optics_out%validate())
-
 
    end subroutine set_cloud_optics_lw
 
