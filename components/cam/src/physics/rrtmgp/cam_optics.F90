@@ -28,8 +28,8 @@ contains
       use ppgrid, only: pcols, pver
       use physics_types, only: physics_state
       use physics_buffer, only: physics_buffer_desc, pbuf_get_field, pbuf_get_index
-      use cloud_rad_props, only: get_ice_optics_sw, &
-                                 get_liquid_optics_sw
+      use cloud_rad_props, only: get_ice_optics_sw, get_liquid_optics_sw
+                                
 
       ! Inputs. Right now, this uses state and pbuf, and passes these along to the
       ! individual get_*_optics routines from cloud_rad_props. This is not very
@@ -201,90 +201,6 @@ contains
 !     call assert_range(asm(:nswbands,:ncol,:pver), -1._r8, 1._r8, &
 !                       'get_cloud_optics_sw: asm')
    end subroutine get_cloud_optics_sw
-
-   !----------------------------------------------------------------------------
-
-   subroutine get_cloud_optics_lw(state, pbuf, tau)
-
-      use ppgrid, only: pcols, pver
-      use physics_types, only: physics_state
-      use physics_buffer, only: physics_buffer_desc, pbuf_get_field, &
-                                pbuf_get_index
-      use cloud_rad_props, only: get_liquid_optics_lw, &
-                                 get_ice_optics_lw
-      use radconstants, only: nlwbands
-
-      type(physics_state), intent(in) :: state
-      type(physics_buffer_desc), pointer :: pbuf(:)
-      real(r8), intent(out) :: tau(:,:,:)
-
-      ! Stuff from microphysics to calculate optical props
-      real(r8), pointer :: cld_liq_path (:,:), &
-                           shape_param  (:,:), &
-                           slope_param  (:,:), &
-                           cld_ice_path (:,:), &
-                           ice_diameter (:,:), &
-                           cld_snow_path(:,:), &
-                           snow_diameter(:,:)
-
-      ! Cloud and snow fractions, used to weight optical properties by
-      ! contributions due to cloud vs snow
-      real(r8), pointer :: cloud_fraction(:,:), snow_fraction(:,:)
-
-      ! Temporary variables to hold absorption optical depth
-      real(r8), dimension(nlwbands,pcols,pver) :: &
-            ice_tau, liq_tau, snow_tau, cloud_tau, combined_tau
-
-      integer :: iband, ncol
-
-
-      ! Number of columns in this chunk
-      ncol = state%ncol
-
-      ! initialize
-      ice_tau(:,:,:) = 0.0
-      liq_tau(:,:,:) = 0.0
-      snow_tau(:,:,:) = 0.0
-      cloud_tau(:,:,:) = 0.0
-      combined_tau(:,:,:) = 0.0
-
-      ! Get ice optics
-      call pbuf_get_field(pbuf, pbuf_get_index('ICIWP'), cld_ice_path)
-      call pbuf_get_field(pbuf, pbuf_get_index('DEI')  , ice_diameter)
-      call get_ice_optics_lw(ncol, pver, cld_ice_path, ice_diameter, ice_tau)
-
-      ! Get liquid optics
-      call pbuf_get_field(pbuf, pbuf_get_index('ICLWP')  , cld_liq_path)
-      call pbuf_get_field(pbuf, pbuf_get_index('LAMBDAC'), slope_param )
-      call pbuf_get_field(pbuf, pbuf_get_index('MU')     , shape_param )
-      call get_liquid_optics_lw(ncol, pver, cld_liq_path, shape_param, slope_param, liq_tau)
-
-      ! Get snow optics? Just interpolates using the ice tables, so we call the
-      ! same routine as above but with snow water path and snow diameter
-      call pbuf_get_field(pbuf, pbuf_get_index('ICSWP'), cld_snow_path)
-      call pbuf_get_field(pbuf, pbuf_get_index('DES')  , snow_diameter)
-      call get_ice_optics_lw(ncol, pver, cld_snow_path, snow_diameter, snow_tau)
-
-      ! Get cloud and snow fractions. This is used to weight the contribution to
-      ! the total lw absorption by the fraction of the column that contains
-      ! cloud vs snow. TODO: is this the right thing to do here?
-      call pbuf_get_field(pbuf, pbuf_get_index('CLD'), cloud_fraction)
-      call pbuf_get_field(pbuf, pbuf_get_index('CLDFSNOW'), snow_fraction)
-
-      ! Combined cloud optics
-      cloud_tau = liq_tau + ice_tau
-      call combine_properties(nlwbands, ncol, pver, &
-         cloud_fraction(1:ncol,1:pver), cloud_tau(1:nlwbands,1:ncol,1:pver), &
-         snow_fraction(1:ncol,1:pver), snow_tau(1:nlwbands,1:ncol,1:pver), &
-         combined_tau(1:nlwbands,1:ncol,1:pver) &
-      )
-
-      ! Re-order dimensions
-      do iband = 1,nlwbands
-         tau(1:ncol,1:pver,iband) = combined_tau(iband,1:ncol,1:pver)
-      end do
-
-   end subroutine get_cloud_optics_lw
 
    !----------------------------------------------------------------------------
 
@@ -487,12 +403,15 @@ contains
       use mo_optical_props, only: ty_optical_props_1scl
       use mo_gas_optics_rrtmgp, only: ty_gas_optics_rrtmgp
       use mcica_subcol_gen, only: mcica_subcol_mask
+      use cloud_rad_props, only: get_liquid_optics_lw, get_ice_optics_lw
 
       type(physics_state), intent(in) :: state
       type(physics_buffer_desc), pointer :: pbuf(:)
       type(ty_gas_optics_rrtmgp), intent(in) :: kdist
       type(ty_optical_props_1scl), intent(inout) :: optics_out
 
+      ! Cloud and snow fractions, used to weight optical properties by
+      ! contributions due to cloud vs snow
       real(r8), pointer :: cloud_fraction(:,:)
       real(r8), pointer :: snow_fraction(:,:)
       real(r8) :: combined_cloud_fraction(pcols,pver)
@@ -512,20 +431,69 @@ contains
       ! Loop variables
       integer :: icol, ilev, igpt, iband
 
+      ! Stuff from microphysics to calculate optical props
+      real(r8), pointer :: cld_liq_path (:,:), &
+                           shape_param  (:,:), &
+                           slope_param  (:,:), &
+                           cld_ice_path (:,:), &
+                           ice_diameter (:,:), &
+                           cld_snow_path(:,:), &
+                           snow_diameter(:,:)
+
+      ! Temporary variables to hold absorption optical depth
+      real(r8), dimension(nlwbands,pcols,pver) :: &
+            ice_tau, liq_tau, snow_tau, cloud_tau, combined_tau
+
+
       ! Set dimension size working variables
       ngpt = kdist%get_ngpt()
       ncol = state%ncol
 
-      ! Get cloud optics using CAM routines. This should combine cloud with snow
-      ! optics, if "snow clouds" are being considered
-      call get_cloud_optics_lw(state, pbuf, tau)
+      ! initialize
+      ice_tau(:,:,:) = 0.0
+      liq_tau(:,:,:) = 0.0
+      snow_tau(:,:,:) = 0.0
+      cloud_tau(:,:,:) = 0.0
+      combined_tau(:,:,:) = 0.0
+
+      ! Get ice optics
+      call pbuf_get_field(pbuf, pbuf_get_index('ICIWP'), cld_ice_path)
+      call pbuf_get_field(pbuf, pbuf_get_index('DEI')  , ice_diameter)
+      call get_ice_optics_lw(ncol, pver, cld_ice_path, ice_diameter, ice_tau)
+
+      ! Get liquid optics
+      call pbuf_get_field(pbuf, pbuf_get_index('ICLWP')  , cld_liq_path)
+      call pbuf_get_field(pbuf, pbuf_get_index('LAMBDAC'), slope_param )
+      call pbuf_get_field(pbuf, pbuf_get_index('MU')     , shape_param )
+      call get_liquid_optics_lw(ncol, pver, cld_liq_path, shape_param, slope_param, liq_tau)
+
+      ! Get snow optics? Just interpolates using the ice tables, so we call the
+      ! same routine as above but with snow water path and snow diameter
+      call pbuf_get_field(pbuf, pbuf_get_index('ICSWP'), cld_snow_path)
+      call pbuf_get_field(pbuf, pbuf_get_index('DES')  , snow_diameter)
+      call get_ice_optics_lw(ncol, pver, cld_snow_path, snow_diameter, snow_tau)
+
+      ! Get cloud and snow fractions. This is used to weight the contribution to
+      ! the total lw absorption by the fraction of the column that contains
+      ! cloud vs snow. TODO: is this the right thing to do here?
+      call pbuf_get_field(pbuf, pbuf_get_index('CLD'), cloud_fraction)
+      call pbuf_get_field(pbuf, pbuf_get_index('CLDFSNOW'), snow_fraction)
+
+      ! Combined cloud optics
+      cloud_tau = liq_tau + ice_tau
+      call combine_properties(nlwbands, ncol, pver, &
+         cloud_fraction(1:ncol,1:pver), cloud_tau(1:nlwbands,1:ncol,1:pver), &
+         snow_fraction(1:ncol,1:pver), snow_tau(1:nlwbands,1:ncol,1:pver), &
+         combined_tau(1:nlwbands,1:ncol,1:pver) &
+      )
+
+      ! Re-order dimensions
+      do iband = 1,nlwbands
+         tau(1:ncol,1:pver,iband) = combined_tau(iband,1:ncol,1:pver)
+      end do
 
       ! Send cloud optics to history buffer
       call output_cloud_optics_lw(state, tau)
-
-      ! Get cloud and snow fractions, and combine
-      call pbuf_get_field(pbuf, pbuf_get_index('CLD'), cloud_fraction)
-      call pbuf_get_field(pbuf, pbuf_get_index('CLDFSNOW'), snow_fraction)
 
       ! Combine cloud and snow fractions for MCICA sampling
       combined_cloud_fraction(1:ncol,1:pver) = max(cloud_fraction(1:ncol,1:pver), &
@@ -551,7 +519,7 @@ contains
       ! parameter. In the current cloud optics_lw scheme, forward scattering is taken
       ! just as g^2, which delta_scale assumes if forward scattering fraction is
       ! omitted in the function call. In the future, we should explicitly pass
-      ! this. This just requires modifying the get_cloud_optics_lw procedures to also
+      ! this. This just requires modifying the cloud_rad_props procedures to also
       ! pass the foward scattering fraction that the CAM cloud optics_lw assumes.
       call handle_error(optics_out%delta_scale())
 
