@@ -1530,8 +1530,8 @@ contains
 
       ! RRTMGP types
       type(ty_gas_concs) :: gas_concentrations
-      type(ty_optical_props_1scl) :: aerosol_optics_lw
-      type(ty_optical_props_1scl) :: cloud_optics_lw
+      type(ty_optical_props_1scl) :: aerosol_optics_lw, aerosol_optics_lw_cam
+      type(ty_optical_props_1scl) :: cloud_optics_lw, cloud_optics_lw_cam
 
       integer :: ncol, icall
 
@@ -1556,7 +1556,10 @@ contains
 
       ! Do longwave cloud optics calculations
       call t_startf('longwave cloud optics')
-      call set_cloud_optics_lw(state, pbuf, k_dist_lw, cloud_optics_lw)
+      call handle_error(cloud_optics_lw%alloc_1scl(ncol, nlev_rad, k_dist_lw, name='lw cloud optics'))
+      call handle_error(cloud_optics_lw_cam%alloc_1scl(ncol, pver, k_dist_lw, name='lw cloud optics'))
+      call set_cloud_optics_lw(state, pbuf, k_dist_lw, cloud_optics_lw_cam)
+      call add_level_optics(cloud_optics_lw_cam, cloud_optics_lw)
       call t_stopf('longwave cloud optics')
 
       ! Initialize aerosol optics; passing only the wavenumber bounds for each
@@ -1566,8 +1569,8 @@ contains
       ! treatment of aerosol optics in the model, and prevents us from having to
       ! map bands to g-points ourselves since that will all be handled by the
       ! private routines internal to the optics class.
-      call handle_error(aerosol_optics_lw%alloc_1scl(ncol, nlev_rad, k_dist_lw%get_band_lims_wavenumber()))
-      call aerosol_optics_lw%set_name('longwave aerosol optics')
+      call handle_error(aerosol_optics_lw%alloc_1scl(ncol, nlev_rad, k_dist_lw%get_band_lims_wavenumber(), name='lw aerosol optics'))
+      call handle_error(aerosol_optics_lw_cam%alloc_1scl(ncol, pver, k_dist_lw%get_band_lims_wavenumber(), name='lw aerosol optics'))
 
       ! Loop over diagnostic calls (what does this mean?)
       call rad_cnst_get_call_list(active_calls)
@@ -1583,7 +1586,8 @@ contains
 
             ! Get longwave aerosol optics
             call t_startf('rad_aerosol_optics_lw')
-            call set_aerosol_optics_lw(icall, state, pbuf, is_cmip6_volc, aerosol_optics_lw)
+            call set_aerosol_optics_lw(icall, state, pbuf, is_cmip6_volc, aerosol_optics_lw_cam)
+            call add_level_optics(aerosol_optics_lw_cam, aerosol_optics_lw)
             call t_stopf('rad_aerosol_optics_lw')
 
             ! Do longwave radiative transfer calculations
@@ -1623,9 +1627,29 @@ contains
 
       ! Free fluxes and optical properties
       call free_optics_lw(cloud_optics_lw)
+      call free_optics_lw(cloud_optics_lw_cam)
       call free_optics_lw(aerosol_optics_lw)
+      call free_optics_lw(aerosol_optics_lw_cam)
 
    end subroutine radiation_driver_lw
+
+   !----------------------------------------------------------------------------
+
+   subroutine add_level_optics(optics_in, optics_out)
+      use mo_optical_props, only: ty_optical_props_1scl
+      type(ty_optical_props_1scl), intent(in) :: optics_in
+      type(ty_optical_props_1scl), intent(inout) :: optics_out
+      integer :: icol, ilev, igpt
+
+      optics_out%tau = 0
+      do igpt = 1,size(optics_in%tau, 3)
+         do ilev = 1,size(optics_in%tau, 2)
+            do icol = 1,size(optics_in%tau, 1)
+               optics_out%tau(icol,ilev+1,igpt) = optics_in%tau(icol,ilev,igpt)
+            end do
+         end do
+      end do
+   end subroutine add_level_optics
 
    !----------------------------------------------------------------------------
 

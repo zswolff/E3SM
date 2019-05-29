@@ -513,17 +513,11 @@ contains
       logical, allocatable :: iscloudy(:,:,:)
 
       ! Loop variables
-      integer :: icol, ilev_rad, igpt, iband, ilev_cam
-
-      ! Initialize (or reset) output cloud optics object
-      optics_out%tau = 0.0
+      integer :: icol, ilev, igpt, iband
 
       ! Set dimension size working variables
       ngpt = kdist%get_ngpt()
       ncol = state%ncol
-
-      ! Allocate array to hold subcolumn cloudy flag
-      allocate(iscloudy(ngpt,ncol,pver))
 
       ! Get cloud optics using CAM routines. This should combine cloud with snow
       ! optics, if "snow clouds" are being considered
@@ -548,6 +542,7 @@ contains
       ! while doing stochastic sampling of cloud state
       !
       ! First, just get the stochastic subcolumn cloudy mask...
+      allocate(iscloudy(ngpt,ncol,pver))
       call mcica_subcol_mask(ngpt, ncol, pver, changeseed, &
                              state%pmid(1:ncol,1:pver), &
                              combined_cloud_fraction(1:ncol,1:pver), &
@@ -555,25 +550,8 @@ contains
 
       ! ... and now map optics to g-points, selecting a single subcolumn for each
       ! g-point. 
-      allocate(tau_gpt(ncol,pver,ngpt))
-      call mcica_bands_to_gpoints(kdist, iscloudy, tau, tau_gpt)
-
-      ! Initialize cloud optics object; cloud_optics_lw will be indexed by
-      ! g-point, rather than by band, and subcolumn routines will associate each
-      ! g-point with a stochastically-sampled cloud state
-      call handle_error(optics_out%alloc_1scl(ncol, nlev_rad, kdist))
-      call optics_out%set_name('longwave cloud optics')
-
-      ! Map to radiation levels from CAM levels
-      optics_out%tau = 0
-      do ilev_cam = 1,pver
-         ! Get level index on CAM grid (i.e., the index that this rad level
-         ! corresponds to in CAM fields). If this index is above the model top
-         ! (index less than 0) then skip setting the optical properties for this
-         ! level (leave set to zero)
-         ilev_rad = ilev_cam + (nlev_rad - pver)
-         optics_out%tau(:,ilev_rad,:) = tau_gpt(:,ilev_cam,:)
-      end do
+      call mcica_bands_to_gpoints(kdist, iscloudy, tau, optics_out%tau)
+      deallocate(iscloudy)
 
       ! Apply delta scaling to account for forward-scattering
       ! TODO: delta_scale takes the forward scattering fraction as an optional
@@ -591,7 +569,6 @@ contains
       ! Check cloud optics
       call handle_error(optics_out%validate())
 
-      deallocate(iscloudy, tau_gpt)
 
    end subroutine set_cloud_optics_lw
 
@@ -660,7 +637,7 @@ contains
       ! Populate the RRTMGP optical properties object with CAM optical depth
       optics_out%tau(:,:,:) = 0.0
       ncol = state%ncol
-      optics_out%tau(1:ncol,ktop:kbot,1:nlwbands) = absorption_tau(1:ncol,1:pver,1:nlwbands)
+      optics_out%tau(1:ncol,1:pver,1:nlwbands) = absorption_tau(1:ncol,1:pver,1:nlwbands)
 
    end subroutine set_aerosol_optics_lw
 
