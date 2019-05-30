@@ -255,7 +255,7 @@ contains
 
    !----------------------------------------------------------------------------
 
-   subroutine set_cloud_optics_sw(state, pbuf, day_indices, kdist, optics_out)
+   subroutine set_cloud_optics_sw(state, pbuf, kdist, optics_out)
       
       use ppgrid, only: pcols, pver, pverp
       use physics_types, only: physics_state
@@ -268,7 +268,6 @@ contains
 
       type(physics_state), intent(in) :: state
       type(physics_buffer_desc), pointer :: pbuf(:)
-      integer, intent(in) :: day_indices(:)
       type(ty_gas_optics_rrtmgp), intent(in) :: kdist
       type(ty_optical_props_2str), intent(inout) :: optics_out
 
@@ -282,7 +281,7 @@ contains
       integer, parameter :: changeseed = 1
 
       ! Dimension sizes
-      integer :: ngpt, ncol, nday, nlay
+      integer :: ngpt, ncol, nlay
 
       ! McICA subcolumn cloud flag
       logical, allocatable :: iscloudy(:,:,:)
@@ -291,7 +290,7 @@ contains
       real(r8), dimension(:,:,:), allocatable :: tau_gpt, ssa_gpt, asm_gpt
 
       ! Loop variables
-      integer :: icol, ilev, igpt, iband, iday, ilev_cam, ilev_rad
+      integer :: icol, ilev, igpt, iband, ilev_cam, ilev_rad
 
       ! Set a name for this subroutine to write to error messages
       character(len=32) :: subname = 'set_cloud_optics_sw'
@@ -301,11 +300,6 @@ contains
 
       ! Allocate array to hold subcolumn cloud flag
       allocate(iscloudy(ngpt,ncol,pver))
-
-      ! Initialize output cloud optics object
-      nday = count(day_indices > 0)
-      call handle_error(optics_out%alloc_2str(nday, nlev_rad, kdist))
-      call optics_out%set_name('shortwave cloud optics')
 
       ! Retrieve the mean in-cloud optical properties via CAM cloud radiative
       ! properties interface (cloud_rad_props). This retrieves cloud optical
@@ -358,22 +352,12 @@ contains
       optics_out%g(:,:,:) = 0
       do igpt = 1,ngpt
          do ilev_cam = 1,pver  ! Loop over indices on the CAM grid
-
-            ! Index to radiation grid
             ilev_rad = ilev_cam + (nlev_rad - pver)
-
-            ! Loop over columns and map CAM columns to those on radiation grid
-            ! (daytime-only columns)
-            do iday = 1,size(day_indices)
-
-               ! Map daytime to column indices
-               icol = day_indices(iday)
-
-               optics_out%tau(iday,ilev_rad,igpt) = tau_gpt(icol,ilev_cam,igpt)
-               optics_out%ssa(iday,ilev_rad,igpt) = ssa_gpt(icol,ilev_cam,igpt)
-               optics_out%g(iday,ilev_rad,igpt)   = asm_gpt(icol,ilev_cam,igpt)
-
-            end do  ! iday
+            do icol = 1,ncol
+               optics_out%tau(icol,ilev_rad,igpt) = tau_gpt(icol,ilev_cam,igpt)
+               optics_out%ssa(icol,ilev_rad,igpt) = ssa_gpt(icol,ilev_cam,igpt)
+               optics_out%g(icol,ilev_rad,igpt)   = asm_gpt(icol,ilev_cam,igpt)
+            end do  ! icol
          end do  ! ilev_cam
       end do  ! igpt
       deallocate(iscloudy, tau_gpt, ssa_gpt, asm_gpt)

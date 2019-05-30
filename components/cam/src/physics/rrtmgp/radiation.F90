@@ -1266,7 +1266,8 @@ contains
       real(r8) :: albedo_diffuse(nswbands,pcols), albedo_diffuse_day(nswbands,pcols)
 
       ! Cloud and aerosol optics
-      type(ty_optical_props_2str) :: aerosol_optics_sw, cloud_optics_sw
+      type(ty_optical_props_2str) :: aerosol_optics_sw, cloud_optics_all
+      type(ty_optical_props_2str) :: aerosol_optics_day, cloud_optics_day
 
       ! Gas concentrations
       type(ty_gas_concs) :: gas_concentrations
@@ -1307,6 +1308,9 @@ contains
       real(r8), dimension(pcols,nlev_rad) :: tmid, pmid
       real(r8), dimension(pcols,nlev_rad+1) :: pint, tint
 
+      ! Loop indices
+      integer :: igpt, ilev, iday, icol
+
       ! Everybody needs a name
       character(*), parameter :: subroutine_name = 'radiation_driver_sw'
 
@@ -1345,6 +1349,10 @@ contains
          qrsc(1:ncol,1:pver) = 0
          return
       end if
+
+      ! Initialize output cloud optics object
+      call handle_error(cloud_optics_all%alloc_2str(ncol, nlev_rad, k_dist_sw, name='sw cloud optics'))
+      call handle_error(cloud_optics_day%alloc_2str(nday, nlev_rad, k_dist_sw, name='sw cloud optics'))
 
       ! Populate RRTMGP input variables. Use the day_indices index array to
       ! map CAM variables on all columns to the daytime-only arrays, and take
@@ -1390,9 +1398,19 @@ contains
       ! simulations...or alternatively add logic within the set_cloud_optics
       ! routines to handle this.
       call t_startf('shortwave cloud optics')
-      call set_cloud_optics_sw(state, pbuf, &
-                               day_indices(1:nday), &
-                               k_dist_sw, cloud_optics_sw)
+      call set_cloud_optics_sw(state, pbuf, k_dist_sw, cloud_optics_all)
+
+      ! Subset for day-only
+      do igpt = 1,nswgpts
+         do ilev = 1,nlev_rad
+            do iday = 1,nday
+               icol = day_indices(iday)
+               cloud_optics_day%tau(iday,ilev,igpt) = cloud_optics_all%tau(icol,ilev,igpt)
+               cloud_optics_day%ssa(iday,ilev,igpt) = cloud_optics_all%ssa(icol,ilev,igpt)
+               cloud_optics_day%g  (iday,ilev,igpt) = cloud_optics_all%g  (icol,ilev,igpt)
+            end do
+         end do
+      end do
       call t_stopf('shortwave cloud optics')
 
       ! Initialize aerosol optics; passing only the wavenumber bounds for each
@@ -1442,7 +1460,7 @@ contains
                coszrs_day(1:nday), &
                albedo_direct_day(1:nswbands,1:nday), &
                albedo_diffuse_day(1:nswbands,1:nday), &
-               cloud_optics_sw, &
+               cloud_optics_day, &
                fluxes_allsky_day, fluxes_clrsky_day, &
                aer_props=aerosol_optics_sw, &
                tsi_scaling=tsi_scaling &
@@ -1476,7 +1494,8 @@ contains
       end do
 
       ! Free fluxes and optical properties
-      call free_optics_sw(cloud_optics_sw)
+      call free_optics_sw(cloud_optics_all)
+      call free_optics_sw(cloud_optics_day)
       call free_optics_sw(aerosol_optics_sw)
       call free_fluxes(fluxes_allsky_day)
       call free_fluxes(fluxes_clrsky_day)
