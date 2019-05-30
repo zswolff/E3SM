@@ -1266,7 +1266,7 @@ contains
       real(r8) :: albedo_diffuse(nswbands,pcols), albedo_diffuse_day(nswbands,pcols)
 
       ! Cloud and aerosol optics
-      type(ty_optical_props_2str) :: aerosol_optics_sw, cloud_optics_all
+      type(ty_optical_props_2str) :: aerosol_optics_all, cloud_optics_all
       type(ty_optical_props_2str) :: aerosol_optics_day, cloud_optics_day
 
       ! Gas concentrations
@@ -1420,8 +1420,8 @@ contains
       ! treatment of aerosol optics in the model, and prevents us from having to
       ! map bands to g-points ourselves since that will all be handled by the
       ! private routines internal to the optics class.
-      call handle_error(aerosol_optics_sw%alloc_2str(nday, nlev_rad, k_dist_sw%get_band_lims_wavenumber()))
-      call aerosol_optics_sw%set_name('shortwave aerosol optics')
+      call handle_error(aerosol_optics_all%alloc_2str(ncol, nlev_rad, k_dist_sw%get_band_lims_wavenumber(), name='aer_optics_sw_all'))
+      call handle_error(aerosol_optics_day%alloc_2str(nday, nlev_rad, k_dist_sw%get_band_lims_wavenumber(), name='aer_optics_sw_day'))
 
       ! Loop over diagnostic calls 
       ! TODO: more documentation on what this means
@@ -1438,7 +1438,19 @@ contains
                                        day_indices(1:nday), &
                                        night_indices(1:nnight), &
                                        is_cmip6_volc, &
-                                       aerosol_optics_sw)
+                                       aerosol_optics_all)
+
+            ! Subset for day-only
+            do iband = 1,nswbands
+               do ilev = 1,nlev_rad
+                  do iday = 1,nday
+                     icol = day_indices(iday)
+                     aerosol_optics_day%tau(iday,ilev,iband) = aerosol_optics_all%tau(icol,ilev,iband)
+                     aerosol_optics_day%ssa(iday,ilev,iband) = aerosol_optics_all%ssa(icol,ilev,iband)
+                     aerosol_optics_day%g  (iday,ilev,iband) = aerosol_optics_all%g  (icol,ilev,iband)
+                  end do
+               end do
+            end do
             call t_stopf('rad_aerosol_optics_sw')
 
             ! Set gas concentrations (I believe the gases may change for
@@ -1462,7 +1474,7 @@ contains
                albedo_diffuse_day(1:nswbands,1:nday), &
                cloud_optics_day, &
                fluxes_allsky_day, fluxes_clrsky_day, &
-               aer_props=aerosol_optics_sw, &
+               aer_props=aerosol_optics_day, &
                tsi_scaling=tsi_scaling &
             ))
             call t_stopf('rad_calculations_sw')
@@ -1496,7 +1508,8 @@ contains
       ! Free fluxes and optical properties
       call free_optics_sw(cloud_optics_all)
       call free_optics_sw(cloud_optics_day)
-      call free_optics_sw(aerosol_optics_sw)
+      call free_optics_sw(aerosol_optics_all)
+      call free_optics_sw(aerosol_optics_day)
       call free_fluxes(fluxes_allsky_day)
       call free_fluxes(fluxes_clrsky_day)
 

@@ -632,32 +632,24 @@ contains
       optics_out%ssa = 1
       optics_out%g = 0
 
-      ! Assign daytime columns
-      do iday = 1,count(day_indices > 0)
+      ! Copy cloud optical depth over directly
+      optics_out%tau(1:ncol,ktop:kbot,1:nswbands) = tau(1:ncol,1:pver,1:nswbands)
 
-         ! Get index into full chunk-wide array for this daytime index
-         icol = day_indices(iday)
+      ! Extract single scattering albedo from the product-defined fields
+      where (tau(1:ncol,1:pver,1:nswbands) > 0)
+         optics_out%ssa(1:ncol,ktop:kbot,1:nswbands) &
+            = tau_w(1:ncol,1:pver,1:nswbands) / tau(1:ncol,1:pver,1:nswbands)
+      elsewhere
+         optics_out%ssa(1:ncol,ktop:kbot,1:nswbands) = 1
+      endwhere
 
-         ! Copy cloud optical depth over directly
-         optics_out%tau(iday,ktop:kbot,1:nswbands) = tau(icol,1:pver,1:nswbands)
-
-         ! Extract single scattering albedo from the product-defined fields
-         where (tau(icol,1:pver,1:nswbands) > 0)
-            optics_out%ssa(iday,ktop:kbot,1:nswbands) &
-               = tau_w(icol,1:pver,1:nswbands) / tau(icol,1:pver,1:nswbands)
-         elsewhere
-            optics_out%ssa(iday,ktop:kbot,1:nswbands) = 1
-         endwhere
-
-         ! Extract assymmetry parameter from the product-defined fields
-         where (tau_w(icol,1:pver,1:nswbands) > 0)
-            optics_out%g(iday,ktop:kbot,1:nswbands) &
-               = tau_w_g(icol,1:pver,1:nswbands) / tau_w(icol,1:pver,1:nswbands)
-         elsewhere
-            optics_out%g(iday,ktop:kbot,1:nswbands) = 0
-         endwhere
-
-      end do
+      ! Extract assymmetry parameter from the product-defined fields
+      where (tau_w(1:ncol,1:pver,1:nswbands) > 0)
+         optics_out%g(1:ncol,ktop:kbot,1:nswbands) &
+            = tau_w_g(1:ncol,1:pver,1:nswbands) / tau_w(1:ncol,1:pver,1:nswbands)
+      elsewhere
+         optics_out%g(1:ncol,ktop:kbot,1:nswbands) = 0
+      endwhere
 
       ! We need to fix band ordering because the old input files assume RRTMG band
       ! ordering, but this has changed in RRTMGP.
