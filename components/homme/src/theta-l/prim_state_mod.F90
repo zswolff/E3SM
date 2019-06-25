@@ -458,7 +458,6 @@ contains
     !   only compute on full leapfrog timesteps (tl%nstep >= tl%nstep2)
     ! ====================================================================
 
-!   Compute Energies at time1 and time2 (half levels between leapfrog steps)
     do n=1,4
        
        do ie=nets,nete
@@ -742,6 +741,14 @@ contains
        write(iulog,'(a,2e15.7)') 'dKE/dt(W/m^2): ',(KEner(1)-KEner(3))/dt
        write(iulog,'(a,2e15.7)') 'dIE/dt(W/m^2): ',(IEner(1)-IEner(3))/dt
        write(iulog,'(a,2e15.7)') 'dPE/dt(W/m^2): ',(PEner(1)-PEner(3))/dt
+
+
+       write(iulog,'(a)') 'E change from remap:'
+       write(iulog,'(a,2e15.7)') 'dKE/dt(W/m^2): ',(KEner(4)-KEner(2))/dt
+       write(iulog,'(a,2e15.7)') 'dIE/dt(W/m^2): ',(IEner(4)-IEner(2))/dt
+       write(iulog,'(a,2e15.7)') 'dPE/dt(W/m^2): ',(PEner(4)-PEner(2))/dt
+
+
        q=1
        if (qsize>0) write(iulog,'(a,2e15.7)') 'dQ1/dt(kg/sm^2)',(Qmass(q,1)-Qmass(q,3))/dt
 
@@ -788,7 +795,7 @@ contains
    
    
 
-subroutine prim_energy_halftimes(elem,hvcoord,tl,n,t_before_advance,nets,nete)
+subroutine prim_energy_halftimes(elem,hvcoord,tl,n,t_before_advance,compute_dp,nets,nete)
 ! 
 !  called at the end of a timestep, before timelevel update.  
 !  Solution is known at two timelevels.  We originally tried to
@@ -798,13 +805,17 @@ subroutine prim_energy_halftimes(elem,hvcoord,tl,n,t_before_advance,nets,nete)
 !  t_before_advance==.true.     tl%n0    begining of timestep
 !  t_before_advance==.false.    tl%np1   completed timestep, before tl update  
 !
+!  compute_dp == true -- use hybrid formula and ps for dp
+!  compute_dp == false - use dp3d for dp
+!
 !  This routine is called 4 times:  for historical reasons they are out
 !  of sequence.  
 !
+!    n=3:    before CAM forcing, before timestep
 !    n=1:    after CAM forcing, before timestep
 !    n=2:    after timestep, including remap, before tl update
-!    n=3:    after CAM forcing, before timestep
-!    n=4:    (not used)
+!    n=4:    after timestep, before remap
+!    we'll need n=5 for HV 
 !
 ! LF case we use staggered formulas:
 !  compute the energies at time half way between timelevels t1 and t2,
@@ -833,6 +844,7 @@ subroutine prim_energy_halftimes(elem,hvcoord,tl,n,t_before_advance,nets,nete)
     type (hvcoord_t)                  :: hvcoord
     type (TimeLevel_t), intent(in)       :: tl
     logical :: t_before_advance
+    logical, optional :: compute_dp
 
     integer :: ie,k,i,j
     real (kind=real_kind), dimension(np,np,nlev)  :: dpt1  ! delta pressure
@@ -857,10 +869,16 @@ subroutine prim_energy_halftimes(elem,hvcoord,tl,n,t_before_advance,nets,nete)
        call TimeLevel_Qdp(tl, qsplit, tmp, t1_qdp) !get np1 into t2_qdp
     endif
     do ie=nets,nete
-       do k=1,nlev
-          dpt1(:,:,k) = ( hvcoord%hyai(k+1) - hvcoord%hyai(k) )*hvcoord%ps0 + &
-               ( hvcoord%hybi(k+1) - hvcoord%hybi(k) )*elem(ie)%state%ps_v(:,:,t1)
+
+       if ( present(compute_dp) .and. compute_dp ) then
+          do k=1,nlev
+             dpt1(:,:,k) = ( hvcoord%hyai(k+1) - hvcoord%hyai(k) )*hvcoord%ps0 + &
+                  ( hvcoord%hybi(k+1) - hvcoord%hybi(k) )*elem(ie)%state%ps_v(:,:,t1)
+          enddo
+       else
+          dpt1(:,:,:) = elem(ie)%state%dp3d(:,:,:,t1)
        enddo
+
        call pnh_and_exner_from_eos(hvcoord,elem(ie)%state%vtheta_dp(:,:,:,t1),dpt1,&
             elem(ie)%state%phinh_i(:,:,:,t1),pnh,exner,dpnh_dp_i,pnh_i,'prim_state_mod')
        call get_phi(elem(ie),phi,phi_i,hvcoord,t1,t1_qdp)

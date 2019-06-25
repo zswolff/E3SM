@@ -1141,6 +1141,12 @@ contains
       nete_in=nete
     endif
 
+    if (compute_diagnostics) then
+      call t_startf("prim_energy_halftimes")
+      call prim_energy_halftimes(elem,hvcoord,tl,4,.false.,compute_dp=.true.,nets,nete)
+      call t_stopf("prim_energy_halftimes")
+    endif
+
     call vertical_remap(hybrid,elem,hvcoord,dt_remap,tl%np1,np1_qdp,nets_in,nete_in)
 
 
