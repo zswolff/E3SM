@@ -270,6 +270,26 @@
       <mask>oEC60to30v3</mask>
     </model_grid>
 
+    <model_grid alias="T62_oEC60to30Rev4" compset="(DATM|XATM|SATM)">
+      <grid name="atm">T62</grid>
+      <grid name="lnd">T62</grid>
+      <grid name="ocnice">oEC60to30Rev4</grid>
+      <grid name="rof">rx1</grid>
+      <grid name="glc">null</grid>
+      <grid name="wav">null</grid>
+      <mask>oEC60to30Rev4</mask>
+    </model_grid>
+
+    <model_grid alias="T62_oSO60to10KERev1" compset="(DATM|XATM|SATM)">
+      <grid name="atm">T62</grid>
+      <grid name="lnd">T62</grid>
+      <grid name="ocnice">oSO60to10KERev1</grid>
+      <grid name="rof">rx1</grid>
+      <grid name="glc">null</grid>
+      <grid name="wav">null</grid>
+      <mask>oSO60to10KERev1</mask>
+    </model_grid>
+
     <model_grid alias="T62_oEC60to30wLI" compset="(DATM|XATM|SATM)">
       <grid name="atm">T62</grid>
       <grid name="lnd">T62</grid>
@@ -1716,6 +1736,8 @@
       <file grid="atm|lnd" mask="oQU120">$DIN_LOC_ROOT/share/domains/domain.lnd.T62_oQU120.151209.nc</file>
       <file grid="atm|lnd" mask="oEC60to30">$DIN_LOC_ROOT/share/domains/domain.lnd.T62_oEC60to30.150616.nc</file>
       <file grid="atm|lnd" mask="oEC60to30v3">$DIN_LOC_ROOT/share/domains/domain.lnd.T62_oEC60to30v3.161222.nc</file>
+      <file grid="atm|lnd" mask="oEC60to30Rev4">$DIN_LOC_ROOT/share/domains/domain.lnd.T62_oEC60to30Rev4.190821.nc</file>
+      <file grid="atm|lnd" mask="oSO60to10KERev1">$DIN_LOC_ROOT/share/domains/domain.lnd.T62_oSO60to10KERev1.190821.nc</file>
       <file grid="atm|lnd" mask="oEC60to30wLI">$DIN_LOC_ROOT/share/domains/domain.lnd.T62_oEC60to30wLI_mask.160830.nc</file>
       <file grid="atm|lnd" mask="oEC60to30v3wLI">$DIN_LOC_ROOT/share/domains/domain.lnd.T62_oEC60to30v3wLI_mask.170328.nc</file>
       <file grid="atm|lnd" mask="oRRS30to10">$DIN_LOC_ROOT/share/domains/domain.lnd.T62_oRRS30to10.150722.nc</file>
@@ -1972,6 +1994,20 @@
       <ny>1</ny>
       <file grid="ice|ocn">$DIN_LOC_ROOT/share/domains/domain.ocn.oEC60to30v3.161222.nc</file>
       <desc>oEC60to30v3 is a MPAS ocean grid generated with the eddy closure density function that is roughly comparable to the pop 1 degree resolution:</desc>
+    </domain>
+
+    <domain name="oEC60to30Rev4">
+      <nx>236734</nx>
+      <ny>1</ny>
+      <file grid="ice|ocn">$DIN_LOC_ROOT/share/domains/domain.ocn.oEC60to30Rev4.190821.nc</file>
+      <desc>oEC60to30Rev4 is a MPAS ocean grid, created with Jigsaw by D. Engwirda, for a FESOM intercomparison in 2019</desc>
+    </domain>
+
+    <domain name="oSO60to10KERev1">
+      <nx>1159344</nx>
+      <ny>1</ny>
+      <file grid="ice|ocn">$DIN_LOC_ROOT/share/domains/domain.ocn.oSO60to10KERev1.190821.nc</file>
+      <desc>oSO60to10KERev1 is a Southern Ocean-refined MPAS ocean grid, created with Jigsaw by D. Engwirda, for a FESOM intercomparison in 2019</desc>
     </domain>
 
     <domain name="oEC60to30wLI">
@@ -2604,6 +2640,22 @@
       <map name="OCN2ATM_SMAPNAME">cpl/gridmaps/oEC60to30v3/map_oEC60to30v3_TO_T62_aave.161222.nc</map>
     </gridmap>
 
+    <gridmap atm_grid="T62" ocn_grid="oEC60to30Rev4">
+      <map name="ATM2OCN_FMAPNAME">cpl/gridmaps/T62/map_T62_TO_oEC60to30Rev4_aave.190821.nc</map>
+      <map name="ATM2OCN_SMAPNAME">cpl/gridmaps/T62/map_T62_TO_oEC60to30Rev4_blin.190821.nc</map>
+      <map name="ATM2OCN_VMAPNAME">cpl/gridmaps/T62/map_T62_TO_oEC60to30Rev4_patc.190821.nc</map>
+      <map name="OCN2ATM_FMAPNAME">cpl/gridmaps/oEC60to30Rev4/map_oEC60to30Rev4_TO_T62_aave.190821.nc</map>
+      <map name="OCN2ATM_SMAPNAME">cpl/gridmaps/oEC60to30Rev4/map_oEC60to30Rev4_TO_T62_aave.190821.nc</map>
+    </gridmap>
+
+    <gridmap atm_grid="T62" ocn_grid="oSO60to10KERev1">
+      <map name="ATM2OCN_FMAPNAME">cpl/gridmaps/T62/map_T62_TO_oSO60to10KERev1_aave.190821.nc</map>
+      <map name="ATM2OCN_SMAPNAME">cpl/gridmaps/T62/map_T62_TO_oSO60to10KERev1_blin.190821.nc</map>
+      <map name="ATM2OCN_VMAPNAME">cpl/gridmaps/T62/map_T62_TO_oSO60to10KERev1_patc.190821.nc</map>
+      <map name="OCN2ATM_FMAPNAME">cpl/gridmaps/oSO60to10KERev1/map_oSO60to10KERev1_TO_T62_aave.190821.nc</map>
+      <map name="OCN2ATM_SMAPNAME">cpl/gridmaps/oSO60to10KERev1/map_oSO60to10KERev1_TO_T62_aave.190821.nc</map>
+    </gridmap>
+
     <gridmap atm_grid="T62" ocn_grid="oEC60to30wLI">
       <map name="ATM2OCN_FMAPNAME">cpl/gridmaps/T62/map_T62_TO_oEC60to30wLI_aave.160830.nc</map>
       <map name="ATM2OCN_SMAPNAME">cpl/gridmaps/T62/map_T62_TO_oEC60to30wLI_nm_aave.160830.nc</map>
@@ -2981,6 +3033,16 @@
     <gridmap ocn_grid="oEC60to30v3" rof_grid="rx1">
       <map name="ROF2OCN_ICE_RMAPNAME">cpl/cpl6/map_rx1_to_oEC60to30v3_smoothed.r300e600.161222.nc</map>
       <map name="ROF2OCN_LIQ_RMAPNAME">cpl/cpl6/map_rx1_to_oEC60to30v3_smoothed.r300e600.161222.nc</map>
+    </gridmap>
+
+    <gridmap ocn_grid="oEC60to30Rev4" rof_grid="rx1">
+      <map name="ROF2OCN_ICE_RMAPNAME">cpl/cpl6/map_rx1_to_oEC60to30Rev4_smoothed.r150e300.190821.nc</map>
+      <map name="ROF2OCN_LIQ_RMAPNAME">cpl/cpl6/map_rx1_to_oEC60to30Rev4_smoothed.r150e300.190821.nc</map>
+    </gridmap>
+
+    <gridmap ocn_grid="oSO60to10KERev1" rof_grid="rx1">
+      <map name="ROF2OCN_ICE_RMAPNAME">cpl/cpl6/map_rx1_to_oSO60to10KERev1_smoothed.r150e300.190821.nc</map>
+      <map name="ROF2OCN_LIQ_RMAPNAME">cpl/cpl6/map_rx1_to_oSO60to10KERev1_smoothed.r150e300.190821.nc</map>
     </gridmap>
 
     <gridmap ocn_grid="oEC60to30wLI" rof_grid="rx1">

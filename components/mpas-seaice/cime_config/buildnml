@@ -101,6 +101,16 @@ def buildnml(case, caseroot, compname):
         grid_prefix += 'seaiceEC60to30v3wLI60lev.restart_theta_year26'
         decomp_date += '170905'
         decomp_prefix += 'mpas-cice.graph.info.'
+    elif ice_grid == 'oEC60to30Rev4':
+        grid_date += '190821'
+        grid_prefix += 'seaice.EC60to30Rev4'
+        decomp_date += '190821'
+        decomp_prefix += 'mpas-cice.graph.info.'
+    elif ice_grid == 'oSO60to10KERev1':
+        grid_date += '190821'
+        grid_prefix += 'seaice.SO60to10KERev1'
+        decomp_date += '190821'
+        decomp_prefix += 'mpas-cice.graph.info.'
     elif ice_grid == 'mpas120':
         grid_date += '121116'
         grid_prefix += 'cice120km'

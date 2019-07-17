@@ -118,6 +118,20 @@ def buildnml(case, caseroot, compname):
         decomp_prefix += 'mpas-o.graph.info.'
         restoring_file += 'sss.monthlyClimatology.PHC2_salx.EC60to30v3wLI.170328.nc'
         analysis_mask_file += 'masks_SingleRegionAtlanticWTransportTransects_EC60to30v3wLI_171116.nc'
+    elif ocn_grid == 'oEC60to30Rev4':
+        ic_date += '190821'
+        ic_prefix += 'oEC60to30Rev4'
+        decomp_date += '190821'
+        decomp_prefix += 'mpas-o.graph.info.'
+        restoring_file += 'sss.monthlyClimatology.PHC2_salx_040803.oEC60to30Rev4.nc'
+        analysis_mask_file += 'masks_SingleRegionAtlanticWTransportTransects_EC60to30Rev4_190821.nc'
+    elif ocn_grid == 'oSO60to10KERev1':
+        ic_date += '190821'
+        ic_prefix += 'oSO60to10KERev1'
+        decomp_date += '190821'
+        decomp_prefix += 'mpas-o.graph.info.'
+        restoring_file += 'sss.monthlyClimatology.PHC2_salx_040803.oSO60to10KERev1.nc'
+        analysis_mask_file += 'masks_SingleRegionAtlanticWTransportTransects_SO60to10KERev1_190821.nc'
     elif ocn_grid == 'oQU480':
         ic_date += '151209'
         ic_prefix += 'ocean.QU.480km'
