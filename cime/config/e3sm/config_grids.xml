@@ -743,6 +743,16 @@
       <mask>oRRS15to5</mask>
     </model_grid>
 
+    <model_grid alias="ne512np4_360x720cru_ne512np4">
+      <grid name="atm">ne512np4</grid>
+      <grid name="lnd">360x720cru</grid>
+      <grid name="ocnice">ne512np4</grid>
+      <grid name="rof">r05</grid>
+      <grid name="glc">null</grid>
+      <grid name="wav">null</grid>
+      <mask>oRRS15to5</mask>
+    </model_grid>
+
     <model_grid alias="ne4_ne4" compset="(DOCN|XOCN|SOCN|AQP1)">
       <grid name="atm">ne4np4</grid>
       <grid name="lnd">ne4np4</grid>
