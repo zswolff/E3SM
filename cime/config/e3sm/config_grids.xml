@@ -1125,6 +1125,7 @@
       <grid name="glc">null</grid>
       <grid name="wav">null</grid>
       <mask>gx1v6</mask>
+      <!-- <mask>oEC60to30v3</mask> -->
     </model_grid>
 
     <model_grid alias="ne240_ne240" compset="(DOCN|XOCN|SOCN|AQP1)">
@@ -1911,6 +1912,8 @@
       <ny>1</ny>
       <file grid="atm|lnd" mask="gx1v6">$DIN_LOC_ROOT/share/domains/domain.lnd.ne120pg2_gx1v6.190819.nc</file>
       <file grid="ice|ocn" mask="gx1v6">$DIN_LOC_ROOT/share/domains/domain.ocn.ne120pg2_gx1v6.190819.nc</file>
+      <file grid="atm|lnd" mask="oEC60to30v3">$DIN_LOC_ROOT/share/domains/domain.lnd.ne120pg2_oECv3.190819.nc</file>
+      <file grid="ice|ocn" mask="oEC60to30v3">$DIN_LOC_ROOT/share/domains/domain.ocn.ne120pg2_oECv3.190819.nc</file>
       <desc>ne120np4 is Spectral Elem 1/4-deg grid w/ 2x2 FV physics grid</desc>
     </domain>
 
