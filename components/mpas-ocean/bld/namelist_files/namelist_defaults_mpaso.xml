@@ -142,6 +142,7 @@
 <config_mom_del4 ocn_grid="oEC60to30Rev4">1.2e11</config_mom_del4>
 <config_mom_del4 ocn_grid="oRRS30to10">1.5e10</config_mom_del4>
 <config_mom_del4 ocn_grid="oRRS30to10v3">1.5e10</config_mom_del4>
+<config_mom_del4 ocn_grid="oSO60to10KERev1">1.5e10</config_mom_del4>
 <config_mom_del4 ocn_grid="oRRS30to10wLI">1.5e10</config_mom_del4>
 <config_mom_del4 ocn_grid="oRRS30to10v3wLI">1.5e10</config_mom_del4>
 <config_mom_del4 ocn_grid="oRRS18to6">3.2e09</config_mom_del4>
@@ -172,6 +173,7 @@
 <config_use_standardGM ocn_grid="oRRS30to10v3">.false.</config_use_standardGM>
 <config_use_standardGM ocn_grid="oRRS30to10wLI">.false.</config_use_standardGM>
 <config_use_standardGM ocn_grid="oRRS30to10v3wLI">.false.</config_use_standardGM>
+<config_use_standardGM ocn_grid="oSO60to10KERev1">.false.</config_use_standardGM>
 <config_use_standardGM ocn_grid="oRRS18to6">.false.</config_use_standardGM>
 <config_use_standardGM ocn_grid="oRRS18to6v3">.false.</config_use_standardGM>
 <config_use_standardGM ocn_grid="oRRS15to5">.false.</config_use_standardGM>
@@ -384,6 +386,7 @@
 <config_btr_dt ocn_grid="oEC60to30Rev4">'0000_00:01:00'</config_btr_dt>
 <config_btr_dt ocn_grid="oRRS30to10">'0000_00:00:18'</config_btr_dt>
 <config_btr_dt ocn_grid="oRRS30to10v3">'0000_00:00:24'</config_btr_dt>
+<config_btr_dt ocn_grid="oSO60to10KERev1">'0000_00:00:24'</config_btr_dt>
 <config_btr_dt ocn_grid="oRRS30to10wLI">'0000_00:00:18'</config_btr_dt>
 <config_btr_dt ocn_grid="oRRS30to10v3wLI">'0000_00:00:18'</config_btr_dt>
 <config_btr_dt ocn_grid="oRRS18to6">'0000_00:00:12'</config_btr_dt>
