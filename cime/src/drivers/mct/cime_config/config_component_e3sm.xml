@@ -309,9 +309,11 @@
       <value compset="_DATM.*_SLND.*MPAS" grid="oi%oQU120">24</value>
       <value compset="_DATM.*_SLND.*MPAS" grid="oi%oEC60to30">48</value>
       <value compset="_DATM.*_SLND.*MPAS" grid="oi%oEC60to30v3">48</value>
+      <value compset="_DATM.*_SLND.*MPAS" grid="oi%oEC60to30Rev4">48</value>
       <value compset="_DATM.*_SLND.*MPAS" grid="oi%oEC60to30wLI">48</value>
       <value compset="_DATM.*_SLND.*MPAS" grid="oi%oRRS30to10v3">96</value>
       <value compset="_DATM.*_SLND.*MPAS" grid="oi%oRRS30to10wLI">96</value>
+      <value compset="_DATM.*_SLND.*MPAS" grid="oi%oSO60to10KERev1">96</value>
       <value compset="_DATM.*_SLND.*MPAS" grid="oi%oRRS18to6v3">96</value>
       <value compset="_DATM.*_SLND.*MPAS" grid="oi%oRRS15to5">96</value>
       <value compset="_DATM.*_SLND.*MPAS" grid="oi%oARRM60to10">96</value>

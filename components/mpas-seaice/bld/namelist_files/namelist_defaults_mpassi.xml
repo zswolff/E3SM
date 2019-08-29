@@ -112,7 +112,7 @@
 <config_dynamics_subcycle_number ice_grid="oEC60to30v3">1</config_dynamics_subcycle_number>
 <config_dynamics_subcycle_number ice_grid="oEC60to30v3wLI">1</config_dynamics_subcycle_number>
 <config_dynamics_subcycle_number ice_grid="oEC60to30Rev4">1</config_dynamics_subcycle_number>
-<config_dynamics_subcycle_number ice_grid="oSO60to10KERev1">1</config_dynamics_subcycle_number>
+<config_dynamics_subcycle_number ice_grid="oSO60to10KERev1">2</config_dynamics_subcycle_number>
 <config_dynamics_subcycle_number ice_grid="oRRS30to10">1</config_dynamics_subcycle_number>
 <config_dynamics_subcycle_number ice_grid="oRRS30to10v3">1</config_dynamics_subcycle_number>
 <config_dynamics_subcycle_number ice_grid="oRRS30to10wLI">1</config_dynamics_subcycle_number>
