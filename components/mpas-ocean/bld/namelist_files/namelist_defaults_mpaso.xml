@@ -183,7 +183,7 @@
 <config_GM_Bolus_kappa_max>600.0</config_GM_Bolus_kappa_max>
 <config_GM_Bolus_cell_size_min>20e3</config_GM_Bolus_cell_size_min>
 <config_GM_Bolus_cell_size_max>30e3</config_GM_Bolus_cell_size_max>
-<config_Redi_kappa>0.0</config_Redi_kappa>
+<config_Redi_kappa>400.0</config_Redi_kappa>
 <config_gravWaveSpeed_trunc>0.3</config_gravWaveSpeed_trunc>
 <config_max_relative_slope>0.01</config_max_relative_slope>
 
