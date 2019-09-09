@@ -482,6 +482,8 @@ add_default($nl, 'config_salinity_restoring_under_sea_ice');
 ###############################################
 
 add_default($nl, 'config_use_debugTracers');
+add_default($nl, 'config_reset_debugTracers_top_nLayers');
+add_default($nl, 'config_reset_debugTracers_near_surface');
 add_default($nl, 'config_use_debugTracers_surface_bulk_forcing');
 add_default($nl, 'config_use_debugTracers_surface_restoring');
 add_default($nl, 'config_use_debugTracers_interior_restoring');

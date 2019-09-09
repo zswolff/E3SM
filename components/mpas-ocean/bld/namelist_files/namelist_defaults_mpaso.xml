@@ -458,7 +458,9 @@
 <config_salinity_restoring_under_sea_ice>.false.</config_salinity_restoring_under_sea_ice>
 
 <!-- tracer_forcing_debugTracers -->
-<config_use_debugTracers>.false.</config_use_debugTracers>
+<config_use_debugTracers>.true.</config_use_debugTracers>
+<config_reset_debugTracers_top_nLayers>.true.</config_reset_debugTracers_top_nLayers>
+<config_reset_debugTracers_near_surface>20</config_reset_debugTracers_near_surface>
 <config_use_debugTracers_surface_bulk_forcing>.false.</config_use_debugTracers_surface_bulk_forcing>
 <config_use_debugTracers_surface_restoring>.false.</config_use_debugTracers_surface_restoring>
 <config_use_debugTracers_interior_restoring>.false.</config_use_debugTracers_interior_restoring>
