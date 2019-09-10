@@ -1060,7 +1060,7 @@ for mct, etc.
     <append> -DLINUX </append>
   </CPPDEFS>
   <FFLAGS>
-    <append DEBUG="FALSE"> -O2 </append>
+    <append DEBUG="FALSE"> -O2 -debug minimal -qno-opt-dynamic-align </append>
     <append DEBUG="TRUE"> -g -traceback  -O0 -fpe0 -check  all -check noarg_temp_created -ftrapuv -init=snan</append>
   </FFLAGS>
   <NETCDF_PATH>$ENV{NETCDF_HOME}</NETCDF_PATH>
@@ -1094,6 +1094,9 @@ for mct, etc.
   <LDFLAGS>
     <append> -lpmi -L$NETCDF_PATH/lib -lnetcdf -lnetcdff -L$ENV{MKL_PATH}/lib/intel64/ -lmkl_rt $ENV{PNETCDF_LIBRARIES} </append>
   </LDFLAGS>
+  <MPICC  MPILIB="impi">mpipgcc</MPICC>
+  <MPICXX MPILIB="impi">mpipgcxx</MPICXX>
+  <MPIFC  MPILIB="impi">mpipgf90</MPIFC>
 </compiler>
 
 <compiler MACH="cori-haswell" COMPILER="intel">
