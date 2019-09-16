@@ -258,6 +258,7 @@ contains
        
        dtime = get_step_size()
 	   
+       if (tw_irr) then
        !--------------- temp solution for the irrigation mapping issue, if ELM and MOSART share the same grid, no such problem
        gridnum = bounds%endg - bounds%begg + 1 !number of grid on this processer
         do pp = bounds%begp,bounds%endp          
@@ -326,7 +327,7 @@ contains
             adjust_f = 1 ! if irrigated area is too small, don't adjust because it would generate huge irrigation rate in a very small area
         end if            
        !----------------- temp solution ends here     
-
+       end if
        ! Start pft loop
 
        do f = 1, num_nolakep
@@ -336,7 +337,7 @@ contains
           l = plandunit(p)
           c = pcolumn(p)
 
-          irrig_rate_grid(g) = irrig_rate(p)/pgwgt(p) ! grid level irrigation rate projected by patch irrigation rate
+          !irrig_rate_grid(g) = irrig_rate(p)/pgwgt(p) ! grid level irrigation rate projected by patch irrigation rate
 
           ! Canopy interception and precipitation onto ground surface
           ! Add precipitation to leaf water
@@ -434,7 +435,7 @@ contains
           ! Determine whether we're irrigating here; set qflx_irrig appropriately
           if (n_irrig_steps_left(p) > 0) then
              qflx_irrig(p)         = irrig_rate(p)
-             qflx_irrig_grid(g) = irrig_rate_grid(g)
+             !qflx_irrig_grid(g) = irrig_rate_grid(g)
              n_irrig_steps_left(p) = n_irrig_steps_left(p) - 1
           else
              qflx_irrig(p) = 0._r8
@@ -458,10 +459,6 @@ contains
                !qflx_surf_irrig(p) = qflx_irrig(p) * supply_frac(g)			
                !qflx_over_supply(p) = 0
                !--    
-               
-                !if (g .eq. 3761) then       ! debug
-                !  write(iulog,*)'ttt1',g,p,qflx_irrig(p),atm2lnd_vars%supply_grc(g), adjust_f, pgwgt(p), qflx_surf_irrig(p),qflx_over_supply(p),qflx_real_irrig(p)
-                !end if
                 
                if (qflx_surf_irrig(p) > qflx_irrig(p)) then  !projected surface water supply is more than total demand, spill the excessive water on the ground
                   qflx_over_supply(p) = qflx_surf_irrig(p) - qflx_irrig(p)
