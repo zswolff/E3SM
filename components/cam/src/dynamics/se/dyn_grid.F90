@@ -1505,7 +1505,6 @@ contains
   !
   subroutine fv_physgrid_init()
     use control_mod,            only: cubed_sphere_map
-    use kinds,                  only: lng_dbl => longdouble_kind
     use cube_mod,               only: ref2sphere
     use coordinate_systems_mod, only: spherical_polar_t, cartesian3D_t
     use coordinate_systems_mod, only: sphere_tri_area, change_coordinates 
@@ -1515,18 +1514,19 @@ contains
     ! type(fv_physgrid_struct), intent(inout) :: fv_physgrid(nelemd)
     !----------------------------Local-Variables--------------------------------
     type(spherical_polar_t) :: sphere_coord
-    real(kind=lng_dbl)      :: ref_i
-    real(kind=lng_dbl)      :: ref_j
-    real(kind=lng_dbl)      :: ref_corner_i
-    real(kind=lng_dbl)      :: ref_corner_j
-    real(kind=lng_dbl)      :: corner_offset_i(4)
-    real(kind=lng_dbl)      :: corner_offset_j(4)
+    real(kind=r8)           :: ref_i
+    real(kind=r8)           :: ref_j
+    real(kind=r8)           :: ref_corner_i
+    real(kind=r8)           :: ref_corner_j
+    real(kind=r8)           :: corner_offset_i(4)
+    real(kind=r8)           :: corner_offset_j(4)
     type(cartesian3D_t)     :: corner_tmp(4)
     type(cartesian3D_t)     :: center_tmp
     integer  :: ie, sb, eb, i, j, ip, fv_cnt, c
     integer  :: ierr
     integer  :: ibuf
     real(r8) :: area1, area2
+    integer  :: nphys
     !---------------------------------------------------------------------------  
     
     ! Allocate stuff
@@ -1545,8 +1545,11 @@ contains
     ! These offsets define the order of the corners of each element subcell, 
     ! used to define the physics grid coordinates. The specific order does not 
     ! matter here, but it should generally always be counter-clockwise.
-    corner_offset_i = (/-1.,1.,1.,-1./)
-    corner_offset_j = (/-1.,-1.,1.,1./)
+    corner_offset_i = (/-1,1,1,-1/)
+    corner_offset_j = (/-1,-1,1,1/)
+
+    ! This fools the compiler debug mode
+    nphys = fv_nphys
     
     ! calculate coordinates and area for local blocks
     do ie = 1, nelemd
@@ -1558,12 +1561,9 @@ contains
           ! The code below is a reduction of a general formula to define
           ! midpoints m of n cells over a range [a,b]:
           ! m(i) = a + (b-a)/n * ( i - 0.5 )      where i = 1,n
-          ! Note: the max() is to fool the compiler debug mode when fv_nphys=0
           !---------------------------------------------------------------------
-          ref_i = -1._lng_dbl + 2._lng_dbl/real(max(1,fv_nphys),lng_dbl) & 
-                                * ( real(i,lng_dbl) - 0.5_lng_dbl )
-          ref_j = -1._lng_dbl + 2._lng_dbl/real(max(1,fv_nphys),lng_dbl) & 
-                                * ( real(j,lng_dbl) - 0.5_lng_dbl )
+          ref_i = -1 + 2 / nphys * ( i - 0.5_r8 )
+          ref_j = -1 + 2 / nphys * ( j - 0.5_r8 )
           !---------------------------------------------------------------------
           ! Although this is a simpler method of defining cell centers, 
           ! it is inconsistent with the method used by TempestRemap.
@@ -1577,12 +1577,12 @@ contains
           !---------------------------------------------------------------------
           ! cell corner locations
           !---------------------------------------------------------------------
-          center_tmp%x = 0.0_lng_dbl
-          center_tmp%y = 0.0_lng_dbl
-          center_tmp%z = 0.0_lng_dbl
+          center_tmp%x = 0
+          center_tmp%y = 0
+          center_tmp%z = 0
           do c = 1,4
-            ref_corner_i = ref_i + corner_offset_i(c)/real(max(1,fv_nphys),lng_dbl)
-            ref_corner_j = ref_j + corner_offset_j(c)/real(max(1,fv_nphys),lng_dbl)
+            ref_corner_i = ref_i + corner_offset_i(c)/nphys
+            ref_corner_j = ref_j + corner_offset_j(c)/nphys
 
             ! change element local reference coordinate to spherical
             sphere_coord = ref2sphere(ref_corner_i, ref_corner_j,           &
@@ -1596,9 +1596,9 @@ contains
             corner_tmp(c) = change_coordinates(sphere_coord)
 
             ! average corner coordinates to find center
-            center_tmp%x = center_tmp%x + corner_tmp(c)%x/4._lng_dbl
-            center_tmp%y = center_tmp%y + corner_tmp(c)%y/4._lng_dbl
-            center_tmp%z = center_tmp%z + corner_tmp(c)%z/4._lng_dbl
+            center_tmp%x = center_tmp%x + corner_tmp(c)%x/4
+            center_tmp%y = center_tmp%y + corner_tmp(c)%y/4
+            center_tmp%z = center_tmp%z + corner_tmp(c)%z/4
 
           end do ! c
           !---------------------------------------------------------------------
