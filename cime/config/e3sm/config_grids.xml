@@ -1830,15 +1830,15 @@
     <domain name="ne4np4.pg3">
       <nx>864</nx>
       <ny>1</ny>
-      <file grid="atm|lnd" mask="oQU240">domain.lnd.ne4pg3_oQU240.190321.nc</file>
-      <file grid="ice|ocn" mask="oQU240">domain.ocn.ne4pg3_oQU240.190321.nc</file>
+      <file grid="atm|lnd" mask="oQU240">?????</file>
+      <file grid="ice|ocn" mask="oQU240">?????</file>
       <desc>ne4np4.pg3 is Spectral Elem 7.5-deg grid w/ 3x3 FV physics grid per element:</desc>
     </domain>
     <domain name="ne4np4.pg4">
       <nx>1536</nx>
       <ny>1</ny>
-      <file grid="atm|lnd" mask="oQU240">domain.lnd.ne4pg4_oQU240.190321.nc</file>
-      <file grid="ice|ocn" mask="oQU240">domain.ocn.ne4pg4_oQU240.190321.nc</file>
+      <file grid="atm|lnd" mask="oQU240">?????</file>
+      <file grid="ice|ocn" mask="oQU240">?????</file>
       <desc>ne4np4.pg4 is Spectral Elem 7.5-deg grid w/ 4x4 FV physics grid per element:</desc>
     </domain>
 
