@@ -6031,8 +6031,13 @@ Default: 0.
 	
 <entry id="cubed_sphere_map" type="integer" category="se"
        group="ctl_nl" valid_values="" >
-Defines which map is used for ref. element in homme.
-Default for preqx target: 0.
+Defines which map is used for mapping the reference element to the cubed sphere in homme.
+    -1 = chosen at run time
+     0 = equi-angle Gnomonic (default for preqx / old grids)
+     1 = equi-spaced Gnomonic (not yet coded)
+     2 = element-local projection  (for var-res and grids using TempestRemap)
+     3 = parametric (not yet coded)
+Default: -1
 </entry>
 
 <entry id="transport_alg" type="integer" category="se"
