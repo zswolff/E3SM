@@ -31,6 +31,13 @@
 
 <dtime dyn="sld"                   >3600</dtime>
 
+<!-- Mapping type from reference element to cubed sphere for SE grids. -->
+<!-- For grids made with TempestRemap, we need to set equal to 2.      -->
+<!-- Setting to -1 uses dycore defaults set within the code.           -->
+<cubed_sphere_map dyn="se"                  > -1 </cubed_sphere_map>
+<cubed_sphere_map dyn="se" hgrid="ne512np4" >  2 </cubed_sphere_map>
+<cubed_sphere_map dyn="se" hgrid="ne1024np4">  2 </cubed_sphere_map>
+
 <!-- Initial conditions -->
 <ncdata dyn="fv"  hgrid="0.23x0.31" nlev="26" ic_ymd="101"      >atm/cam/inic/fv/cami_0000-01-01_0.23x0.31_L26_c100513.nc</ncdata>
 <ncdata dyn="fv"  hgrid="0.23x0.31" nlev="26" ic_ymd="901"      >atm/cam/inic/fv/cami_0000-09-01_0.23x0.31_L26_c061106.nc</ncdata>
