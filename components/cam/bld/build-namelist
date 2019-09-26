@@ -4721,14 +4721,7 @@ sub add_default {
     # if no value is found then exit w/ error (unless 'nofail' option set)
     unless (defined $val) {
         unless ($opts{'nofail'}) {
-            print "$ProgName - ERROR: No default value found for $var\n".
-            "user defined attributes:\n";
-            foreach my $key (keys(%opts)) {
-                if ($key ne 'nofail' and $key ne 'val') {
-                    print "key=$key  val=$opts{$key}\n";
-                }
-            }
-            die;
+            die "$ProgName - ERROR: no default value found for $var\n";
         } else {
             return;
         }
