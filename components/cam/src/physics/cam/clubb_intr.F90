@@ -722,6 +722,13 @@ end subroutine clubb_init_cnst
            err_code )
 !$OMP END PARALLEL
 
+    ! Print the list of CLUBB parameters
+    if ( masterproc ) then
+       do j = 1, nparams, 1
+          write(*,*) params_list(j), " = ", clubb_params(j)
+       enddo
+    endif
+
     ! ----------------------------------------------------------------- !
     ! Set-up HB diffusion.  Only initialized to diagnose PBL depth      !
     ! ----------------------------------------------------------------- !
@@ -988,6 +995,7 @@ end subroutine clubb_init_cnst
    use parameters_tunable,        only: mu
    use clubb_api_module, only: &
         cleanup_clubb_core_api, &
+        params_list, & 
         nparams, &
         read_parameters_api, &
         setup_parameters_api, &
