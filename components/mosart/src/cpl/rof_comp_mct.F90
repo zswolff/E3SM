@@ -264,7 +264,11 @@ contains
        call mct_aVect_init(x2r_r, rList=seq_flds_x2r_fields, lsize=lsize)
        call mct_aVect_zero(x2r_r)
        
-       ! Initialize mosart -> ocn attribute vector
+       ! Initialize lnd -> mosart attribute vector        
+       call mct_aVect_init(x2r_r, rList=seq_flds_x2r_fields, lsize=lsize)
+       call mct_aVect_zero(x2r_r)
+       
+       ! Initialize mosart -> ocn attribute vector        
        call mct_aVect_init(r2x_r, rList=seq_flds_r2x_fields, lsize=lsize)
        call mct_aVect_zero(r2x_r) 
        
@@ -355,9 +359,6 @@ contains
     write(rdate,'(i4.4,"-",i2.2,"-",i2.2,"-",i5.5)') yr_sync,mon_sync,day_sync,tod_sync
     nlend = seq_timemgr_StopAlarmIsOn( EClock )
     rstwr = seq_timemgr_RestartAlarmIsOn( EClock )
-    write(iulog,*) 'wokao1, ', rstwr
-    write(iulog,*) 'wokao2, ', nlend
-    write(iulog,*) 'wokao3, ', rdate
     call Rtmrun(rstwr,nlend,rdate)
 
     ! Map roff data to MCT datatype (input is rtmCTL%runoff, output is r2x_r)
