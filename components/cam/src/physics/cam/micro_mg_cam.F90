@@ -88,6 +88,7 @@ use constituents,   only: cnst_add, cnst_get_ind, &
 use cldfrc2m,       only: rhmini=>rhmini_const
 
 use cam_history,    only: addfld, horiz_only, add_default, outfld
+use cam_history_support, only: add_hist_coord  !Xue
 
 use cam_logfile,    only: iulog
 use cam_abortutils, only: endrun
@@ -141,6 +142,10 @@ integer :: num_steps ! Number of MG substeps
 
 integer :: ncnst = 4       ! Number of constituents
 
+integer    ::  nsubsteps = 6    ! number of clubb_mg2 substeps (macmic*num_steps) Xue
+integer,allocatable, target :: substeps(:)           ! substeps number (nsubsteps) Xue
+
+
 character(len=8), parameter :: &      ! Constituent names
    cnst_names(8) = (/'CLDLIQ', 'CLDICE','NUMLIQ','NUMICE', &
                      'RAINQM', 'SNOWQM','NUMRAI','NUMSNO'/)
@@ -161,6 +166,8 @@ integer :: &
    qme_idx,            &
    prain_idx,          &
    nevapr_idx,         &
+   nr_evap_idx,            &  !Xue
+   nr_slfcol_idx,            & !Xue
    wsedl_idx,          &
    rei_idx,            &
    rel_idx,            &
@@ -268,6 +275,8 @@ subroutine micro_mg_cam_readnl(nlfile)
   use namelist_utils,  only: find_group_name
   use units,           only: getunit, freeunit
   use mpishorthand
+  use phys_control,     only: phys_getopts  !Xue
+
 
   character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
 
@@ -277,6 +286,7 @@ subroutine micro_mg_cam_readnl(nlfile)
   logical :: micro_do_nccons    = .false.! micro_do_nccons = .true, MG does NOT predict numliq 
   logical :: micro_do_nicons    = .false.! micro_do_nicons = .true.,MG does NOT predict numice
   integer :: micro_mg_num_steps = 1      ! Number of substepping iterations done by MG (1.5 only for now).
+  integer :: cld_macmic_num_steps = 100      ! Number of substepping iterations done by clubb_mg !+Xue
   real(r8) :: micro_nccons, micro_nicons
 
   ! Local variables
@@ -291,7 +301,7 @@ subroutine micro_mg_cam_readnl(nlfile)
        microp_uniform, micro_mg_dcs, micro_mg_precip_frac_method, &
        micro_mg_mass_gradient_alpha, micro_mg_mass_gradient_beta, &
        micro_mg_berg_eff_factor, micro_do_nccons, micro_do_nicons, &
-       micro_nccons, micro_nicons
+       micro_nccons, micro_nicons 
 
   !-----------------------------------------------------------------------------
 
@@ -308,6 +318,9 @@ subroutine micro_mg_cam_readnl(nlfile)
      close(unitn)
      call freeunit(unitn)
 
+     call phys_getopts(cld_macmic_num_steps_out = cld_macmic_num_steps) !Xue
+ 
+
      ! set local variables
      do_cldice = micro_mg_do_cldice
      do_cldliq = micro_mg_do_cldliq
@@ -317,7 +330,7 @@ subroutine micro_mg_cam_readnl(nlfile)
      nicons = micro_nicons
      
      num_steps = micro_mg_num_steps
-     
+     nsubsteps = num_steps*cld_macmic_num_steps !Xue 
 
      ! Verify that version numbers are valid.
      select case (micro_mg_version)
@@ -377,6 +390,7 @@ subroutine micro_mg_cam_readnl(nlfile)
   call mpibcast(micro_mg_precip_frac_method, 16, mpichar,0, mpicom)
   call mpibcast(micro_mg_mass_gradient_alpha, 1, mpir8, 0, mpicom)
   call mpibcast(micro_mg_mass_gradient_beta, 1, mpir8,  0, mpicom)
+  call mpibcast(nsubsteps,                   1, mpiint, 0, mpicom) !Xue
 
 #endif
 
@@ -402,6 +416,7 @@ subroutine micro_mg_cam_register
   logical :: prog_modal_aero
   logical :: use_subcol_microp  ! If true, then are using subcolumns in microphysics
   logical :: save_subcol_microp ! If true, then need to store sub-columnized fields in pbuf
+  integer :: k !Xue
 
   call phys_getopts(use_subcol_microp_out = use_subcol_microp, &
                     prog_modal_aero_out   = prog_modal_aero, &
@@ -438,6 +453,13 @@ subroutine micro_mg_cam_register
            longname='Grid box averaged rain number', is_convtran1=.true.)
       call cnst_add(cnst_names(8), mwh2o, cpair, 0._r8, ixnumsnow, &
            longname='Grid box averaged snow number', is_convtran1=.true.)
+     allocate(substeps(nsubsteps)) !Xue
+     do k = 1,nsubsteps  !Xue
+      substeps(k) = k
+     end do !Xue
+     call add_hist_coord('mg2_steps', nsubsteps, 'CLUBB and MG substeps',values=substeps)  !Xue
+     write(iulog,*) "Xue: add_hist_coord mg2_steps: ", substeps
+
    end if
 
   ! Request physics buffer space for fields that persist across timesteps.
@@ -449,6 +471,8 @@ subroutine micro_mg_cam_register
   call pbuf_add_field('QME',        'physpkg',dtype_r8,(/pcols,pver/), qme_idx)
   call pbuf_add_field('PRAIN',      'physpkg',dtype_r8,(/pcols,pver/), prain_idx)
   call pbuf_add_field('NEVAPR',     'physpkg',dtype_r8,(/pcols,pver/), nevapr_idx)
+  call pbuf_add_field('NR_EVAP',  'global', dtype_r8,(/pcols,pver/), nr_evap_idx)! Xue 
+  call pbuf_add_field('NR_SELFCOL',  'global', dtype_r8,(/pcols,pver/), nr_slfcol_idx)!Xue
   call pbuf_add_field('PRER_EVAP',  'global', dtype_r8,(/pcols,pver/), prer_evap_idx)
 
   call pbuf_add_field('WSEDL',      'physpkg',dtype_r8,(/pcols,pver/), wsedl_idx)
@@ -525,6 +549,8 @@ subroutine micro_mg_cam_register
     call pbuf_register_subcol('QME',         'micro_mg_cam_register', qme_idx)
     call pbuf_register_subcol('PRAIN',       'micro_mg_cam_register', prain_idx)
     call pbuf_register_subcol('NEVAPR',      'micro_mg_cam_register', nevapr_idx)
+    call pbuf_register_subcol('NR_EVAP',   'micro_mg_cam_register', nr_evap_idx)!Xue
+    call pbuf_register_subcol('NR_SELFCOL',   'micro_mg_cam_register', nr_slfcol_idx) !Xue
     call pbuf_register_subcol('PRER_EVAP',   'micro_mg_cam_register', prer_evap_idx)
 
     call pbuf_register_subcol('WSEDL',       'micro_mg_cam_register', wsedl_idx)
@@ -583,7 +609,7 @@ subroutine micro_mg_cam_register
 
   ! Diagnostic fields needed for subcol_SILHS, need to be grid-only
   if (subcol_get_scheme() == 'SILHS') then
-     call pbuf_add_field('QRAIN',   'global',dtype_r8,(/pcols,pver/), qrain_idx)
+     call pbuf_add_field('RAIN',   'global',dtype_r8,(/pcols,pver/), qrain_idx)
      call pbuf_add_field('QSNOW',   'global',dtype_r8,(/pcols,pver/), qsnow_idx)
      call pbuf_add_field('NRAIN',   'global',dtype_r8,(/pcols,pver/), nrain_idx)
      call pbuf_add_field('NSNOW',   'global',dtype_r8,(/pcols,pver/), nsnow_idx)
@@ -760,11 +786,23 @@ subroutine micro_mg_cam_init(pbuf2d)
       call addfld(apcnst(ixsnow), (/ 'lev' /), 'A', 'kg/kg', trim(cnst_name(ixsnow))//' after physics'  )
       call addfld(bpcnst(ixrain), (/ 'lev' /), 'A', 'kg/kg', trim(cnst_name(ixrain))//' before physics' )
       call addfld(bpcnst(ixsnow), (/ 'lev' /), 'A', 'kg/kg', trim(cnst_name(ixsnow))//' before physics' )
+      call addfld ('QC_SUB', (/'lev', 'mg2_steps' /), 'I', 'kg/kg', 'QC substep')  !Xue
+      call addfld ('QR_SUB', (/ 'lev', 'mg2_steps' /), 'I', 'kg/kg', 'QR substep')  !Xue
+      call addfld ('QRBSED_SUB', (/ 'lev', 'mg2_steps' /), 'I', 'kg/kg', 'QRBSED substep')  !Xue
+      call addfld ('NRBSED_SUB', (/ 'lev', 'mg2_steps' /), 'I', '1/kg', 'NRBSED substep')  !Xue
+      call addfld ('QRSEDTEN_SUB', (/ 'lev', 'mg2_steps' /), 'I', 'kg/kg/s', 'QRSEDTEN substep')  !Xue
    end if
+   call addfld ('QREVAPTEN_SUB', (/ 'lev', 'mg2_steps' /), 'I', 'kg/kg/s', 'NEVAPR substep')  !Xue
 
    call addfld ('CME', (/ 'lev' /), 'A', 'kg/kg/s', 'Rate of cond-evap within the cloud'                      )
    call addfld ('PRODPREC', (/ 'lev' /), 'A', 'kg/kg/s', 'Rate of conversion of condensate to precip'              )
    call addfld ('EVAPPREC', (/ 'lev' /), 'A', 'kg/kg/s', 'Rate of evaporation of falling precip'                   )
+   call addfld ('NR_EVAP', (/ 'lev' /), 'A', '1/kg/s', 'Rate of evaporation of rain drop number'                   )  !Xue
+   call addfld ('NR_SELFCOL', (/ 'lev' /), 'A', '1/kg/s', 'Rate of self-collection of rain drop number'                   )!Xue
+   call addfld ('NRTEND', (/ 'lev' /), 'A', '1/kg/s', 'Tendency of rain drop number'                   )  !Xue
+   call addfld ('NRSEDTEND', (/ 'lev' /), 'A', '1/kg/s', 'Sedimentation tendency of rain drop number'                   )  !Xue
+   call addfld ('QRBSED', (/ 'lev' /), 'A', 'kg/kg', 'Rain water mixing ratio before sedimentation'                )  !Xue
+   call addfld ('NRBSED', (/ 'lev' /), 'A', '1/kg', 'Rain number before sedimentation'                )  !Xue
    call addfld ('EVAPSNOW', (/ 'lev' /), 'A', 'kg/kg/s', 'Rate of evaporation of falling snow'                     )
    call addfld ('HPROGCLD', (/ 'lev' /), 'A', 'W/kg'    , 'Heating from prognostic clouds'                          )
    call addfld ('FICE', (/ 'lev' /), 'A', 'fraction', 'Fractional ice content within cloud'                     )
@@ -1058,6 +1096,8 @@ subroutine micro_mg_cam_init(pbuf2d)
       call pbuf_set_field(pbuf2d, evprain_st_idx, 0._r8)
       call pbuf_set_field(pbuf2d, evpsnow_st_idx, 0._r8)
       call pbuf_set_field(pbuf2d, prer_evap_idx,  0._r8)
+      call pbuf_set_field(pbuf2d, nr_evap_idx,  0._r8) !Xue
+      call pbuf_set_field(pbuf2d, nr_slfcol_idx,  0._r8) !Xue
 
       if (qrain_idx > 0)   call pbuf_set_field(pbuf2d, qrain_idx, 0._r8)
       if (qsnow_idx > 0)   call pbuf_set_field(pbuf2d, qsnow_idx, 0._r8)
@@ -1082,7 +1122,8 @@ end subroutine micro_mg_cam_init
 
 !===============================================================================
 
-subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
+!-Xue subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
+subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf, macmic_it) !+Xue
 
    use micro_mg_utils, only: size_dist_param_basic, size_dist_param_liq, &
         mg_liq_props, mg_ice_props, avg_diameter, rhoi, rhosn, rhow, rhows, &
@@ -1106,6 +1147,7 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
    type(physics_state),         intent(in)    :: state
    type(physics_ptend),         intent(out)   :: ptend
    real(r8),                    intent(in)    :: dtime
+   integer ,                    intent(in)    :: macmic_it !+Xue
    type(physics_buffer_desc),   pointer       :: pbuf(:)
 
    ! Local variables
@@ -1134,6 +1176,8 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
    real(r8), pointer :: aist_mic(:,:)
    real(r8), pointer :: cldo(:,:)         ! Old cloud fraction
    real(r8), pointer :: nevapr(:,:)       ! Evaporation of total precipitation (rain + snow)
+   real(r8), pointer :: nr_evap(:,:)      ! Xue rain number evaporation rate
+   real(r8), pointer :: nr_slfcol(:,:)    ! Xue rain number self-collection rate
    real(r8), pointer :: prer_evap(:,:)    ! precipitation evaporation rate
    real(r8), pointer :: relvar(:,:)       ! relative variance of cloud water
    real(r8), pointer :: accre_enhan(:,:)  ! optional accretion enhancement for experimentation
@@ -1185,6 +1229,19 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
    real(r8), target :: qrsedten(state%psetcols,pver)   ! Rain mixing ratio tendency from sedimentation
    real(r8), target :: qssedten(state%psetcols,pver)   ! Snow mixing ratio tendency from sedimentation
 
+   real(r8), target :: nrsedten(state%psetcols,pver)  !Xue
+   real(r8), target :: qr_bsed(state%psetcols,pver)  !Xue
+   real(r8), target :: nr_bsed(state%psetcols,pver)  !Xue
+   real(r8), target :: qc_sub(state%psetcols,pver,nsubsteps)  !Xue
+   real(r8), target :: qr_sub(state%psetcols,pver,nsubsteps)  !Xue
+   real(r8), target :: qr_bsed_sub(state%psetcols,pver,nsubsteps)  !Xue
+   real(r8), target :: nr_bsed_sub(state%psetcols,pver,nsubsteps)  !Xue
+   real(r8), target :: qrsedten_sub(state%psetcols,pver,nsubsteps)  !Xue
+   real(r8), target :: qrevapten_sub(state%psetcols,pver,nsubsteps)  !Xue
+  ! real(r8), target :: qrevapten_sub(state%psetcols,pver)  !Xue
+   real(r8), target :: umr_sub(state%psetcols,pver,nsubsteps)  !Xue
+   real(r8), target :: prao_sub(state%psetcols,pver,nsubsteps)  !Xue
+   real(r8), target :: prco_sub(state%psetcols,pver,nsubsteps)  !Xue
    real(r8), target :: prao(state%psetcols,pver)
    real(r8), target :: prco(state%psetcols,pver)
    real(r8), target :: mnuccco(state%psetcols,pver)
@@ -1289,6 +1346,11 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
    real(r8), allocatable, target :: packed_prect(:)
    real(r8), allocatable, target :: packed_preci(:)
    real(r8), allocatable, target :: packed_nevapr(:,:)
+   real(r8), allocatable, target :: packed_nr_evap(:,:) !Xue
+   real(r8), allocatable, target :: packed_nrsedten(:,:) !Xue
+   real(r8), allocatable, target :: packed_qr_bsed(:,:) !Xue
+   real(r8), allocatable, target :: packed_nr_bsed(:,:) !Xue
+   real(r8), allocatable, target :: packed_nr_slfcol(:,:) !Xue
    real(r8), allocatable, target :: packed_am_evp_st(:,:)
    real(r8), allocatable, target :: packed_evapsnow(:,:)
    real(r8), allocatable, target :: packed_prain(:,:)
@@ -1350,7 +1412,7 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
    real(r8), allocatable, target :: packed_freqs(:,:)
    real(r8), allocatable, target :: packed_freqr(:,:)
    real(r8), allocatable, target :: packed_nfice(:,:)
-   real(r8), allocatable, target :: packed_prer_evap(:,:)
+   real(r8), allocatable, target :: packed_prer_evap(:,:) 
    real(r8), allocatable, target :: packed_qcrat(:,:)
 
    real(r8), allocatable, target :: packed_rel(:,:)
@@ -1526,6 +1588,16 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
    real(r8) :: qireso_grid(pcols,pver)
    real(r8) :: prcio_grid(pcols,pver)
    real(r8) :: praio_grid(pcols,pver)
+   real(r8) :: nrtend_grid(pcols,pver) !Xue
+   real(r8) :: nrsedten_grid(pcols,pver) !Xue
+   real(r8) :: qr_bsed_grid(pcols,pver) !Xue
+   real(r8) :: nr_bsed_grid(pcols,pver) !Xue
+   real(r8) :: qr_sub_grid(pcols,pver,nsubsteps) !Xue
+   real(r8) :: qc_sub_grid(pcols,pver,nsubsteps) !Xue
+   real(r8) :: qr_bsed_sub_grid(pcols,pver,nsubsteps) !Xue
+   real(r8) :: nr_bsed_sub_grid(pcols,pver,nsubsteps) !Xue
+   real(r8) :: qrsedten_sub_grid(pcols,pver,nsubsteps) !Xue
+!   real(r8) :: qrevapten_sub_grid(pcols,pver,nsubsteps) !Xue
 
    real(r8) :: nc_grid(pcols,pver)
    real(r8) :: ni_grid(pcols,pver)
@@ -1544,6 +1616,8 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
    real(r8), pointer :: snow_sed_grid(:)
    real(r8), pointer :: cldo_grid(:,:)
    real(r8), pointer :: nevapr_grid(:,:)
+   real(r8), pointer :: nr_evap_grid(:,:) !Xue
+   real(r8), pointer :: nr_slfcol_grid(:,:) !Xue
    real(r8), pointer :: prain_grid(:,:)
    real(r8), pointer :: mgflxprc_grid(:,:)
    real(r8), pointer :: mgflxsnw_grid(:,:)
@@ -1653,6 +1727,8 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
    call pbuf_get_field(pbuf, prec_sed_idx,    prec_sed,    col_type=col_type)
    call pbuf_get_field(pbuf, snow_sed_idx,    snow_sed,    col_type=col_type)
    call pbuf_get_field(pbuf, nevapr_idx,      nevapr,      col_type=col_type)
+   call pbuf_get_field(pbuf, nr_evap_idx,   nr_evap,   col_type=col_type)! Xue
+   call pbuf_get_field(pbuf, nr_slfcol_idx,   nr_slfcol,   col_type=col_type)! Xue
    call pbuf_get_field(pbuf, prer_evap_idx,   prer_evap,   col_type=col_type)
    call pbuf_get_field(pbuf, prain_idx,       prain,       col_type=col_type)
    call pbuf_get_field(pbuf, dei_idx,         dei,         col_type=col_type)
@@ -1704,6 +1780,8 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
       call pbuf_get_field(pbuf, prec_sed_idx,    prec_sed_grid)
       call pbuf_get_field(pbuf, snow_sed_idx,    snow_sed_grid)
       call pbuf_get_field(pbuf, nevapr_idx,      nevapr_grid)
+      call pbuf_get_field(pbuf, nr_evap_idx,      nr_evap_grid) !Xue
+      call pbuf_get_field(pbuf, nr_slfcol_idx,      nr_slfcol_grid) !Xue
       call pbuf_get_field(pbuf, prain_idx,       prain_grid)
       call pbuf_get_field(pbuf, dei_idx,         dei_grid)
       call pbuf_get_field(pbuf, mu_idx,          mu_grid)
@@ -1793,7 +1871,6 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
    end do
 
    cldo(:ncol,top_lev:pver)=ast(:ncol,top_lev:pver)
-
    ! Initialize local state from input.
    call physics_state_copy(state, state_loc)
 
@@ -1874,6 +1951,17 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
    call post_proc%add_field(p(preci), p(packed_preci))
    allocate(packed_nevapr(mgncol,nlev))
    call post_proc%add_field(p(nevapr), p(packed_nevapr))
+   allocate(packed_nr_evap(mgncol,nlev))  !Xue
+   call post_proc%add_field(p(nr_evap), p(packed_nr_evap)) !Xue
+   allocate(packed_nr_slfcol(mgncol,nlev)) !Xue
+   call post_proc%add_field(p(nr_slfcol), p(packed_nr_slfcol)) !Xue
+   allocate(packed_qr_bsed(mgncol,nlev))  !Xue
+   call post_proc%add_field(p(qr_bsed), p(packed_qr_bsed)) !Xue
+   allocate(packed_nr_bsed(mgncol,nlev))  !Xue
+   call post_proc%add_field(p(nr_bsed), p(packed_nr_bsed)) !Xue
+   allocate(packed_nrsedten(mgncol,nlev))  !Xue
+   call post_proc%add_field(p(nrsedten), p(packed_nrsedten)) !Xue
+
    allocate(packed_evapsnow(mgncol,nlev))
    call post_proc%add_field(p(evapsnow), p(packed_evapsnow))
    allocate(packed_prain(mgncol,nlev))
@@ -2120,6 +2208,8 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
          packed_qs = packer%pack(state_loc%q(:,:,ixsnow))
          packed_ns = packer%pack(state_loc%q(:,:,ixnumsnow))
       end if
+      qc_sub(:,:,(macmic_it-1)*num_steps+it) = state_loc%q(:,:,ixcldliq) !Xue 
+      qr_sub(:,:,(macmic_it-1)*num_steps+it) = state_loc%q(:,:,ixrain) !Xue 
 
       select case (micro_mg_version)
       case (1)
@@ -2244,11 +2334,18 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
                  errstring, &
                  packed_tnd_qsnow,packed_tnd_nsnow,packed_re_ice,&
 		 packed_prer_evap,                                     &
-                 packed_frzimm,  packed_frzcnt,  packed_frzdep   )
+                 packed_frzimm,  packed_frzcnt,  packed_frzdep,   &!Xue added nr tendencies and qr
+                packed_nr_evap,packed_nr_slfcol,packed_qr_bsed,packed_nr_bsed,packed_nrsedten)
+
+             qr_bsed_sub(:,:,(macmic_it-1)*num_steps+it) = packer%unpack(packed_qr_bsed, 0._r8) !Xue 
+             nr_bsed_sub(:,:,(macmic_it-1)*num_steps+it) = packer%unpack(packed_nr_bsed, 0._r8) !Xue 
+             qrsedten_sub(:,:,(macmic_it-1)*num_steps+it) = packer%unpack(packed_qrsedten, 0._r8) !Xue 
+!             qrevapten_sub(:,:,(macmic_it-1)*num_steps+it) = packer%unpack(packed_prer_evap, 0._r8) !Xue 
+!             qrevapten_sub(:,:,(macmic_it-1)*num_steps+it) = packer%unpack(packed_qrsedten, 0._r8) !Xue 
             call t_stopf('micro_mg_tend2')
          end select
       end select
-
+!      write (iulog,*) 'passed micro_mg_tend2, qrevapten_sub:',qrevapten_sub(1,68,:),'qrsedten_sub:',qrsedten_sub(1,68,:) 
       call handle_errmsg(errstring, subname="micro_mg_tend")
 
       call physics_ptend_init(ptend_loc, psetcols, "micro_mg", &
@@ -2494,6 +2591,8 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
       call subcol_field_avg(mgflxsnw,  ngrdcol, lchnk, mgflxsnw_grid)
       call subcol_field_avg(qme,       ngrdcol, lchnk, qme_grid)
       call subcol_field_avg(nevapr,    ngrdcol, lchnk, nevapr_grid)
+      call subcol_field_avg(nr_evap,   ngrdcol, lchnk, nr_evap_grid) !Xue
+      call subcol_field_avg(nr_slfcol, ngrdcol, lchnk, nr_slfcol_grid)!Xue
       call subcol_field_avg(prain,     ngrdcol, lchnk, prain_grid)
       call subcol_field_avg(evapsnow,  ngrdcol, lchnk, evpsnow_st_grid)
 
@@ -2526,13 +2625,15 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
       call subcol_field_avg(icecldf,   ngrdcol, lchnk, icecldf_grid)
       call subcol_field_avg(icwnc,     ngrdcol, lchnk, icwnc_grid)
       call subcol_field_avg(icinc,     ngrdcol, lchnk, icinc_grid)
+      call subcol_field_avg(nrten,     ngrdcol, lchnk, nrtend_grid)!Xue
+      call subcol_field_avg(nrsedten,  ngrdcol, lchnk, nrsedten_grid)!Xue
+      call subcol_field_avg(qr_bsed,   ngrdcol, lchnk, qr_bsed_grid)!Xue
       call subcol_field_avg(state_loc%pdel,            ngrdcol, lchnk, pdel_grid)
       call subcol_field_avg(prao,      ngrdcol, lchnk, prao_grid)
       call subcol_field_avg(prco,      ngrdcol, lchnk, prco_grid)
 
       call subcol_field_avg(state_loc%q(:,:,ixnumliq), ngrdcol, lchnk, nc_grid)
       call subcol_field_avg(state_loc%q(:,:,ixnumice), ngrdcol, lchnk, ni_grid)
-
       if (micro_mg_version > 1) then
          call subcol_field_avg(cldmax,    ngrdcol, lchnk, cldmax_grid)
 
@@ -2561,6 +2662,8 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
       mgflxsnw_grid   => mgflxsnw
       qme_grid        => qme
       nevapr_grid     => nevapr
+      nr_evap_grid     => nr_evap !Xue
+      nr_slfcol_grid     => nr_slfcol !Xue
       prain_grid      => prain
 
       if (micro_mg_version == 1 .and. micro_mg_sub_version == 0) then
@@ -2595,6 +2698,16 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
       pdel_grid       = state_loc%pdel
       prao_grid       = prao
       prco_grid       = prco
+      nrtend_grid     = nrten !Xue
+      nrsedten_grid     = nrsedten !Xue
+      qr_bsed_grid    = qr_bsed !Xue
+      nr_bsed_grid    = nr_bsed !Xue
+      qc_sub_grid     = qc_sub !Xue
+      qr_sub_grid     = qr_sub !Xue
+      qr_bsed_sub_grid     = qr_bsed_sub !Xue
+      nr_bsed_sub_grid     = nr_bsed_sub !Xue
+      qrsedten_sub_grid     = qrsedten_sub !Xue
+      !qrevapten_sub_grid     = qrevapten_sub !Xue
 
       nc_grid = state_loc%q(:,:,ixnumliq)
       ni_grid = state_loc%q(:,:,ixnumice)
@@ -3079,6 +3192,18 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
    call outfld('CME',         qme_grid,         pcols, lchnk)
    call outfld('PRODPREC',    prain_grid,       pcols, lchnk)
    call outfld('EVAPPREC',    nevapr_grid,      pcols, lchnk)
+   call outfld('NR_EVAP',     nr_evap_grid,     pcols, lchnk)!Xue
+   call outfld('NR_SELFCOL',  nr_slfcol_grid,   pcols, lchnk)!Xue
+   call outfld('NRTEND',      nrtend_grid,      pcols, lchnk)!Xue
+   call outfld('NRSEDTEND',   nrsedten_grid,      pcols, lchnk)!Xue
+   call outfld('QRBSED',      qr_bsed_grid,     pcols, lchnk)!Xue
+   call outfld('NRBSED',      nr_bsed_grid,     pcols, lchnk)!Xue
+   call outfld('QC_SUB',      qc_sub_grid,     pcols, lchnk)!Xue
+   call outfld('QR_SUB',      qr_sub_grid,     pcols, lchnk)!Xue
+   call outfld('QRBSED_SUB',  qr_bsed_sub_grid,   pcols, lchnk)!Xue
+   call outfld('NRBSED_SUB',  nr_bsed_sub_grid,   pcols, lchnk)!Xue
+   call outfld('QRSEDTEN_SUB',qrsedten_sub_grid,   pcols, lchnk)!Xue
+!   call outfld('QREVAPTEN_SUB',qrevapten_sub_grid,   pcols, lchnk)!Xue
    call outfld('QCRESO',      qcreso_grid,      pcols, lchnk)
    call outfld('LS_REFFRAIN', mgreffrain_grid,  pcols, lchnk)
    call outfld('LS_REFFSNOW', mgreffsnow_grid,  pcols, lchnk)
