@@ -2378,7 +2378,7 @@ subroutine micro_mg_tend ( &
           maxval( fr/pdel(i,:)), &
           maxval(fnr/pdel(i,:))) &
           * deltat)
-     write (iulog,*) 'mg2 sedi nstep ',nstep
+     !write (iulog,*) 'mg2 sedi nstep ',nstep !Xue
      ! loop over sedimentation sub-time step to ensure stability
      !==============================================================
      do n = 1,nstep
