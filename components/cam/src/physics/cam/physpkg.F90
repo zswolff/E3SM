@@ -13,8 +13,7 @@ module physpkg
   !-----------------------------------------------------------------------
 
 
-  use shr_kind_mod,     only: i8 => shr_kind_i8, r8 => shr_kind_r8
-  use shr_sys_mod,      only: shr_sys_irtc
+  use shr_kind_mod,     only: r8 => shr_kind_r8
   use spmd_utils,       only: masterproc
   use physconst,        only: latvap, latice, rh2o
   use physics_types,    only: physics_state, physics_tend, physics_state_set_grid, &
@@ -22,7 +21,7 @@ module physpkg
        physics_type_alloc, physics_ptend_dealloc,&
        physics_state_alloc, physics_state_dealloc, physics_tend_alloc, physics_tend_dealloc
   use physics_update_mod,  only: physics_update, physics_update_init, hist_vars, nvars_prtrb_hist, get_var
-  use phys_grid,        only: get_ncols_p, print_cost_p, update_cost_p
+  use phys_grid,        only: get_ncols_p
   use phys_gmean,       only: gmean_mass
   use ppgrid,           only: begchunk, endchunk, pcols, pver, pverp, psubcols
   use constituents,     only: pcnst, cnst_name, cnst_get_ind
@@ -30,9 +29,10 @@ module physpkg
 
   use cam_control_mod,  only: ideal_phys, adiabatic
   use phys_control,     only: phys_do_flux_avg, phys_getopts, waccmx_is
-  use zm_conv,          only: trigmem, do_zmconv_dcape_ull => trigdcape_ull
+  use zm_conv,          only: trigmem
   use scamMod,          only: single_column, scm_crm_mode
   use flux_avg,         only: flux_avg_init
+  use infnan,           only: posinf, assignment(=)
 #ifdef SPMD
   use mpishorthand
 #endif
@@ -363,7 +363,7 @@ subroutine phys_inidat( cam_out, pbuf2d )
     real(r8), pointer :: qpert(:,:)
 
     character*11 :: subname='phys_inidat' ! subroutine name
-    integer :: tpert_idx, qpert_idx, pblh_idx, vmag_gust_idx
+    integer :: tpert_idx, qpert_idx, pblh_idx
 
     logical :: found=.false., found2=.false.
     integer :: ierr
@@ -387,10 +387,7 @@ subroutine phys_inidat( cam_out, pbuf2d )
        sgh = 0._r8
        sgh30 = 0._r8
        landm = 0._r8
-       if (masterproc) write(iulog,*) 'AQUA_PLANET simulation, sgh, sgh30, landm initialized to 0.'
     else
-       if (masterproc) write(iulog,*) 'NOT AN AQUA_PLANET simulation, initialize &
-                                      &sgh, sgh30, land m using data from file.'
        fh_topo=>topo_file_get_id()
        call infld('SGH', fh_topo, dim1name, dim2name, 1, pcols, begchunk, endchunk, &
             sgh, found, gridname='physgrid')
@@ -431,17 +428,6 @@ subroutine phys_inidat( cam_out, pbuf2d )
     tpert_idx = pbuf_get_index( 'tpert')
     call pbuf_set_field(pbuf2d, tpert_idx, tptr)
 
-
-    call infld('vmag_gust', fh_ini, dim1name, dim2name, 1, pcols, begchunk, endchunk, &
-         tptr(:,:), found, gridname='physgrid')
-    if(.not. found) then
-       tptr(:,:) = 0._r8
-       if (masterproc) write(iulog,*) 'vmag_gust initialized to 1.'
-    end if
-    vmag_gust_idx = pbuf_get_index( 'vmag_gust')
-    call pbuf_set_field(pbuf2d, vmag_gust_idx, tptr)
-
-
     fieldname='QPERT'  
     qpert_idx = pbuf_get_index( 'qpert',ierr)
     if (qpert_idx > 0) then
@@ -472,6 +458,10 @@ subroutine phys_inidat( cam_out, pbuf2d )
        call pbuf_set_field(pbuf2d, m, tptr, start=(/1,n/), kount=(/pcols,1/))
     end do
     deallocate(tptr)
+
+    do lchnk=begchunk,endchunk
+       cam_out(lchnk)%tbot(:) = posinf
+    end do
 
     !
     ! 3-D fields
@@ -825,7 +815,7 @@ subroutine phys_init( phys_state, phys_tend, pbuf2d, cam_out )
 
     ! co2 cycle            
     if (co2_transport()) then
-       call co2_init(phys_state, pbuf2d)
+       call co2_init()
     end if
 
     ! CAM3 prescribed ozone
@@ -938,7 +928,7 @@ subroutine phys_run1(phys_state, ztodt, phys_tend, pbuf2d,  cam_in, cam_out)
     use check_energy,   only: check_energy_gmean
 
     use physics_buffer,         only: physics_buffer_desc, pbuf_get_chunk, pbuf_allocate
-#if (defined E3SM_SCM_REPLAY )
+#if (defined BFB_CAM_SCAM_IOP )
     use cam_history,    only: outfld
 #endif
     use comsrf,         only: fsns, fsnt, flns, sgh, sgh30, flnt, landm, fsds
@@ -968,12 +958,8 @@ subroutine phys_run1(phys_state, ztodt, phys_tend, pbuf2d,  cam_in, cam_out)
     integer :: ncol                              ! number of columns
     integer :: nstep                             ! current timestep number
 #if (! defined SPMD)
-    integer :: mpicom = 0
+    integer  :: mpicom = 0
 #endif
-    integer(i8) :: beg_count                     ! start time for a chunk
-    integer(i8) :: end_count                     ! stop time for a chunk
-    integer(i8) :: irtc_rate                     ! irtc clock rate
-    real(r8)    :: chunk_cost                    ! measured cost per chunk
     type(physics_buffer_desc), pointer :: phys_buffer_chunk(:)
 
     call t_startf ('physpkg_st1')
@@ -1026,15 +1012,18 @@ subroutine phys_run1(phys_state, ztodt, phys_tend, pbuf2d,  cam_in, cam_out)
        !-----------------------------------------------------------------------
        !
 
+#if (defined BFB_CAM_SCAM_IOP )
+       do c=begchunk, endchunk
+          call outfld('Tg',cam_in(c)%ts,pcols   ,c     )
+       end do
+#endif
+
        call t_barrierf('sync_bc_physics', mpicom)
        call t_startf ('bc_physics')
        !call t_adj_detailf(+1)
 
-!$OMP PARALLEL DO PRIVATE (C, beg_count, phys_buffer_chunk, end_count, chunk_cost)
+!$OMP PARALLEL DO PRIVATE (C, phys_buffer_chunk)
        do c=begchunk, endchunk
-
-          beg_count = shr_sys_irtc(irtc_rate)
-
           !
           ! Output physics terms to IC file
           !
@@ -1047,10 +1036,6 @@ subroutine phys_run1(phys_state, ztodt, phys_tend, pbuf2d,  cam_in, cam_out)
           call tphysbc (ztodt, fsns(1,c), fsnt(1,c), flns(1,c), flnt(1,c), phys_state(c),        &
                        phys_tend(c), phys_buffer_chunk,  fsds(1,c), landm(1,c),          &
                        sgh(1,c), sgh30(1,c), cam_out(c), cam_in(c) )
-
-          end_count = shr_sys_irtc(irtc_rate)
-          chunk_cost = real( (end_count-beg_count), r8)/real(irtc_rate, r8)
-          call update_cost_p(c, chunk_cost)
 
        end do
 
@@ -1104,11 +1089,6 @@ subroutine phys_run1_adiabatic_or_ideal(ztodt, phys_state, phys_tend,  pbuf2d)
     real(r8)            :: flx_heat(pcols) ! effective sensible heat flux
     real(r8)            :: zero(pcols)     ! array of zeros
 
-    integer(i8)         :: beg_count       ! start time for a chunk
-    integer(i8)         :: end_count       ! stop time for a chunk
-    integer(i8)         :: irtc_rate       ! irtc clock rate
-    real(r8)            :: chunk_cost      ! measured cost per chunk
-
     ! physics buffer field for total energy
     real(r8), pointer, dimension(:) :: teout
     logical, SAVE :: first_exec_of_phys_run1_adiabatic_or_ideal  = .TRUE.
@@ -1122,10 +1102,8 @@ subroutine phys_run1_adiabatic_or_ideal(ztodt, phys_state, phys_tend,  pbuf2d)
        first_exec_of_phys_run1_adiabatic_or_ideal  = .FALSE.
     endif
 
-!$OMP PARALLEL DO PRIVATE (C, beg_count, FLX_HEAT, end_count, chunk_cost)
+!$OMP PARALLEL DO PRIVATE (C, FLX_HEAT)
     do c=begchunk, endchunk
-
-       beg_count = shr_sys_irtc(irtc_rate)
 
        ! Initialize the physics tendencies to zero.
        call physics_tend_init(phys_tend(c))
@@ -1149,10 +1127,6 @@ subroutine phys_run1_adiabatic_or_ideal(ztodt, phys_state, phys_tend,  pbuf2d)
 
        ! Save total enery after physics for energy conservation checks
        call pbuf_set_field(pbuf_get_chunk(pbuf2d, c), teout_idx, phys_state(c)%te_cur)
-
-       end_count = shr_sys_irtc(irtc_rate)
-       chunk_cost = real( (end_count-beg_count), r8)/real(irtc_rate, r8)
-       call update_cost_p(c, chunk_cost)
 
     end do
 
@@ -1206,10 +1180,8 @@ subroutine phys_run2(phys_state, ztodt, phys_tend, pbuf2d,  cam_out, &
     integer :: ncol                              ! number of columns
     integer :: nstep                             ! current timestep number
 #if (! defined SPMD)
-    integer :: mpicom = 0
+    integer  :: mpicom = 0
 #endif
-    integer(i8) :: beg_count, end_count, irtc_rate ! for measuring chunk cost
-    real(r8):: chunk_cost
     type(physics_buffer_desc),pointer, dimension(:)     :: phys_buffer_chunk
     !
     ! If exit condition just return
@@ -1247,11 +1219,9 @@ subroutine phys_run2(phys_state, ztodt, phys_tend, pbuf2d,  cam_out, &
        call ieflx_gmean(phys_state, phys_tend, pbuf2d, cam_in, cam_out, nstep)
     end if
 
-!$OMP PARALLEL DO PRIVATE (C, beg_count, NCOL, phys_buffer_chunk, end_count, chunk_cost)
+!$OMP PARALLEL DO PRIVATE (C, NCOL, phys_buffer_chunk)
+
     do c=begchunk,endchunk
-
-       beg_count = shr_sys_irtc(irtc_rate)
-
        ncol = get_ncols_p(c)
        phys_buffer_chunk => pbuf_get_chunk(pbuf2d, c)
 
@@ -1274,11 +1244,6 @@ subroutine phys_run2(phys_state, ztodt, phys_tend, pbuf2d,  cam_out, &
             sgh(1,c), sgh30(1,c), cam_out(c),                              &
             phys_state(c), phys_tend(c), phys_buffer_chunk,&
             fsds(1,c))
-
-       end_count = shr_sys_irtc(irtc_rate)
-       chunk_cost = real( (end_count-beg_count), r8)/real(irtc_rate, r8)
-       call update_cost_p(c, chunk_cost)
-
     end do                    ! Chunk loop
 
     !call t_adj_detailf(-1)
@@ -1330,7 +1295,6 @@ subroutine phys_final( phys_state, phys_tend, pbuf2d )
     call chem_final
     call carma_final
     call wv_sat_final
-    call print_cost_p
 
 end subroutine phys_final
 
@@ -1455,11 +1419,6 @@ subroutine tphysac (ztodt,   cam_in,  &
 
     logical :: do_clubb_sgs 
 
-    !DCAPE-ULL: physics buffer fields to compute tendencies for dcape
-    real(r8), pointer, dimension(:,:) :: t_star   ! temperature
-    real(r8), pointer, dimension(:,:) :: q_star   ! moisture
-    logical :: do_zmconv_trigdcape_ull            ! switch if using dcape-ull as trigger for ZM convection
-                                                  ! default to false, to bbe made controllable by nml
     ! Debug physics_state.
     logical :: state_debug_checks
 
@@ -1594,6 +1553,7 @@ if (l_tracer_aero) then
 
 end if ! l_tracer_aero
 
+if (l_vdiff) then
     !===================================================
     ! Vertical diffusion/pbl calculation
     ! Call vertical diffusion code (pbl, free atmosphere and molecular)
@@ -1610,7 +1570,6 @@ end if ! l_tracer_aero
        call physics_update(state, ptend, ztodt, tend)
 
     else
-    if (l_vdiff) then
 
        call t_startf('vertical_diffusion_tend')
        call vertical_diffusion_tend (ztodt ,state ,cam_in%wsx, cam_in%wsy,   &
@@ -1628,9 +1587,9 @@ end if ! l_tracer_aero
        call physics_update(state, ptend, ztodt, tend)
        call t_stopf ('vertical_diffusion_tend')
     
-    end if ! l_vdiff
     endif
 
+end if ! l_vdiff
 
 if (l_rayleigh) then
     !===================================================
@@ -1800,19 +1759,6 @@ end if ! l_ac_energy_chk
     call diag_phys_tend_writeout (state, pbuf,  tend, ztodt, tmp_q, tmp_cldliq, tmp_cldice, &
          tmp_t, qini, cldliqini, cldiceini)
 
-    ! DCAPE-ULL: record current state of T and q for computing dynamical tendencies
-    !            the calculation follows the same format as in diag_phys_tend_writeout
-    if (do_zmconv_dcape_ull) then
-      ifld = pbuf_get_index('T_STAR')
-      call pbuf_get_field(pbuf, ifld, t_star, (/1,1/),(/pcols,pver/))
-      ifld = pbuf_get_index('Q_STAR')
-      call pbuf_get_field(pbuf, ifld, q_star, (/1,1/),(/pcols,pver/))
-      do k=1,pver
-         q_star(:ncol,k) = state%q(:ncol,k,1)
-         t_star(:ncol,k) = state%t(:ncol,k)
-      enddo
-    endif
-
     call clybry_fam_set( ncol, lchnk, map2chm, state%q, pbuf )
 
     static_ener_ac_idx = pbuf_get_index('static_ener_ac')
@@ -1975,7 +1921,6 @@ subroutine tphysbc (ztodt,               &
     real(r8), pointer, dimension(:,:) :: tm1   ! intermediate T between n and n-1 time step
     real(r8), pointer, dimension(:,:) :: qm1   ! intermediate q between n and n-1 time step
 !>songxl 2011-09-20----------------------------
-    character(len=16)  :: deep_scheme      ! Default set in phys_control.F90
 
     ! physics buffer fields for total energy and mass adjustment
     real(r8), pointer, dimension(:  ) :: teout
@@ -2077,7 +2022,6 @@ subroutine tphysbc (ztodt,               &
     call phys_getopts( microp_scheme_out      = microp_scheme, &
                        macrop_scheme_out      = macrop_scheme, &
                        use_subcol_microp_out  = use_subcol_microp, &
-                       deep_scheme_out        = deep_scheme,       &
                        state_debug_checks_out = state_debug_checks &
                       ,l_bc_energy_fix_out    = l_bc_energy_fix    &
                       ,l_dry_adj_out          = l_dry_adj          &
@@ -2149,12 +2093,10 @@ subroutine tphysbc (ztodt,               &
 !   if(trigmem)then
 #ifdef USE_UNICON
 #else
-    if (deep_scheme.eq.'ZM') then
       ifld = pbuf_get_index('TM1')
       call pbuf_get_field(pbuf, ifld, tm1, (/1,1/),(/pcols,pver/))
       ifld = pbuf_get_index('QM1')
       call pbuf_get_field(pbuf, ifld, qm1, (/1,1/),(/pcols,pver/))
-    end if
 #endif
 !   endif
 !>songxl 2011-09-20---------------------------
@@ -2432,7 +2374,7 @@ end if
 
     if( microp_scheme == 'RK' ) then
 
-     if (l_st_mac.or.l_st_mic) then
+     if (l_st_mac) then
        !===================================================
        ! Calculate stratiform tendency (sedimentation, detrain, cloud fraction and microphysics )
        !===================================================
@@ -2463,8 +2405,6 @@ end if
        snow_pcw_macmic = 0._r8
 
        do macmic_it = 1, cld_macmic_num_steps
-
-        if (l_st_mac) then
 
           if (micro_do_icesupersat) then 
 
@@ -2561,12 +2501,10 @@ end if
           endif
 
           call t_stopf('macrop_tend')
-        end if ! l_st_mac
 
           !===================================================
           ! Calculate cloud microphysics 
           !===================================================
-        if (l_st_mic) then
 
           if (is_subcol_on()) then
              ! Allocate sub-column structures. 
@@ -2592,7 +2530,8 @@ end if
 
 
           if (use_subcol_microp) then
-             call microp_driver_tend(state_sc, ptend_sc, cld_macmic_ztodt, pbuf)
+             !-zhx call microp_driver_tend(state_sc, ptend_sc, cld_macmic_ztodt, pbuf)
+             call microp_driver_tend(state_sc, ptend_sc, cld_macmic_ztodt, pbuf,macmic_it )!+zhx
 
              ! Average the sub-column ptend for use in gridded update - will not contain ptend_aero
              call subcol_ptend_avg(ptend_sc, state_sc%ngrdcol, lchnk, ptend)
@@ -2615,7 +2554,8 @@ end if
              call physics_tend_dealloc(tend_sc)
              call physics_ptend_dealloc(ptend_sc)
           else
-             call microp_driver_tend(state, ptend, cld_macmic_ztodt, pbuf)
+             !-zhx call microp_driver_tend(state, ptend, cld_macmic_ztodt, pbuf)
+             call microp_driver_tend(state, ptend, cld_macmic_ztodt, pbuf, macmic_it ) !+zhx
           end if
           ! combine aero and micro tendencies for the grid
           if (.not. micro_do_icesupersat) then
@@ -2633,17 +2573,6 @@ end if
                snow_str(:ncol)/cld_macmic_num_steps, zero)
 
           call t_stopf('microp_tend')
-
-        else 
-        ! If microphysics is off, set surface cloud liquid/ice and rain/snow fluxes to zero
-
-          prec_sed = 0._r8
-          snow_sed = 0._r8
-          prec_pcw = 0._r8
-          snow_pcw = 0._r8
-
-        end if ! l_st_mic
-
           prec_sed_macmic(:ncol) = prec_sed_macmic(:ncol) + prec_sed(:ncol)
           snow_sed_macmic(:ncol) = snow_sed_macmic(:ncol) + snow_sed(:ncol)
           prec_pcw_macmic(:ncol) = prec_pcw_macmic(:ncol) + prec_pcw(:ncol)
@@ -2658,7 +2587,7 @@ end if
        prec_str(:ncol) = prec_pcw(:ncol) + prec_sed(:ncol)
        snow_str(:ncol) = snow_pcw(:ncol) + snow_sed(:ncol)
 
-     end if !microp_scheme
+     end if ! l_st_mic
 
 if (l_tracer_aero) then
 
@@ -2726,7 +2655,7 @@ if (l_tracer_aero) then
 end if ! l_tracer_aero
 
 !<songxl 2011-9-20---------------------------------
-   if(deep_scheme.eq.'ZM' .and. trigmem)then
+   if(trigmem)then
       do k=1,pver
         qm1(:ncol,k) = state%q(:ncol,k,1)
         tm1(:ncol,k) = state%t(:ncol,k)

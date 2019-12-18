@@ -91,6 +91,8 @@ module micro_mg2_0
 use shr_spfn_mod, only: gamma => shr_spfn_gamma
 #endif
 
+use cam_logfile,     only: iulog  !++ Xue
+
 use wv_sat_methods, only: &
      qsat_water => wv_sat_qsat_water, &
      qsat_ice => wv_sat_qsat_ice
@@ -415,7 +417,8 @@ subroutine micro_mg_tend ( &
      errstring, & ! Below arguments are "optional" (pass null pointers to omit).
      tnd_qsnow,          tnd_nsnow,          re_ice,             &
      prer_evap,                                                      &
-     frzimm,             frzcnt,             frzdep)
+     frzimm,             frzcnt,             frzdep,    & !Xue added nr tendency terms, and qr_bsed
+     nsubrout, nraggout,qr_bsed, nr_bsed,nrsedten)
 
   ! Constituent properties.
   use micro_mg_utils, only: &
@@ -543,6 +546,7 @@ subroutine micro_mg_tend ( &
   real(r8), intent(out) :: qcsedten(:,:)     ! qc sedimentation tendency (1/s)
   real(r8), intent(out) :: qisedten(:,:)     ! qi sedimentation tendency (1/s)
   real(r8), intent(out) :: qrsedten(:,:)     ! qr sedimentation tendency (1/s)
+  real(r8), intent(out) :: nrsedten(:,:)     ! nr sedimentation tendency (1/s) !Xue
   real(r8), intent(out) :: qssedten(:,:)     ! qs sedimentation tendency (1/s)
 
   ! microphysical process rates for output (mixing ratio tendencies) (all have units of 1/s)
@@ -589,6 +593,10 @@ subroutine micro_mg_tend ( &
   real(r8), intent(out) :: qcrat(:,:)        ! limiter for qc process rates (1=no limit --> 0. no qc)
 
   real(r8), intent(out) :: prer_evap(:,:)
+  real(r8), intent(out) :: nsubrout(:,:)   !Xue nr evaporation
+  real(r8), intent(out) :: nraggout(:,:)   !Xue nr self-collection
+  real(r8), intent(out) :: qr_bsed(:,:)   !Xue qr before sed
+  real(r8), intent(out) :: nr_bsed(:,:)   !Xue nr before sed
 
   character(128),   intent(out) :: errstring  ! output status (non-blank for error return)
 
@@ -957,6 +965,7 @@ subroutine micro_mg_tend ( &
   qcsedten =0._r8
   qisedten =0._r8
   qrsedten =0._r8
+  nrsedten =0._r8 !Xue
   qssedten =0._r8
 
   pratot=0._r8
@@ -1006,6 +1015,10 @@ subroutine micro_mg_tend ( &
   prain = 0._r8
   prodsnow = 0._r8
   cmeout = 0._r8
+  nsubrout = 0._r8  !Xue 
+  nraggout = 0._r8  !Xue
+  qr_bsed = 0._r8  !Xue
+  nr_bsed = 0._r8  !Xue
 
   precip_frac = mincld
 
@@ -1330,8 +1343,7 @@ subroutine micro_mg_tend ( &
      ! note: this could be moved above for consistency with qcic and qiic calculations
      qric(:,k) = qr(:,k)/precip_frac(:,k)
      nric(:,k) = nr(:,k)/precip_frac(:,k)
-
-     ! limit in-precip mixing ratios to 10 g/kg
+   ! limit in-precip mixing ratios to 10 g/kg
      qric(:,k)=min(qric(:,k),0.01_r8)
 
      ! add autoconversion to precip from above to get provisional rain mixing ratio
@@ -1707,10 +1719,9 @@ subroutine micro_mg_tend ( &
 
         ! Add evaporation of rain number.
         if (pre(i,k) < 0._r8) then
-	   ! We would normally divide qr and nr by precip_frac for an in-precip
-	   ! calculation, since they are grid cell averages, but that is
-	   ! unnecessary here because the two factors of precip_frac cancel.
-           nsubr(i,k) = pre(i,k)*nr(i,k)/qr(i,k)
+           dum = pre(i,k)*deltat/qr(i,k)
+           dum = max(-1._r8,dum)
+           nsubr(i,k) = dum*nr(i,k)/deltat
         else
            nsubr(i,k) = 0._r8
         end if
@@ -1731,6 +1742,7 @@ subroutine micro_mg_tend ( &
            nnuccr(i,k)=nnuccr(i,k)*ratio
            nsubr(i,k)=nsubr(i,k)*ratio
            nnuccri(i,k)=nnuccri(i,k)*ratio
+
         end if
 
      end do
@@ -1859,7 +1871,6 @@ subroutine micro_mg_tend ( &
 
               ! modify rates if needed, divide by precip_frac to get local (in-precip) value
               pre(i,k)=dum*dum1/deltat/precip_frac(i,k)
-
               ! do separately using RHI for prds and ice_sublim
               call qsat_ice(ttmp, p(i,k), esn, qvn)
 
@@ -2001,6 +2012,8 @@ subroutine micro_mg_tend ( &
         end if
 
      end do
+        nsubrout(i,k) = nsubr(i,k)*precip_frac(i,k)  !Xue
+        nraggout(i,k) = nragg(i,k)*precip_frac(i,k)  !Xue
 
      ! End of "administration" loop
 
@@ -2163,7 +2176,6 @@ subroutine micro_mg_tend ( &
            fr(k)=0._r8
            fnr(k)=0._r8
         end if
-
         ! fallspeed for snow
 
         call size_dist_param_basic(mg_snow_props, dums(i,k), dumns(i,k), &
@@ -2201,6 +2213,8 @@ subroutine micro_mg_tend ( &
         if (dums(i,k).lt.qsmall) dumns(i,k)=0._r8
 
      end do       !!! vertical loop
+      qr_bsed = dumr !Xue
+      nr_bsed = dumnr !Xue
 
      ! initialize nstep for sedimentation sub-steps
 
@@ -2364,7 +2378,7 @@ subroutine micro_mg_tend ( &
           maxval( fr/pdel(i,:)), &
           maxval(fnr/pdel(i,:))) &
           * deltat)
-
+     write (iulog,*) 'mg2 sedi nstep ',nstep
      ! loop over sedimentation sub-time step to ensure stability
      !==============================================================
      do n = 1,nstep
@@ -2383,6 +2397,7 @@ subroutine micro_mg_tend ( &
 
         ! sedimentation tendency for output
         qrsedten(i,k)=qrsedten(i,k)-faltndr/nstep
+        nrsedten(i,k)=nrsedten(i,k)-faltndnr/nstep  !Xue
 
         dumr(i,k) = dumr(i,k)-faltndr*deltat/real(nstep)
         dumnr(i,k) = dumnr(i,k)-faltndnr*deltat/real(nstep)
@@ -2398,6 +2413,7 @@ subroutine micro_mg_tend ( &
 
            ! sedimentation tendency for output
            qrsedten(i,k)=qrsedten(i,k)-faltndr/nstep
+           nrsedten(i,k)=nrsedten(i,k)-faltndnr/nstep !Xue
 
            dumr(i,k) = dumr(i,k)-faltndr*deltat/real(nstep)
            dumnr(i,k) = dumnr(i,k)-faltndnr*deltat/real(nstep)
