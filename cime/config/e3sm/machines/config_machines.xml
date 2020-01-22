@@ -364,10 +364,10 @@
     </environment_variables>
     <environment_variables compiler="intel">
       <env name="FORT_BUFFERED">yes</env>
-      <env name="MPICH_MEMORY_REPORT">1</env>
+      <env name="MPICH_MEMORY_REPORT">0</env>
     </environment_variables>
     <environment_variables compiler="intel19">
-      <env name="MPICH_MEMORY_REPORT">1</env>
+      <env name="MPICH_MEMORY_REPORT">0</env>
     </environment_variables>
   </machine>
 
