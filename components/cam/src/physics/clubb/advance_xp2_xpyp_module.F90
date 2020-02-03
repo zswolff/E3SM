@@ -2310,7 +2310,12 @@ module advance_xp2_xpyp_module
                                    rho_ds_zt(:),                      & ! Intent(in)
                                    invrs_rho_ds_zm(:),                & ! Intent(in)
                                    gr%invrs_dzm(:),                   & ! Intent(in)
-                                   l_upwind_xpyp_ta,                  & ! Intent(in)
+!!!=== T1 === 
+!!! force centered differencing on the rhs, while the lhs will still depend on the l_upwind_xpyp_ta flag.
+!!!
+!!!                                l_upwind_xpyp_ta,                  & ! Intent(in)
+                                   .False.,                  & ! Intent(in)
+!!!=== T1 === 
                                    sgn_turbulent_vel(:),              & ! Intent(in)
                                    term_wpxp2_explicit_zm(:),         & ! Intent(in)
                                    rho_ds_zm(:),                      & ! Intent(in)
