@@ -29,7 +29,7 @@ module ColumnDataType
   use clm_varctl      , only : get_carbontag, override_bgc_restart_mismatch_dump
   use clm_varctl      , only : pf_hmode, nu_com
   use ch4varcon       , only : allowlakeprod
-  use pftvarcon       , only : VMAX_MINSURF_P_vr, KM_MINSURF_P_vr, pinit_beta1, pinit_beta2
+  use pftvarcon       , only : VMAX_MINSURF_P_vr, KM_MINSURF_P_vr
   use soilorder_varcon, only : smax, ks_sorption
   use clm_time_manager, only : is_restart, get_nstep
   use clm_time_manager, only : is_first_step, get_step_size
@@ -2608,7 +2608,7 @@ contains
                 do j = 1, nlevdecomp
                    if (c12_carbonstate_vars%decomp_cpools_vr(i,j,k) /= spval .and. &
                         .not. isnan(c12_carbonstate_vars%decomp_cpools_vr(i,j,k)) ) then
-                         this%decomp_cpools_vr(i,j,k) = c12_carbonstate_vars%decomp_cpools_vr(i,j,k) * c14ratio
+                         this%decomp_cpools_vr(i,j,k) = c12_carbonstate_vars%decomp_cpools_vr(i,j,k) * c3_r2
                    endif
                 end do
              end do
@@ -2713,11 +2713,11 @@ contains
     ! Spinup state
     !--------------------------------
 
-    if (carbon_type == 'c12'  .or. carbon_type == 'c13' .or. carbon_type == 'c14') then
+    if (carbon_type == 'c12'  .or. carbon_type == 'c14') then
         if (flag == 'write') then
            idata = spinup_state
         end if
-        if (carbon_type == 'c12' .or. (carbon_type == 'c13' .and. flag == 'read') .or. (carbon_type == 'c14' .and. flag == 'read')) then
+        if (carbon_type == 'c12' .or. (carbon_type == 'c14' .and. flag == 'read')) then
            call restartvar(ncid=ncid, flag=flag, varname='spinup_state', xtype=ncd_int,  &
                 long_name='Spinup state of the model that wrote this restart file: ' &
                 // ' 0 = normal model mode, 1 = AD spinup', units='', &
@@ -4302,8 +4302,7 @@ contains
     type(cnstate_type)         , intent(in)    :: cnstate_vars
     !
     ! !LOCAL VARIABLES:
-    integer            :: i,j,k,l,c
-    real(r8)           :: a,b,d
+    integer            :: i,j,k,l,c,a,b,d
     logical            :: readvar
     integer            :: idata
     logical            :: exit_spinup = .false.
@@ -4321,8 +4320,7 @@ contains
     real(r8)           :: smax_c, ks_sorption_c
     real(r8)           :: rootfr(1:nlevdecomp)
     real(r8)           :: pinit_prof(1:nlevdecomp)
-    real(r8)           :: rootfr_tot,depth
-    integer            :: j_depth
+    real(r8)           :: rootfr_tot
     !------------------------------------------------------------------------
 
     associate(&
@@ -4519,35 +4517,19 @@ contains
               errMsg(__FILE__, __LINE__))
           end if
 
-          depth = 0.5_r8
           do j = 1, nlevdecomp
-             if (zisoi(j) <= depth) then
-                j_depth = j
-             end if
+             rootfr(j) = exp(-3.0* zsoi(j))
           end do
+          rootfr_tot = 0._r8
+          do j = 1, nlevdecomp
+             rootfr_tot = rootfr_tot + rootfr(j)
+          end do
+          do j = 1, nlevdecomp
+             pinit_prof(j) = rootfr(j) / rootfr_tot / dzsoi_decomp(j) ! 1/m
+          end do
+
           do c = bounds%begc, bounds%endc
              if (use_vertsoilc) then
-                ! calculate P initializtation profile
-                do j = 1, j_depth ! top 50 cm
-                   rootfr(j) = exp(-1._r8 * pinit_beta1(cnstate_vars%isoilorder(c)) * zisoi(j))
-                end do
-                do j = j_depth+1, nlevdecomp ! below 50 cm
-                   rootfr(j) = exp(-1._r8 * pinit_beta2(cnstate_vars%isoilorder(c)) * zisoi(j))
-                end do
-                ! rescale P profile so that distribution conserves and total P
-                ! mass (g/m2) match obs for top 50 cm
-                rootfr_tot = 0._r8
-                do j = 1, j_depth ! top 50 cm
-                   rootfr_tot = rootfr_tot + rootfr(j) * dzsoi_decomp(j)
-                end do
-                do j = 1, nlevdecomp
-                   if (j <= j_depth) then ! for top 50 cm (6 layers), rescale
-                      pinit_prof(j) = rootfr(j) / rootfr_tot ! unit m-3
-                   else ! for below 50 cm, make sure 7 layer and 6 layer are consistent
-                      pinit_prof(j) = rootfr(j) / rootfr(j_depth+1) *  pinit_prof(j_depth)
-                   end if
-                end do
-
                 do j = 1, nlevdecomp
                    ! solve equilibrium between loosely adsorbed and solution
                    ! phosphorus
@@ -7643,11 +7625,6 @@ contains
          avgflag='A', long_name='atmospheric N deposition to soil mineral N', &
          ptr_col=this%ndep_to_sminn)
 
-    this%nfix_to_ecosysn(begc:endc) = spval
-    call hist_addfld1d (fname='NFIX_TO_ECOSYSN', units='gN/m^2/s', &
-         avgflag='A', long_name='symbiotic/asymbiotic N fixation to the whole ecosystem', &
-         ptr_col=this%nfix_to_ecosysn,default='inactive')
-
     this%nfix_to_sminn(begc:endc) = spval
     call hist_addfld1d (fname='NFIX_TO_SMINN', units='gN/m^2/s', &
          avgflag='A', long_name='symbiotic/asymbiotic N fixation to soil mineral N', &
@@ -10043,14 +10020,13 @@ contains
        if (lun_pp%ifspecial(l)) then
           num_special_col = num_special_col + 1
           special_col(num_special_col) = c
-       else
-          this%col_plant_pdemand_vr (c,1:nlevdecomp) = 0._r8
        end if
     end do
 
     do fc = 1,num_special_col
        c = special_col(fc)
        this%dwt_ploss(c) = 0._r8
+       this%col_plant_pdemand_vr (c,1:nlevdecomp) = 0._r8
     end do
 
     call this%SetValues (num_column=num_special_col, filter_column=special_col, value_column=0._r8)
