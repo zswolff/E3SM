@@ -49,8 +49,7 @@ module rof_comp_esmf
                                 index_r2x_Forr_rofl, index_r2x_Forr_rofi, &
                                 index_r2x_Flrr_flood, &
                                 index_r2x_Flrr_volr, index_r2x_Flrr_volrmch, &
-                                index_r2x_Flrr_supply, index_x2r_Flrl_demand, &
-                                index_r2x_Flrr_deficit
+                                index_r2x_Flrr_supply, index_x2r_Flrl_demand
   use perf_mod         , only : t_startf, t_stopf, t_barrierf
 !
 ! !PUBLIC MEMBER FUNCTIONS:
@@ -831,7 +830,6 @@ contains
 
        if (wrmflag) then
           fptr(index_r2x_Flrr_supply,ni)  = StorWater%Supply(n) / (rtmCTL%area(n)*0.001_r8)    ! convert m3/s to mm/s
-          fptr(index_r2x_Flrr_deficit,ni)  = (abs(rtmCTL%qdem(n,nliq)) - abs(StorWater%Supply(n))) / (rtmCTL%area(n)*0.001_r8)   !send deficit back to ELM
        endif
 
     end do
