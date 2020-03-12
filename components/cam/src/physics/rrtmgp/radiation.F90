@@ -1202,6 +1202,8 @@ contains
       ! Radiative fluxes
       type(ty_fluxes_byband) :: fluxes_allsky, fluxes_clrsky
 
+      ! For volcanic aerosol
+      real(r8), pointer :: ext_cmip6_lw(:,:,:)
 
       !----------------------------------------------------------------------
 
@@ -1225,6 +1227,11 @@ contains
       call pbuf_get_field(pbuf, pbuf_get_index('REI'), rei)
       call pbuf_get_field(pbuf, pbuf_get_index('LAMBDAC'), lambdac)
       call pbuf_get_field(pbuf, pbuf_get_index('MU'), mu)
+      if (is_cmip6_volc) then
+         call pbuf_get_field(pbuf, pbuf_get_index('ext_earth'), ext_cmip6_lw)
+      else
+         ext_cmip6_lw => null()
+      end if
 
       ! Initialize clearsky-heating rates to make sure we do not get garbage
       ! for columns beyond ncol or nday
@@ -1389,7 +1396,7 @@ contains
                ! Get aerosol optics
                if (do_aerosol_rad) then
                   call t_startf('rad_aer_optics_lw')
-                  call aer_rad_props_lw(is_cmip6_volc, icall, state, pbuf, aer_tau_bnd_lw)
+                  call aer_rad_props_lw(is_cmip6_volc, icall, state, pbuf, ext_cmip6_lw, aer_tau_bnd_lw)
                   call t_stopf('rad_aer_optics_lw')
                else
                   aer_tau_bnd_lw = 0

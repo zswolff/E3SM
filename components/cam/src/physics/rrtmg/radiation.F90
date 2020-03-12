@@ -1030,6 +1030,8 @@ end function radiation_nextsw_cday
     real(r8) ::  aerindex(pcols)      ! Aerosol index
     integer aod400_idx, aod700_idx, cld_tau_idx
 
+    ! For volcanic aerosol
+    real(r8), pointer :: ext_cmip6_lw(:,:,:)
 
     character(*), parameter :: name = 'radiation_tend'
 !----------------------------------------------------------------------
@@ -1067,6 +1069,11 @@ end function radiation_nextsw_cday
       call pbuf_get_field(pbuf, ld_idx, ld)
     end if
  
+    if (is_cmip6_volc) then
+       call pbuf_get_field(pbuf, pbuf_get_index('ext_earth'), ext_cmip6_lw)
+    else
+       ext_cmip6_lw => null()
+    end if
     if (do_aerocom_ind3) then
       cld_tau_idx = pbuf_get_index('cld_tau')
     end if
@@ -1429,8 +1436,10 @@ end function radiation_nextsw_cday
                   ! update the conctrations in the RRTMG state object
                   call  rrtmg_state_update( state, pbuf, icall, r_state)
 
-                  call aer_rad_props_lw(is_cmip6_volc, icall, state, pbuf,  aer_lw_abs)
+                  ! Get aerosol optical properties
+                  call aer_rad_props_lw(is_cmip6_volc, icall, state, pbuf, ext_cmip6_lw, aer_lw_abs)
                   
+                  ! Call the longwave driver to calculate heating rates and fluxes
                   call t_startf ('rad_rrtmg_lw')
                   call rad_rrtmg_lw( &
                        lchnk,        ncol,         num_rrtmg_levs,  r_state,                     &
