@@ -1032,7 +1032,9 @@ end function radiation_nextsw_cday
 
     ! For volcanic aerosol
     integer :: idx, ierr
-    real(r8), pointer :: ext_cmip6_lw(:,:,:), ext_cmip6_sw(:,:,:), volc_rad_geom(:,:)
+    real(r8), pointer, dimension(:,:) ::  volc_rad_geom(:,:)
+    real(r8), pointer, dimension(:,:,:) :: &
+       ext_cmip6_lw, ext_cmip6_sw, ssa_cmip6_sw, asm_cmip6_sw
 
     character(*), parameter :: name = 'radiation_tend'
 !----------------------------------------------------------------------
@@ -1073,9 +1075,13 @@ end function radiation_nextsw_cday
     if (is_cmip6_volc) then
        call pbuf_get_field(pbuf, pbuf_get_index('ext_earth'), ext_cmip6_lw)
        call pbuf_get_field(pbuf, pbuf_get_index('ext_sun'), ext_cmip6_sw)
+       call pbuf_get_field(pbuf, pbuf_get_index('omega_sun'), ssa_cmip6_sw)
+       call pbuf_get_field(pbuf, pbuf_get_index('g_sun'), asm_cmip6_sw)
     else
        ext_cmip6_lw => null()
        ext_cmip6_sw => null()
+       ssa_cmip6_sw => null()
+       asm_cmip6_sw => null()
     end if
     ! get microphysical properties for volcanic aerosols
     idx = pbuf_get_index('VOLC_RAD_GEOM', ierr)
@@ -1295,7 +1301,7 @@ end function radiation_nextsw_cday
 
                   call aer_rad_props_sw( &
                      icall, state, pbuf, nnite, idxnite, &
-                     is_cmip6_volc, ext_cmip6_sw, volc_rad_geom, &
+                     is_cmip6_volc, ext_cmip6_sw, ssa_cmip6_sw, asm_cmip6_sw, volc_rad_geom, &
                      aer_tau, aer_tau_w, aer_tau_w_g, aer_tau_w_f &
                   )
 

@@ -1203,7 +1203,9 @@ contains
       type(ty_fluxes_byband) :: fluxes_allsky, fluxes_clrsky
 
       ! For volcanic aerosol
-      real(r8), pointer :: ext_cmip6_lw(:,:,:), ext_cmip6_sw(:,:,:), volc_rad_geom(:,:)
+      real(r8), pointer, dimension(:,:) ::  volc_rad_geom(:,:)
+      real(r8), pointer, dimension(:,:,:) :: &
+         ext_cmip6_lw, ext_cmip6_sw, ssa_cmip6_sw, asm_cmip6_sw
       integer :: idx, ierr
 
       !----------------------------------------------------------------------
@@ -1232,9 +1234,13 @@ contains
       if (is_cmip6_volc) then
          call pbuf_get_field(pbuf, pbuf_get_index('ext_earth'), ext_cmip6_lw)
          call pbuf_get_field(pbuf, pbuf_get_index('ext_sun'), ext_cmip6_sw)
+         call pbuf_get_field(pbuf, pbuf_get_index('omega_sun'), ssa_cmip6_sw)
+         call pbuf_get_field(pbuf, pbuf_get_index('g_sun'), asm_cmip6_sw)
       else
          ext_cmip6_lw => null()
          ext_cmip6_sw => null()
+         ssa_cmip6_sw => null()
+         asm_cmip6_sw => null()
       end if
       idx = pbuf_get_index('VOLC_RAD_GEOM', ierr)
       if (idx > 0) then
@@ -1329,7 +1335,7 @@ contains
                   call set_aerosol_optics_sw( &
                      icall, state, pbuf, &
                      night_indices(1:nnight), &
-                     is_cmip6_volc, ext_cmip6_sw, volc_rad_geom, &
+                     is_cmip6_volc, ext_cmip6_sw, ssa_cmip6_sw, asm_cmip6_sw, volc_rad_geom, &
                      aer_tau_bnd_sw, aer_ssa_bnd_sw, aer_asm_bnd_sw &
                   )
                   call t_stopf('rad_aer_optics_sw')

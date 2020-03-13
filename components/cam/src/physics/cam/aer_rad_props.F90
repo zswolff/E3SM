@@ -41,8 +41,6 @@ public :: &
 real(r8), parameter :: km_inv_to_m_inv = 0.001_r8      !1/km to 1/m 
 character(len=fieldname_len), pointer :: odv_names(:)  ! outfld names for visible OD
 integer  :: idx_ext_sw, idx_ssa_sw, idx_af_sw, idx_ext_lw !pbuf indices for volcanic cmip6 file
-integer  :: ihuge ! a huge integer
-real(r8) :: rhuge ! a huge real number
 !==============================================================================
 contains
 !==============================================================================
@@ -60,9 +58,6 @@ subroutine aer_rad_props_init()
 
    !----------------------------------------------------------------------------
 
-   rhuge = huge(1.0_r8)
-   ihuge = huge(1)
-   
    call phys_getopts( history_aero_optics_out    = history_aero_optics, &
                       history_amwg_out           = history_amwg,    &
                       prog_modal_aero_out        = prog_modal_aero )
@@ -111,10 +106,6 @@ subroutine aer_rad_props_init()
       end do
     endif
 
-    idx_ssa_sw = pbuf_get_index('omega_sun',ierr)
-    idx_af_sw  = pbuf_get_index('g_sun',ierr)
-
-
    deallocate(aernames)
 
 end subroutine aer_rad_props_init
@@ -123,7 +114,7 @@ end subroutine aer_rad_props_init
 
 subroutine aer_rad_props_sw( &
       list_idx, state, pbuf,  nnite, idxnite, &
-      is_cmip6_volc, ext_cmip6_sw, volc_rad_geom, &
+      is_cmip6_volc, ext_cmip6_sw, ssa_cmip6_sw, asm_cmip6_sw, volc_rad_geom, &
       tau, tau_w, tau_w_g, tau_w_f)
 
    ! Return bulk layer tau, omega, g, f for all spectral intervals.
@@ -137,6 +128,8 @@ subroutine aer_rad_props_sw( &
    integer,             intent(in) :: idxnite(:)           ! local column indices of night columns
    logical,             intent(in) :: is_cmip6_volc        ! true if cmip6 style volcanic file is read otherwise false
    real(r8), intent(in) :: ext_cmip6_sw(:,:,:)
+   real(r8), intent(in) :: ssa_cmip6_sw(:,:,:)
+   real(r8), intent(in) :: asm_cmip6_sw(:,:,:)
    real(r8), intent(in) :: volc_rad_geom(:,:)        ! geometric mean radius of volcanic aerosol
 
    real(r8), intent(out) :: tau    (pcols,0:pver,nswbands) ! aerosol extinction optical depth
@@ -230,13 +223,10 @@ subroutine aer_rad_props_sw( &
    krh(1:ncol,1:pver) = min(floor( rhtrunc(1:ncol,1:pver) * nrh ) + 1, nrh - 1) ! index into rh mesh
    wrh(1:ncol,1:pver) = rhtrunc(1:ncol,1:pver) * nrh - krh(1:ncol,1:pver)       ! (-) weighting on left side values
 
-   !Special treatment for CMIP6 volcanic aerosols, where extinction, ssa 
-   !and af are directly read from the prescribed volcanic aerosol file
-
-   !Point ext_cmip6_sw to unphysically huges values so that the code breaks if they are used for is_cmip6_volc=.false. case
-   !This is done to avoid having optional arguments in modal_aero_sw call
-   rhuge_arr = rhuge
-   trop_level = ihuge
+   ! Special treatment for CMIP6 volcanic aerosols, where extinction,
+   ! single scatter albedo, and asymmetry parameter are read directly
+   ! from the prescribed volcanic aerosol file
+   trop_level = huge(1)
    if (is_cmip6_volc) then
       call outfld('extinct_sw_inp',ext_cmip6_sw(:,:,idx_sw_diag), pcols, lchnk)
       volc_ext_per_m = ext_cmip6_sw * km_inv_to_m_inv !convert from 1/km to 1/m  
@@ -252,7 +242,6 @@ subroutine aer_rad_props_sw( &
          call endrun('aer_rad_props.F90: subr aer_rad_props_sw: tropopause not found')
       endif
    endif
-
 
    ! get number of bulk aerosols and number of modes in current list
    call rad_cnst_get_info(list_idx, naero=numaerosols, nmodes=nmodes)
@@ -270,7 +259,11 @@ subroutine aer_rad_props_sw( &
 
    if (is_cmip6_volc) then
       !update tau, tau_w, tau_w_g, and tau_w_f with the read in values of extinction, ssa and asymmetry factors
-      call volcanic_cmip_sw(state, pbuf, trop_level, volc_ext_per_m, tau, tau_w, tau_w_g, tau_w_f)
+      call volcanic_cmip_sw( &
+         state, trop_level, &
+         volc_ext_per_m, ssa_cmip6_sw, asm_cmip6_sw, &
+         tau, tau_w, tau_w_g, tau_w_f &
+      )
    endif
 
    ! Contributions from bulk aerosols.
@@ -707,16 +700,20 @@ end subroutine get_volcanic_radius_rad_props
 
 !==============================================================================
 
-subroutine volcanic_cmip_sw (state, pbuf, trop_level, ext_cmip6_sw, tau, tau_w, tau_w_g, tau_w_f)
+! Update taus, tau_w, tau_w_g and tau_w_f with the read in volcanic
+! aerosol extinction (1/km), single scattering albedo and asymmtry factors.
+subroutine volcanic_cmip_sw ( &
+      state, trop_level, &
+      ext_cmip6_sw, ssa_cmip6_sw, asm_cmip6_sw, &
+      tau, tau_w, tau_w_g, tau_w_f)
   
-  !Intent-in
   type(physics_state), intent(in), target :: state
-  type(physics_buffer_desc), pointer :: pbuf(:)
   
   integer,  intent(in) :: trop_level(pcols)
   real(r8), intent(in) :: ext_cmip6_sw(pcols,pver,nswbands)
+  real(r8), intent(in) :: ssa_cmip6_sw(pcols,pver,nswbands)
+  real(r8), intent(in) :: asm_cmip6_sw(pcols,pver,nswbands)
 
-  !Intent-inout
   real(r8), intent(inout) :: tau    (pcols,0:pver,nswbands) ! aerosol extinction optical depth
   real(r8), intent(inout) :: tau_w  (pcols,0:pver,nswbands) ! aerosol single scattering albedo * tau
   real(r8), intent(inout) :: tau_w_g(pcols,0:pver,nswbands) ! aerosol assymetry parameter * tau * w
@@ -724,69 +721,44 @@ subroutine volcanic_cmip_sw (state, pbuf, trop_level, ext_cmip6_sw, tau, tau_w, 
   
   !Local variables
   integer   :: ncol, icol, ipver, ilev_tropp
-  real(r8)  :: lyr_thk, ext_unitless(nswbands), asym_unitless(nswbands)
-  real(r8)  :: ext_ssa(nswbands),ext_ssa_asym(nswbands)
-  
-  real(r8), pointer :: ssa_cmip6_sw(:,:,:),af_cmip6_sw(:,:,:)
+  real(r8)  :: lyr_thk, ext_unitless(nswbands)
+  real(r8)  :: ext_ssa(nswbands), ext_ssa_asym(nswbands), ext_ssa_f(nswbands)
  
   ncol = state%ncol
 
-  !Logic:
-  !Update taus, tau_w, tau_w_g and tau_w_f with the read in volcanic
-  !aerosol extinction (1/km), single scattering albedo and asymmtry factors.
-  
-  !Obtain read in values for ssa and asymmetry factor (af) from the
-  !volcanic input file
-  
-  call pbuf_get_field(pbuf, idx_ssa_sw, ssa_cmip6_sw)
-  call pbuf_get_field(pbuf, idx_af_sw,  af_cmip6_sw)
-  
-  !Above the tropopause, the read in values from the file include both the stratospheric
-  !and volcanic aerosols. Therefore, we need to zero out taus above the tropopause
-  !and populate them exclusively from the read in values.
-  
-  !If tropopause is found, update taus with 50% contributuions from the volcanic input
-  !file and 50% from the existing model computed values
-  
-  !First handle the case of tropopause layer itself:
+  ! Update optical properties at tropopause with 50% contributuions from the
+  ! volcanic input file and 50% from the existing model computed values
   do icol = 1, ncol
      ilev_tropp = trop_level(icol) !tropopause level
-     
      lyr_thk = state%zi(icol,ilev_tropp) - state%zi(icol,ilev_tropp+1)
-     
      ext_unitless(:)  = lyr_thk * ext_cmip6_sw(icol,ilev_tropp,:)
-     asym_unitless(:) = af_cmip6_sw (icol,ilev_tropp,:)
      ext_ssa(:)       = ext_unitless(:) * ssa_cmip6_sw(icol,ilev_tropp,:)
-     ext_ssa_asym(:)  = ext_ssa(:) * asym_unitless(:)
-     
+     ext_ssa_asym(:)  = ext_ssa(:) * asm_cmip6_sw(icol,ilev_tropp,:)
+     ext_ssa_f(:)     = ext_ssa_asym(:) * asm_cmip6_sw(icol,ilev_tropp,:)
      tau    (icol,ilev_tropp,:) = 0.5_r8 * ( tau    (icol,ilev_tropp,:) + ext_unitless(:) )
      tau_w  (icol,ilev_tropp,:) = 0.5_r8 * ( tau_w  (icol,ilev_tropp,:) + ext_ssa(:))
      tau_w_g(icol,ilev_tropp,:) = 0.5_r8 * ( tau_w_g(icol,ilev_tropp,:) + ext_ssa_asym(:))
-     tau_w_f(icol,ilev_tropp,:) = 0.5_r8 * ( tau_w_f(icol,ilev_tropp,:) + ext_ssa_asym(:) * asym_unitless(:))
+     tau_w_f(icol,ilev_tropp,:) = 0.5_r8 * ( tau_w_f(icol,ilev_tropp,:) + ext_ssa_f(:))
   enddo
-
-  !As it will be more efficient for FORTRAN to loop over levels and then columns, the following loops
-  !are nested keeping that in mind
+  ! Above the tropopause, the read in values from the file include both the stratospheric
+  ! and volcanic aerosols. Therefore, we need to zero out taus above the tropopause
+  ! and populate them exclusively from the read in values.
   do ipver = 1 , pver
      do icol = 1, ncol
         ilev_tropp = trop_level(icol) !tropopause level
         if (ipver < ilev_tropp) then !BALLI: see if this is right!
-           
            lyr_thk = state%zi(icol,ipver) - state%zi(icol,ipver+1)
-           
            ext_unitless(:)  = lyr_thk * ext_cmip6_sw(icol,ipver,:)
-           asym_unitless(:) = af_cmip6_sw(icol,ipver,:)
            ext_ssa(:)       = ext_unitless(:) * ssa_cmip6_sw(icol,ipver,:)
-           ext_ssa_asym(:)  = ext_ssa(:) * asym_unitless(:)
-           
+           ext_ssa_asym(:)  = ext_ssa(:) * asm_cmip6_sw(icol,ipver,:)
+           ext_ssa_f(:)     = ext_ssa_asym(:) * asm_cmip6_sw(icol,ipver,:)
            tau    (icol,ipver,:) = ext_unitless(:)
            tau_w  (icol,ipver,:) = ext_ssa(:)
            tau_w_g(icol,ipver,:) = ext_ssa_asym(:)
-           tau_w_f(icol,ipver,:) = ext_ssa_asym(:) * asym_unitless(:)
+           tau_w_f(icol,ipver,:) = ext_ssa_f(:)
         endif
      enddo
   enddo
-  
 end subroutine volcanic_cmip_sw
 
 !==============================================================================
