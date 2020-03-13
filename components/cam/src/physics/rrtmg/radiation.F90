@@ -31,6 +31,7 @@ use cam_logfile,     only: iulog
 
 use rad_constituents, only: N_DIAG, rad_cnst_get_call_list, rad_cnst_get_info
 use radconstants,     only: rrtmg_sw_cloudsim_band, rrtmg_lw_cloudsim_band, nswbands, nlwbands
+use prescribed_volcaero, only: is_cmip6_volc
 
 implicit none
 private
@@ -793,7 +794,7 @@ end function radiation_nextsw_cday
        cam_out, cam_in, &
        landfrac,landm,icefrac,snowh, &
        fsns,    fsnt, flns,    flnt,  &
-       fsds, net_flx, is_cmip6_volc)
+       fsds, net_flx               )
 
     !----------------------------------------------------------------------- 
     ! 
@@ -849,7 +850,6 @@ end function radiation_nextsw_cday
     use output_aerocom_aie , only: do_aerocom_ind3
 
     ! Arguments
-    logical,  intent(in)    :: is_cmip6_volc    ! true if cmip6 style volcanic file is read otherwise false 
     real(r8), intent(in)    :: landfrac(pcols)  ! land fraction
     real(r8), intent(in)    :: landm(pcols)     ! land fraction ramp
     real(r8), intent(in)    :: icefrac(pcols)   ! land fraction
@@ -1301,7 +1301,7 @@ end function radiation_nextsw_cday
 
                   call aer_rad_props_sw( &
                      icall, state, pbuf, nnite, idxnite, &
-                     is_cmip6_volc, ext_cmip6_sw, ssa_cmip6_sw, asm_cmip6_sw, volc_rad_geom, &
+                     ext_cmip6_sw, ssa_cmip6_sw, asm_cmip6_sw, volc_rad_geom, &
                      aer_tau, aer_tau_w, aer_tau_w_g, aer_tau_w_f &
                   )
 
@@ -1457,7 +1457,7 @@ end function radiation_nextsw_cday
 
                   ! Get aerosol optical properties
                   call aer_rad_props_lw( &
-                     is_cmip6_volc, icall, state, pbuf, &
+                     icall, state, pbuf, &
                      ext_cmip6_lw, volc_rad_geom, aer_lw_abs &
                   )
                   

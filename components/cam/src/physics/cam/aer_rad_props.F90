@@ -25,6 +25,7 @@ use ref_pres,     only: clim_modal_aero_top_lev
 use cam_abortutils,       only: endrun
 use tropopause,           only : tropopause_find
 use cam_logfile,          only: iulog
+use prescribed_volcaero,  only: is_cmip6_volc
 
 implicit none
 private
@@ -114,7 +115,7 @@ end subroutine aer_rad_props_init
 
 subroutine aer_rad_props_sw( &
       list_idx, state, pbuf,  nnite, idxnite, &
-      is_cmip6_volc, ext_cmip6_sw, ssa_cmip6_sw, asm_cmip6_sw, volc_rad_geom, &
+      ext_cmip6_sw, ssa_cmip6_sw, asm_cmip6_sw, volc_rad_geom, &
       tau, tau_w, tau_w_g, tau_w_f)
 
    ! Return bulk layer tau, omega, g, f for all spectral intervals.
@@ -126,7 +127,6 @@ subroutine aer_rad_props_sw( &
    type(physics_buffer_desc), pointer :: pbuf(:)
    integer,             intent(in) :: nnite                ! number of night columns
    integer,             intent(in) :: idxnite(:)           ! local column indices of night columns
-   logical,             intent(in) :: is_cmip6_volc        ! true if cmip6 style volcanic file is read otherwise false
    real(r8), intent(in) :: ext_cmip6_sw(:,:,:)
    real(r8), intent(in) :: ssa_cmip6_sw(:,:,:)
    real(r8), intent(in) :: asm_cmip6_sw(:,:,:)
@@ -339,7 +339,7 @@ end subroutine aer_rad_props_sw
 
 !==============================================================================
 
-subroutine aer_rad_props_lw(is_cmip6_volc, list_idx, state, pbuf, ext_cmip6_volc, volc_rad_geom, odap_aer)
+subroutine aer_rad_props_lw(list_idx, state, pbuf, ext_cmip6_volc, volc_rad_geom, odap_aer)
 
    use radconstants,  only: ot_length
 
@@ -351,7 +351,6 @@ subroutine aer_rad_props_lw(is_cmip6_volc, list_idx, state, pbuf, ext_cmip6_volc
    ! similar to the sw with routines like get_hygro_lw_abs
 
    ! Arguments
-   logical,             intent(in)  :: is_cmip6_volc
    integer,             intent(in)  :: list_idx      ! index of the climate or a diagnostic list
    type(physics_state), intent(in), target :: state
    type(physics_buffer_desc), pointer :: pbuf(:)

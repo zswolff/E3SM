@@ -92,7 +92,6 @@ module physpkg
   logical           :: micro_do_icesupersat
   logical           :: pergro_test_active= .false.
   logical           :: pergro_mods = .false.
-  logical           :: is_cmip6_volc !true if cmip6 style volcanic file is read otherwise false
 
   !======================================================================= 
 contains
@@ -812,10 +811,7 @@ subroutine phys_init( phys_state, phys_tend, pbuf2d, cam_out )
     call prescribed_aero_init()
     call aerodep_flx_init()
     call aircraft_emit_init()
-	!when is_cmip6_volc is true ,cmip6 style volcanic file is read
-	!Initialized to .false. here but it gets its values from prescribed_volcaero_init
-    is_cmip6_volc = .false. 
-    call prescribed_volcaero_init(is_cmip6_volc)
+    call prescribed_volcaero_init()
 
     ! Initialize ocean data
     if (has_mam_mom) then
@@ -2768,7 +2764,7 @@ if (l_rad) then
          cam_out, cam_in, &
          cam_in%landfrac,landm,cam_in%icefrac, cam_in%snowhland, &
          fsns,    fsnt, flns,    flnt,  &
-         fsds, net_flx,is_cmip6_volc)
+         fsds, net_flx)
 
     ! Set net flux used by spectral dycores
     do i=1,ncol

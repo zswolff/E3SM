@@ -27,7 +27,7 @@ module prescribed_volcaero
   public :: has_prescribed_volcaero
   public :: init_prescribed_volcaero_restart
 
-
+  logical, public :: is_cmip6_volc
   logical :: has_prescribed_volcaero = .false.
   character(len=8), parameter :: volcaero_name = 'VOLC_MMR'
   character(len=13), parameter :: volcrad_name = 'VOLC_RAD_GEOM'
@@ -169,20 +169,17 @@ end subroutine prescribed_volcaero_readnl
           call pbuf_add_field(ext_sun_name,     'physpkg',dtype_r8,(/pcols,pver,nswbands/),idx)
           call pbuf_add_field(omega_sun_name,   'physpkg',dtype_r8,(/pcols,pver,nswbands/),idx)
           call pbuf_add_field(g_sun_name,       'physpkg',dtype_r8,(/pcols,pver,nswbands/),idx)
-          
           call pbuf_add_field(ext_earth_name,   'physpkg',dtype_r8,(/pcols,pver,nlwbands/),idx)
        endif
-
        call pbuf_add_field(volcaero_name,'physpkg',dtype_r8,(/pcols,pver/),idx) !BALLI- we have to initialize it for radiation codes....but why????
        call pbuf_add_field(volcrad_name, 'physpkg',dtype_r8,(/pcols,pver/),idx) !is it for reading rad properties which we don't need?
-
     endif
 
   endsubroutine prescribed_volcaero_register
 
 !-------------------------------------------------------------------
 !-------------------------------------------------------------------
-  subroutine prescribed_volcaero_init(is_cmip6_volc)
+  subroutine prescribed_volcaero_init()
 
     use tracer_data, only : trcdata_init
     use cam_history, only : addfld, horiz_only
@@ -193,11 +190,6 @@ end subroutine prescribed_volcaero_readnl
     use physics_buffer, only : physics_buffer_desc, pbuf_get_index
 
     implicit none
-    
-    !Arguments
-    logical, intent(out):: is_cmip6_volc
-
-    !Local variables
     integer :: ndx, istat
     integer :: errcode, ispf
     character(len=32) :: specifier(1)

@@ -31,6 +31,7 @@ module radiation
    use radiation_state, only: ktop, kbot, nlev_rad
    use radiation_utils, only: compress_day_columns, expand_day_columns, &
                               handle_error
+   use prescribed_volcaero, only: is_cmip6_volc
 
    implicit none
    private
@@ -1070,7 +1071,7 @@ contains
    subroutine radiation_tend(state,   ptend,    pbuf,          cam_out, cam_in,  &
                              landfrac,landm,    icefrac,       snowh,            &
                              fsns,    fsnt,     flns,          flnt,             &
-                             fsds,    net_flux, is_cmip6_volc                    )
+                             fsds,    net_flux                                   )
 
       ! Performance module needed for timing functions
       use perf_mod, only: t_startf, t_stopf
@@ -1126,10 +1127,6 @@ contains
       ! Net flux calculated in this routine; used to check energy conservation in
       ! the physics package driver?
       real(r8), intent(inout) :: net_flux(pcols)
-
-      ! This should be module data or something specific to aerosol where it is
-      ! used?
-      logical,  intent(in)    :: is_cmip6_volc    ! true if cmip6 style volcanic file is read otherwise false 
 
       ! These are not used anymore and exist only because the radiation call is
       ! inflexible
@@ -1335,7 +1332,7 @@ contains
                   call set_aerosol_optics_sw( &
                      icall, state, pbuf, &
                      night_indices(1:nnight), &
-                     is_cmip6_volc, ext_cmip6_sw, ssa_cmip6_sw, asm_cmip6_sw, volc_rad_geom, &
+                     ext_cmip6_sw, ssa_cmip6_sw, asm_cmip6_sw, volc_rad_geom, &
                      aer_tau_bnd_sw, aer_ssa_bnd_sw, aer_asm_bnd_sw &
                   )
                   call t_stopf('rad_aer_optics_sw')
@@ -1413,7 +1410,7 @@ contains
                if (do_aerosol_rad) then
                   call t_startf('rad_aer_optics_lw')
                   call aer_rad_props_lw( &
-                     is_cmip6_volc, icall, state, pbuf, &
+                     icall, state, pbuf, &
                      ext_cmip6_lw, volc_rad_geom, aer_tau_bnd_lw &
                   )
                   call t_stopf('rad_aer_optics_lw')

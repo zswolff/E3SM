@@ -467,7 +467,6 @@ contains
 
    subroutine set_aerosol_optics_sw(icall, state, pbuf, &
                                     night_indices, &
-                                    is_cmip6_volc, &
                                     ext_cmip6_sw, ssa_cmip6_sw, asm_cmip6_sw, &
                                     volc_rad_geom, &
                                     tau_out, ssa_out, asm_out)
@@ -480,7 +479,6 @@ contains
       type(physics_state), intent(in) :: state
       type(physics_buffer_desc), pointer :: pbuf(:)
       integer, intent(in) :: night_indices(:)
-      logical, intent(in) :: is_cmip6_volc
       real(r8), intent(in), dimension(:,:,:) :: &
          ext_cmip6_sw, ssa_cmip6_sw, asm_cmip6_sw
       real(r8), intent(in) :: volc_rad_geom(:,:)
@@ -511,7 +509,7 @@ contains
       call aer_rad_props_sw( &
          icall, state, pbuf, &
          count(night_indices > 0), night_indices, &
-         is_cmip6_volc, ext_cmip6_sw, ssa_cmip6_sw, asm_cmip6_sw, volc_rad_geom, &
+         ext_cmip6_sw, ssa_cmip6_sw, asm_cmip6_sw, volc_rad_geom, &
          tau, tau_w, tau_w_g, tau_w_f &
       )
 
