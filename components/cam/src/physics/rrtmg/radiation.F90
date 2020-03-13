@@ -1031,7 +1031,8 @@ end function radiation_nextsw_cday
     integer aod400_idx, aod700_idx, cld_tau_idx
 
     ! For volcanic aerosol
-    real(r8), pointer :: ext_cmip6_lw(:,:,:)
+    integer :: idx, ierr
+    real(r8), pointer :: ext_cmip6_lw(:,:,:), ext_cmip6_sw(:,:,:), volc_rad_geom(:,:)
 
     character(*), parameter :: name = 'radiation_tend'
 !----------------------------------------------------------------------
@@ -1071,8 +1072,17 @@ end function radiation_nextsw_cday
  
     if (is_cmip6_volc) then
        call pbuf_get_field(pbuf, pbuf_get_index('ext_earth'), ext_cmip6_lw)
+       call pbuf_get_field(pbuf, pbuf_get_index('ext_sun'), ext_cmip6_sw)
     else
        ext_cmip6_lw => null()
+       ext_cmip6_sw => null()
+    end if
+    ! get microphysical properties for volcanic aerosols
+    idx = pbuf_get_index('VOLC_RAD_GEOM', ierr)
+    if (idx > 0) then
+      call pbuf_get_field(pbuf, idx, volc_rad_geom )
+    else
+      volc_rad_geom => null()
     end if
     if (do_aerocom_ind3) then
       cld_tau_idx = pbuf_get_index('cld_tau')
@@ -1283,8 +1293,11 @@ end function radiation_nextsw_cday
                   ! update the concentrations in the RRTMG state object
                   call  rrtmg_state_update( state, pbuf, icall, r_state )
 
-                  call aer_rad_props_sw( icall, state, pbuf, nnite, idxnite, is_cmip6_volc, &
-                                         aer_tau, aer_tau_w, aer_tau_w_g, aer_tau_w_f)
+                  call aer_rad_props_sw( &
+                     icall, state, pbuf, nnite, idxnite, &
+                     is_cmip6_volc, ext_cmip6_sw, volc_rad_geom, &
+                     aer_tau, aer_tau_w, aer_tau_w_g, aer_tau_w_f &
+                  )
 
                   call t_startf ('rad_rrtmg_sw')
                   call rad_rrtmg_sw( &
@@ -1437,7 +1450,10 @@ end function radiation_nextsw_cday
                   call  rrtmg_state_update( state, pbuf, icall, r_state)
 
                   ! Get aerosol optical properties
-                  call aer_rad_props_lw(is_cmip6_volc, icall, state, pbuf, ext_cmip6_lw, aer_lw_abs)
+                  call aer_rad_props_lw( &
+                     is_cmip6_volc, icall, state, pbuf, &
+                     ext_cmip6_lw, volc_rad_geom, aer_lw_abs &
+                  )
                   
                   ! Call the longwave driver to calculate heating rates and fluxes
                   call t_startf ('rad_rrtmg_lw')

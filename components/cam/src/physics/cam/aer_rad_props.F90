@@ -111,7 +111,6 @@ subroutine aer_rad_props_init()
       end do
     endif
 
-    idx_ext_sw = pbuf_get_index('ext_sun',ierr) !BALLI: handle error? what happens if volcanic cmip6 is not selected
     idx_ssa_sw = pbuf_get_index('omega_sun',ierr)
     idx_af_sw  = pbuf_get_index('g_sun',ierr)
 
@@ -122,8 +121,10 @@ end subroutine aer_rad_props_init
 
 !==============================================================================
 
-subroutine aer_rad_props_sw(list_idx, state, pbuf,  nnite, idxnite, is_cmip6_volc, &
-                            tau, tau_w, tau_w_g, tau_w_f)
+subroutine aer_rad_props_sw( &
+      list_idx, state, pbuf,  nnite, idxnite, &
+      is_cmip6_volc, ext_cmip6_sw, volc_rad_geom, &
+      tau, tau_w, tau_w_g, tau_w_f)
 
    ! Return bulk layer tau, omega, g, f for all spectral intervals.
 
@@ -135,6 +136,8 @@ subroutine aer_rad_props_sw(list_idx, state, pbuf,  nnite, idxnite, is_cmip6_vol
    integer,             intent(in) :: nnite                ! number of night columns
    integer,             intent(in) :: idxnite(:)           ! local column indices of night columns
    logical,             intent(in) :: is_cmip6_volc        ! true if cmip6 style volcanic file is read otherwise false
+   real(r8), intent(in) :: ext_cmip6_sw(:,:,:)
+   real(r8), intent(in) :: volc_rad_geom(:,:)        ! geometric mean radius of volcanic aerosol
 
    real(r8), intent(out) :: tau    (pcols,0:pver,nswbands) ! aerosol extinction optical depth
    real(r8), intent(out) :: tau_w  (pcols,0:pver,nswbands) ! aerosol single scattering albedo * tau
@@ -192,8 +195,8 @@ subroutine aer_rad_props_sw(list_idx, state, pbuf,  nnite, idxnite, is_cmip6_vol
 
    ! for cmip6 style volcanic file
    integer  :: trop_level(pcols), icol
-   real(r8), pointer :: ext_cmip6_sw(:,:,:)
    real(r8), target  :: rhuge_arr(nswbands,pcols,pver) 
+   real(r8), dimension(pcols,pver,nswbands) :: volc_ext_per_m
    
    !-----------------------------------------------------------------------------
 
@@ -233,15 +236,10 @@ subroutine aer_rad_props_sw(list_idx, state, pbuf,  nnite, idxnite, is_cmip6_vol
    !Point ext_cmip6_sw to unphysically huges values so that the code breaks if they are used for is_cmip6_volc=.false. case
    !This is done to avoid having optional arguments in modal_aero_sw call
    rhuge_arr = rhuge
-   ext_cmip6_sw => rhuge_arr
    trop_level = ihuge
    if (is_cmip6_volc) then
-      !get extinction so as to supply to modal_aero_sw routine for computing EXTINCT variable
-      !converting it from 1/km to 1/m 
-
-      call pbuf_get_field(pbuf, idx_ext_sw, ext_cmip6_sw)
       call outfld('extinct_sw_inp',ext_cmip6_sw(:,:,idx_sw_diag), pcols, lchnk)
-      ext_cmip6_sw = ext_cmip6_sw * km_inv_to_m_inv !convert from 1/km to 1/m  
+      volc_ext_per_m = ext_cmip6_sw * km_inv_to_m_inv !convert from 1/km to 1/m  
       
       !Find tropopause as extinction should be applied only above tropopause
       !trop_level has value for tropopause for each column
@@ -261,7 +259,7 @@ subroutine aer_rad_props_sw(list_idx, state, pbuf,  nnite, idxnite, is_cmip6_vol
 
    ! Contributions from modal aerosols.
    if (nmodes > 0) then
-      call modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, is_cmip6_volc, ext_cmip6_sw(:,:,idx_sw_diag), trop_level, &
+      call modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, is_cmip6_volc, volc_ext_per_m(:,:,idx_sw_diag), trop_level, &
                          tau, tau_w, tau_w_g, tau_w_f)
    else
       tau    (1:ncol,:,:) = 0._r8
@@ -272,7 +270,7 @@ subroutine aer_rad_props_sw(list_idx, state, pbuf,  nnite, idxnite, is_cmip6_vol
 
    if (is_cmip6_volc) then
       !update tau, tau_w, tau_w_g, and tau_w_f with the read in values of extinction, ssa and asymmetry factors
-      call volcanic_cmip_sw(state, pbuf, trop_level, ext_cmip6_sw, tau, tau_w, tau_w_g, tau_w_f)
+      call volcanic_cmip_sw(state, pbuf, trop_level, volc_ext_per_m, tau, tau_w, tau_w_g, tau_w_f)
    endif
 
    ! Contributions from bulk aerosols.
@@ -319,7 +317,10 @@ subroutine aer_rad_props_sw(list_idx, state, pbuf,  nnite, idxnite, is_cmip6_vol
       case('volcanic_radius')
          ! get optical properties for volcanic aerosols
          call rad_cnst_get_aer_props(list_idx, iaerosol, r_sw_ext=r_ext, r_sw_scat=r_scat, r_sw_ascat=r_ascat, mu=r_mu)
-         call get_volcanic_radius_rad_props(lchnk, ncol, aermass, pbuf, r_ext, r_scat, r_ascat, r_mu, ta, tw, twg, twf)
+         call get_volcanic_radius_rad_props( &
+            lchnk, ncol, aermass, volc_rad_geom, &
+            r_ext, r_scat, r_ascat, r_mu, ta, tw, twg, twf &
+         )
          tau    (1:ncol,1:pver,:) = tau    (1:ncol,1:pver,:) + ta (1:ncol,:,:)
          tau_w  (1:ncol,1:pver,:) = tau_w  (1:ncol,1:pver,:) + tw (1:ncol,:,:)
          tau_w_g(1:ncol,1:pver,:) = tau_w_g(1:ncol,1:pver,:) + twg(1:ncol,:,:)
@@ -345,7 +346,7 @@ end subroutine aer_rad_props_sw
 
 !==============================================================================
 
-subroutine aer_rad_props_lw(is_cmip6_volc, list_idx, state, pbuf, ext_cmip6_volc, odap_aer)
+subroutine aer_rad_props_lw(is_cmip6_volc, list_idx, state, pbuf, ext_cmip6_volc, volc_rad_geom, odap_aer)
 
    use radconstants,  only: ot_length
 
@@ -362,6 +363,7 @@ subroutine aer_rad_props_lw(is_cmip6_volc, list_idx, state, pbuf, ext_cmip6_volc
    type(physics_state), intent(in), target :: state
    type(physics_buffer_desc), pointer :: pbuf(:)
    real(r8), intent(in) :: ext_cmip6_volc(:,:,:)     ! volcanic aerosol extinction [km^-1]
+   real(r8), intent(in) :: volc_rad_geom(:,:)        ! geometric mean radius of volcanic aerosol
    real(r8), intent(out) :: odap_aer(:,:,:)          ! [fraction] absorption optical depth, per layer
 
    ! Local variables
@@ -379,13 +381,12 @@ subroutine aer_rad_props_lw(is_cmip6_volc, list_idx, state, pbuf, ext_cmip6_volc
    ! optical props for each aerosol
    real(r8), pointer :: lw_abs(:)
    real(r8), pointer :: lw_hygro_abs(:,:)
-   real(r8), pointer :: geometric_radius(:,:)
  
    ! volcanic lookup table
    real(r8), pointer :: r_lw_abs(:,:)  ! radius dependent mass-specific absorption coefficient
    real(r8), pointer :: r_mu(:)        ! log(geometric_mean_radius) domain samples of r_lw_abs(:,:)
    integer  :: idx                     ! index to pbuf for geometric radius
-   real(r8) :: mu(pcols,pver)          ! log(geometric_radius)
+   real(r8) :: mu(pcols,pver)          ! log(volc_rad_geom)
    real(r8) :: r_mu_min, r_mu_max, wmu, mutrunc
    integer  :: nmu, kmu
 
@@ -421,38 +422,29 @@ subroutine aer_rad_props_lw(is_cmip6_volc, list_idx, state, pbuf, ext_cmip6_volc
       odap_aer = 0._r8
    end if
 
+   ! Contributions from volcanic aerosols (note: overrides contributions from
+   ! modal aerosol above the tropopause)
    if(is_cmip6_volc) then
-      !Logic:
-      !Update odap_aer with the read in volcanic aerosol extinction (1/km).
-      !It needs to be converted to 1/m and multiplied by layer thickness first.
       call outfld('extinct_lw_inp',ext_cmip6_volc(:,:,idx_lw_diag), pcols, lchnk)
-      ! BRH: this might be a bug; modifying ext_cmip6_lw in-place?
-      ext_volc_per_m = ext_cmip6_volc * km_inv_to_m_inv  !convert from 1/km to 1/m
-      !Above the tropopause, the read in values from the file include both the stratospheric
-      !and volcanic aerosols. Therefore, we need to zero out odap_aer above the tropopause
-      !and populate it exclusively from the read in values.
-      
-      !Find tropopause 
-      !trop_level has value for tropopause for each column
+      ! convert from 1/km to 1/m
+      ext_volc_per_m = ext_cmip6_volc * km_inv_to_m_inv
+      ! Find tropopause or die
       call tropopause_find(state, trop_level)
-      !Quit if tropopause is not found
       if (any(trop_level(1:ncol) == -1)) then
-         do icol = 1, ncol
-            write(iulog,*)'tropopause level,lchnk,column:',trop_level(icol),lchnk,icol
-         enddo
          call endrun('aer_rad_props_lw: tropopause not found')
-      endif
-      
-      !If tropopause is found, update taus with 50% contributuions from the volcanic input 
-      !file and 50% from the existing model computed values
-      !First handle the case of tropopause layer itself:
+      end if
+      ! Update tau at tropopause with 50% contributuions from the volcanic input 
+      ! file and 50% from the existing model computed values
       do icol = 1, ncol
          ilev_tropp = trop_level(icol) !tropopause level
          lyr_thk    = state%zi(icol,ilev_tropp) - state%zi(icol,ilev_tropp+1)! in meters
          odap_aer(icol,ilev_tropp,:) = 0.5_r8*( &
             odap_aer(icol,ilev_tropp,:) + (lyr_thk * ext_volc_per_m(icol,ilev_tropp,:)) &
          )
-      enddo
+      end do
+      ! Above the tropopause, the read in values from the file include both the stratospheric
+      ! and volcanic aerosols. Therefore, we need to zero out odap_aer above the tropopause
+      ! and populate it exclusively from the read in values.
       do ipver = 1 , pver
          do icol = 1, ncol
             ilev_tropp = trop_level(icol) !tropopause level
@@ -465,91 +457,86 @@ subroutine aer_rad_props_lw(is_cmip6_volc, list_idx, state, pbuf, ext_cmip6_volc
       call outfld('extinct_lw_bnd7',odap_aer(:,:,idx_lw_diag), pcols, lchnk)
    endif
 
-   ! Calculate quanties needed for bulk aerosols.
+   ! Contributions from bulk aerosols
    if (numaerosols > 0) then
-      ! compute mixing ratio to mass conversion
-      do k = 1, pver
+      ! Compute mixing ratio to mass conversion
+      do k = 1,pver
          mmr_to_mass(:ncol,k) = rga * state%pdeldry(:ncol,k)
       end do
-      ! calculate relative humidity for table lookup into rh grid
+      ! Calculate relative humidity for table lookup into rh grid
       call qsat(state%t(1:ncol,1:pver), state%pmid(1:ncol,1:pver), &
            es(1:ncol,1:pver), qs(1:ncol,1:pver))
       rh(1:ncol,1:pver) = state%q(1:ncol,1:pver,1) / qs(1:ncol,1:pver)
       rhtrunc(1:ncol,1:pver) = min(rh(1:ncol,1:pver),1._r8)
-      krh(1:ncol,1:pver) = min(floor( rhtrunc(1:ncol,1:pver) * nrh ) + 1, nrh - 1) ! index into rh mesh
-      wrh(1:ncol,1:pver) = rhtrunc(1:ncol,1:pver) * nrh - krh(1:ncol,1:pver)       ! (-) weighting on left side values
+      ! Calculate index into RH mesh (krh) and weighting on left side values (wrh)
+      krh(1:ncol,1:pver) = min(floor( rhtrunc(1:ncol,1:pver) * nrh ) + 1, nrh - 1)
+      wrh(1:ncol,1:pver) = rhtrunc(1:ncol,1:pver) * nrh - krh(1:ncol,1:pver)
+      ! Loop over bulk aerosols in list.
+      do iaerosol = 1, numaerosols
+         ! get aerosol mass mixing ratio
+         ! TODO: pass this into the routine instead of getting here
+         call rad_cnst_get_aer_mmr(list_idx, iaerosol, state, pbuf,  aermmr)
+         ! convert mass mixing ratio to mass
+         aermass(1:ncol,1:top_lev-1) = 0._r8
+         aermass(1:ncol,top_lev:pver) = aermmr(1:ncol,top_lev:pver) * mmr_to_mass(1:ncol,top_lev:pver)
+         ! Get optical properties for different aerosol types. First query type of
+         ! this aerosol index, then calculate optical properties using appropriate
+         ! formula for this aerosol type.
+         call rad_cnst_get_aer_props(list_idx, iaerosol, opticstype=opticstype)
+         select case (trim(opticstype))
+         case('hygroscopic')
+            call rad_cnst_get_aer_props(list_idx, iaerosol, lw_hygro_ext=lw_hygro_abs)
+            do bnd_idx = 1, nlwbands
+               do k = 1, pver
+                  do i = 1, ncol
+                     odap_aer(i, k, bnd_idx) = odap_aer(i, k, bnd_idx) + &
+                          aermass(i, k) * &
+                          ((1 + wrh(i,k)) * lw_hygro_abs(krh(i,k)+1,bnd_idx) &
+                          - wrh(i,k)  * lw_hygro_abs(krh(i,k),  bnd_idx))
+                  end do
+               end do
+            end do
+         case('insoluble','nonhygro','hygro','volcanic')
+            call rad_cnst_get_aer_props(list_idx, iaerosol, lw_ext=lw_abs)
+            do bnd_idx = 1, nlwbands
+               do k = 1, pver          
+                  do i = 1, ncol
+                     odap_aer(i,k,bnd_idx) = odap_aer(i,k,bnd_idx) + lw_abs(bnd_idx)*aermass(i,k)
+                  end do
+               end do
+            end do
+         case('volcanic_radius')
+            call rad_cnst_get_aer_props(list_idx, iaerosol, r_lw_abs=r_lw_abs, mu=r_mu)
+            ! interpolate in radius
+            ! caution: clip the table with no warning when outside bounds
+            nmu = size(r_mu)
+            r_mu_max = r_mu(nmu)
+            r_mu_min = r_mu(1)
+            do i = 1, ncol
+               do k = 1, pver
+                  if(volc_rad_geom(i,k) > 0._r8) then
+                     mu(i,k) = log(volc_rad_geom(i,k))
+                  else
+                     mu(i,k) = 0._r8
+                  endif
+                  mutrunc = max(min(mu(i,k),r_mu_max),r_mu_min)
+                  kmu = max(min(1 + (mutrunc-r_mu_min)/(r_mu_max-r_mu_min)*(nmu-1),nmu-1._r8),1._r8)
+                  wmu = max(min( (mutrunc -r_mu(kmu)) / (r_mu(kmu+1) - r_mu(kmu)) ,1._r8),0._r8)
+                  do bnd_idx = 1, nlwbands
+                     odap_aer(i,k,bnd_idx) = odap_aer(i,k,bnd_idx) + &
+                        aermass(i,k) * &
+                        ((1._r8 - wmu) * r_lw_abs(bnd_idx, kmu  ) + &
+                        (wmu) * r_lw_abs(bnd_idx, kmu+1))
+                  end do
+               end do
+            end do
+         case('zero')
+            ! zero aerosols types have no optical effect, so do nothing.
+         case default
+            call endrun('aer_rad_props_lw: unsupported opticstype: '//trim(opticstype))
+         end select
+      end do
    end if  
-
-   ! Loop over bulk aerosols in list.
-   do iaerosol = 1, numaerosols
-      print *, 'BRH DEBUG: Getting ', numaerosols, ' bulk aerosols'
-      ! get aerosol mass mixing ratio
-      ! TODO: pass this into the routine instead of getting here
-      call rad_cnst_get_aer_mmr(list_idx, iaerosol, state, pbuf,  aermmr)
-      ! convert mass mixing ratio to mass
-      aermass(1:ncol,1:top_lev-1) = 0._r8
-      aermass(1:ncol,top_lev:pver) = aermmr(1:ncol,top_lev:pver) * mmr_to_mass(1:ncol,top_lev:pver)
-      ! Get optical properties for different aerosol types. First query type of
-      ! this aerosol index, then calculate optical properties using appropriate
-      ! formula for this aerosol type.
-      call rad_cnst_get_aer_props(list_idx, iaerosol, opticstype=opticstype)
-      select case (trim(opticstype))
-      case('hygroscopic')
-         call rad_cnst_get_aer_props(list_idx, iaerosol, lw_hygro_ext=lw_hygro_abs)
-         do bnd_idx = 1, nlwbands
-            do k = 1, pver
-               do i = 1, ncol
-                  odap_aer(i, k, bnd_idx) = odap_aer(i, k, bnd_idx) + &
-                       aermass(i, k) * &
-                       ((1 + wrh(i,k)) * lw_hygro_abs(krh(i,k)+1,bnd_idx) &
-                       - wrh(i,k)  * lw_hygro_abs(krh(i,k),  bnd_idx))
-               end do
-            end do
-         end do
-      case('insoluble','nonhygro','hygro','volcanic')
-         call rad_cnst_get_aer_props(list_idx, iaerosol, lw_ext=lw_abs)
-         do bnd_idx = 1, nlwbands
-            do k = 1, pver          
-               do i = 1, ncol
-                  odap_aer(i,k,bnd_idx) = odap_aer(i,k,bnd_idx) + lw_abs(bnd_idx)*aermass(i,k)
-               end do
-            end do
-         end do
-      case('volcanic_radius')
-         call rad_cnst_get_aer_props(list_idx, iaerosol, r_lw_abs=r_lw_abs, mu=r_mu)
-         ! get microphysical properties for volcanic aerosols
-         idx = pbuf_get_index('VOLC_RAD_GEOM')
-         call pbuf_get_field(pbuf, idx, geometric_radius )
-         ! interpolate in radius
-         ! caution: clip the table with no warning when outside bounds
-         nmu = size(r_mu)
-         r_mu_max = r_mu(nmu)
-         r_mu_min = r_mu(1)
-         do i = 1, ncol
-            do k = 1, pver
-               if(geometric_radius(i,k) > 0._r8) then
-                  mu(i,k) = log(geometric_radius(i,k))
-               else
-                  mu(i,k) = 0._r8
-               endif
-               mutrunc = max(min(mu(i,k),r_mu_max),r_mu_min)
-               kmu = max(min(1 + (mutrunc-r_mu_min)/(r_mu_max-r_mu_min)*(nmu-1),nmu-1._r8),1._r8)
-               wmu = max(min( (mutrunc -r_mu(kmu)) / (r_mu(kmu+1) - r_mu(kmu)) ,1._r8),0._r8)
-               do bnd_idx = 1, nlwbands
-                  odap_aer(i,k,bnd_idx) = odap_aer(i,k,bnd_idx) + &
-                     aermass(i,k) * &
-                     ((1._r8 - wmu) * r_lw_abs(bnd_idx, kmu  ) + &
-                     (wmu) * r_lw_abs(bnd_idx, kmu+1))
-               end do
-            end do
-         end do
-       case('zero')
-          ! zero aerosols types have no optical effect, so do nothing.
-       case default
-          call endrun('aer_rad_props_lw: unsupported opticstype: '//trim(opticstype))
-       end select
-    end do
-
 end subroutine aer_rad_props_lw
 
 !==============================================================================
@@ -634,18 +621,17 @@ end subroutine get_nonhygro_rad_props
 
 !==============================================================================
     
-subroutine get_volcanic_radius_rad_props(lchnk, ncol, mass, pbuf,  r_ext, r_scat, r_ascat, r_mu, &
-                                  tau, tau_w, tau_w_g, tau_w_f)
-
-   
-   use physics_buffer, only : pbuf_get_field, pbuf_get_index
+subroutine get_volcanic_radius_rad_props( &
+      lchnk, ncol, mass, volc_rad_geom, &
+      r_ext, r_scat, r_ascat, r_mu, &
+      tau, tau_w, tau_w_g, tau_w_f)
 
    ! Arguments
    integer,  intent(in) :: lchnk
    integer,  intent(in) :: ncol
    real(r8), intent(in) :: mass(pcols, pver)
    
-   type(physics_buffer_desc), pointer :: pbuf(:)
+   real(r8), intent(in) :: volc_rad_geom(:,:) ! geometric mean radius of volcanic aerosol
    real(r8), intent(in) :: r_ext(:,:)
    real(r8), intent(in) :: r_scat(:,:)
    real(r8), intent(in) :: r_ascat(:,:)
@@ -661,7 +647,6 @@ subroutine get_volcanic_radius_rad_props(lchnk, ncol, mass, pbuf,  r_ext, r_scat
    real(r8) :: g
 
    integer  :: idx                             ! index to radius in physics buffer
-   real(r8), pointer :: geometric_radius(:,:)  ! geometric mean radius of volcanic aerosol
    real(r8) :: mu(pcols,pver)                  ! log(geometric mean radius of volcanic aerosol)
    integer  :: imu                             ! index into table values of log radius
    integer  :: kmu, nmu
@@ -680,10 +665,6 @@ subroutine get_volcanic_radius_rad_props(lchnk, ncol, mass, pbuf,  r_ext, r_scat
    tau_w_g=0._r8                 
    tau_w_f=0._r8                  
 
-   ! get microphysical properties for volcanic aerosols
-   idx = pbuf_get_index('VOLC_RAD_GEOM')
-   call pbuf_get_field(pbuf, idx, geometric_radius )
-
    ! interpolate in radius
    ! caution: clip the table with no warning when outside bounds
    nmu = size(r_mu)
@@ -691,8 +672,8 @@ subroutine get_volcanic_radius_rad_props(lchnk, ncol, mass, pbuf,  r_ext, r_scat
    r_mu_min = r_mu(1)
    do i = 1, ncol
       do k = 1, pver
-         if(geometric_radius(i,k) > 0._r8) then
-            mu(i,k) = log(geometric_radius(i,k))
+         if(volc_rad_geom(i,k) > 0._r8) then
+            mu(i,k) = log(volc_rad_geom(i,k))
          else
             mu(i,k) = 0._r8
          endif
