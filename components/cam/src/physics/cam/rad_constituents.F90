@@ -1,4 +1,3 @@
-
 module rad_constituents
 
 !------------------------------------------------------------------------------------------------
@@ -22,8 +21,6 @@ use phys_prop,      only: physprop_accum_unique_files, physprop_init, &
                           physprop_get_id, physprop_get
 use cam_history,    only: addfld, horiz_only, fieldname_len, add_default, outfld
 use physics_buffer, only: physics_buffer_desc, pbuf_get_field, pbuf_get_index
-
-
 use error_messages, only: alloc_err   
 use cam_abortutils,     only: endrun
 use cam_logfile,    only: iulog
@@ -50,11 +47,19 @@ public :: &
    rad_cnst_out,                &! output constituent diagnostics (mass per layer and column burden)
    rad_cnst_get_call_list        ! return list of active climate/diagnostic calls to radiation
 
+public :: gaslist_init, radcnst_t
+
 integer, parameter :: cs1 = 256
 integer, public, parameter :: N_DIAG = 10
 character(len=cs1), public :: iceopticsfile, liqopticsfile
 character(len=32),  public :: icecldoptics,liqcldoptics
 logical,            public :: oldcldoptics = .false.
+
+! Type to provide access to all radiatively-important constituents
+type radcnst_t
+   type(gaslist_t), allocatable :: gaslist(:)
+   type(aerlist_t), allocatable :: aerlist(:)
+end type
 
 ! Private module data
 
@@ -131,25 +136,22 @@ logical :: active_calls(0:N_DIAG)     ! active_calls(i) is true if the i-th call
                                       ! calculation which is always made.
 
 ! Storage for gas components in the climate/diagnostic lists
-
 type :: gas_t
    character(len=1)  :: source       ! A for state (advected), N for pbuf (non-advected), Z for zero
    character(len=64) :: camname      ! name of constituent in physics state or buffer
    character(len=32) :: mass_name    ! name for mass per layer field in history output
    integer           :: idx          ! index from constituents or from pbuf
+   real(r8), pointer :: mmr(:,:)     ! Pointer to mass mixing ratio, which may point to pbuf or state
 end type gas_t
-
-type :: gaslist_t
+type, public :: gaslist_t
    integer                :: ngas
    character(len=2)       :: list_id  ! set to "  " for climate list, or two character integer
                                       ! (include leading zero) to identify diagnostic list
    type(gas_t), pointer   :: gas(:)   ! dimension(ngas) where ngas = nradgas is from radconstants
 end type gaslist_t
-
-type(gaslist_t), target :: gaslist(0:N_DIAG)  ! gasses used in climate/diagnostic calculations
+type(gaslist_t), target :: gaslist(0:N_DIAG)  ! gases used in climate/diagnostic calculations
 
 ! Storage for bulk aerosol components in the climate/diagnostic lists
-
 type :: aerosol_t
    character(len=1)   :: source         ! A for state (advected), N for pbuf (non-advected), Z for zero
    character(len=64)  :: camname        ! name of constituent in physics state or buffer
@@ -157,19 +159,17 @@ type :: aerosol_t
    character(len=32)  :: mass_name      ! name for mass per layer field in history output
    integer            :: idx            ! index of constituent in physics state or buffer
    integer            :: physprop_id    ! ID used to access physical properties from phys_prop module
+   real(r8), pointer  :: mmr(:,:)       ! Pointer to mass mixing ratio, which may point to pbuf or state
 end type aerosol_t
-
-type :: aerlist_t
+type, public :: aerlist_t
    integer                  :: numaerosols  ! number of aerosols
    character(len=2)         :: list_id      ! set to "  " for climate list, or two character integer
                                             ! (include leading zero) to identify diagnostic list
    type(aerosol_t), pointer :: aer(:)       ! dimension(numaerosols)
 end type aerlist_t
-
 type(aerlist_t), target :: aerosollist(0:N_DIAG) ! list of aerosols used in climate/diagnostic calcs
 
 ! storage for modal aerosol components in the climate/diagnostic lists
-
 type :: modelist_t
    integer          :: nmodes              ! number of modes
    character(len=2) :: list_id             ! set to "  " for climate list, or two character integer
@@ -178,9 +178,7 @@ type :: modelist_t
    character(len=cs1), pointer :: physprop_files(:) ! physprop filename
    integer,   pointer :: idx_props(:)      ! index of the mode properties in the physprop object
 end type modelist_t
-
 type(modelist_t), target :: ma_list(0:N_DIAG) ! list of aerosol modes used in climate/diagnostic calcs
-
 
 ! values for constituents with requested value of zero
 real(r8), allocatable, target :: zero_cols(:,:) 
@@ -350,7 +348,7 @@ subroutine rad_cnst_readnl(nlfile)
    ! were there any constituents specified for the nth diagnostic call?
    ! if so, radiation will make a call with those consituents
    active_calls(:) = (namelist(:)%ncnst > 0)
-   	
+
    ! Initialize the gas and aerosol lists with the information from the
    ! namelist.  This is done here so that this information is available via
    ! the query functions at the time when the register methods are called.
@@ -458,8 +456,50 @@ subroutine rad_cnst_init()
    call rad_gas_diag_init(gaslist(0))
    call rad_aer_diag_init(aerosollist(0))
 
-
 end subroutine rad_cnst_init
+
+!================================================================================================
+
+! Set up pointers to gases in list
+function gaslist_init(state, pbuf, glist) result(error_message)
+   type(physics_state), target, intent(in) :: state
+   type(physics_buffer_desc), pointer :: pbuf(:)
+   type(gaslist_t), intent(out) :: glist(0:N_DIAG)
+   integer :: icall, igas
+   character(len=256) :: error_message
+   error_message = ''
+   do icall = N_DIAG,0,-1
+      if (active_calls(icall)) then
+         ! Copy stuff from module-level gaslist instance
+         glist(icall)%ngas = gaslist(icall)%ngas
+         glist(icall)%list_id = gaslist(icall)%list_id
+         ! Setup gases
+         allocate(glist(icall)%gas(glist(icall)%ngas))
+         do igas = 1,glist(icall)%ngas
+            ! Copy metadata from individual gases in module-level gaslist
+            glist(icall)%gas(igas)%source = gaslist(icall)%gas(igas)%source
+            glist(icall)%gas(igas)%camname = gaslist(icall)%gas(igas)%camname
+            glist(icall)%gas(igas)%mass_name = gaslist(icall)%gas(igas)%mass_name
+            glist(icall)%gas(igas)%idx = gaslist(icall)%gas(igas)%idx
+            ! Associate pointers
+            select case (trim(glist(icall)%gas(igas)%source))
+            case ('A')
+               glist(icall)%gas(igas)%mmr => state%q(:,:,glist(icall)%gas(igas)%idx)
+            case ('N')
+               call pbuf_get_field(pbuf, glist(icall)%gas(igas)%idx, glist(icall)%gas(igas)%mmr)
+            case ('Z')
+               glist(icall)%gas(igas)%mmr => zero_cols
+            case default
+               error_message = &
+                  "Source " // trim(glist(icall)%gas(igas)%source) // &
+                  " in gas list not recognized"
+               return
+            end select
+         end do  ! igas
+      end if  ! active_calls(icall)
+   end do  ! icall
+   return
+end function gaslist_init
 
 !================================================================================================
 

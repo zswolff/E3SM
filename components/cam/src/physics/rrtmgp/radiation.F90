@@ -15,9 +15,9 @@ module radiation
    use ppgrid,           only: pcols, pver, pverp, begchunk, endchunk
    use cam_abortutils,   only: endrun
    use scamMod,          only: scm_crm_mode, single_column, swrad_off
-   use rad_constituents, only: N_DIAG
+   use rad_constituents, only: N_DIAG, gaslist_t
    use radconstants,     only: &
-      set_sw_spectral_boundaries, set_lw_spectral_boundaries, check_wavenumber_bounds
+      rad_gas_index, set_sw_spectral_boundaries, set_lw_spectral_boundaries, check_wavenumber_bounds
 
    ! RRTMGP gas optics object to store coefficient information. This is imported
    ! here so that we can make the k_dist objects module data and only load them
@@ -1089,7 +1089,7 @@ contains
       use radheat, only: radheat_tend
 
       ! For getting radiative constituent gases
-      use rad_constituents, only: N_DIAG, rad_cnst_get_call_list
+      use rad_constituents, only: N_DIAG, rad_cnst_get_call_list, gaslist_t, gaslist_init
 
       ! RRTMGP radiation drivers and derived types
       use mo_fluxes_byband, only: ty_fluxes_byband
@@ -1145,6 +1145,27 @@ contains
       ! ---------------------------------------------------------------------------
       ! Local variables
       ! ---------------------------------------------------------------------------
+
+      ! Derived types that will hold information about gases and aerosols. These
+      ! need to be setup each step (meaning, pointers need to be updated), but
+      ! then will contain all of the data and metadata for each gas and aerosol
+      ! species active in the model. rad_constituents should handle how to get
+      ! data and info out of these lists. But basically, we will have things like
+      !
+      !    mmr(:,:) = gaslist(idiag)%gas(igas)%mmr(:,:)
+      !
+      ! where
+      !
+      !    gaslist(idiag)%gas(igas)%mmr => state%q(idx,:,:)
+      !
+      ! for advected gases and
+      !
+      !    call pbuf_get_field(pbuf, gaslist(idiag)%gas(igas)%idx, gaslist(idiag)%gas(igas)%mmf)
+      !
+      ! for non-advected gases.
+      type(gaslist_t) :: gaslist(0:N_DIAG)
+      !type(aerlist_t) :: aerlist(0:N_DIAG)
+      !type(modelist_t) :: modelist(0:N_DIAG)
 
       ! Pointers to heating rates on physics buffer
       real(r8), pointer :: qrs(:,:)  ! shortwave radiative heating rate 
@@ -1209,6 +1230,19 @@ contains
 
       ! Number of physics columns in this "chunk"
       ncol = state%ncol
+
+      ! Get all the gases we are going to need from wherever they exist
+      ! Note that this could very easily be just an input to radiation_tend.
+      ! Set pointers in gaslist, aerlist, and modelist for columns in this chunk
+      ! gaslist basically just needs to hold pointers to the mixing ratios and
+      ! the gas names. This happens to be a list to support having different
+      ! sets of gases for different diagnostic radiation calls.
+      ! We probably shouldn't make these regular arrays here with the dimension
+      ! N_DIAG because this would require us to allocate more memory than we
+      ! need to and unecessarily copy data around (gas_vmr would need to have
+      ! size gas_vmr(N_DIAG, ngases, ncol, nlev)).
+      call handle_error(gaslist_init(state, pbuf, gaslist))
+      !call rad_cnst_update_aerlist(state, pbuf, aerlist)
 
       ! Set pointers to heating rates stored on physics buffer. These will be
       ! modified in this routine.
@@ -1324,7 +1358,8 @@ contains
             if (active_calls(icall)) then
                ! Get gas concentrations
                call t_startf('rad_gas_concentrations_sw')
-               call get_gas_vmr(icall, state, pbuf, active_gases, gas_vmr)
+               call get_gas_vmr(ncol, pver, gaslist(icall), active_gases, gas_vmr)
+               !call get_gas_vmr(icall, state, pbuf, active_gases, gas_vmr)
                call t_stopf('rad_gas_concentrations_sw')
                ! Get aerosol optics
                if (do_aerosol_rad) then
@@ -1352,8 +1387,8 @@ contains
                )
                ! Send fluxes to history buffer
                call output_fluxes_sw(icall, state, fluxes_allsky, fluxes_clrsky, qrs,  qrsc)
-            end if
-         end do
+            end if  ! active_calls(icall)
+         end do  ! icall = N_DIAG,0,-1
               
          ! Set net fluxes used by other components (land?) 
          call set_net_fluxes_sw(fluxes_allsky, fsds, fsns, fsnt)
@@ -1404,7 +1439,7 @@ contains
             if (active_calls(icall)) then
                ! Get gas concentrations
                call t_startf('rad_gas_concentrations_sw')
-               call get_gas_vmr(icall, state, pbuf, active_gases, gas_vmr)
+               call get_gas_vmr(ncol, pver, gaslist(icall), active_gases, gas_vmr)
                call t_stopf('rad_gas_concentrations_sw')
                ! Get aerosol optics
                if (do_aerosol_rad) then
@@ -2453,15 +2488,10 @@ contains
 
    !----------------------------------------------------------------------------
 
-   subroutine get_gas_vmr(icall, state, pbuf, gas_names, gas_vmr) 
+   subroutine get_gas_vmr(ncol, nlay, gaslist, gas_names, gas_vmr) 
 
-      use physics_types, only: physics_state
-      use physics_buffer, only: physics_buffer_desc
-      use rad_constituents, only: rad_cnst_get_gas
-
-      integer, intent(in) :: icall
-      type(physics_state), intent(in) :: state
-      type(physics_buffer_desc), pointer :: pbuf(:)
+      integer, intent(in) :: ncol, nlay
+      type(gaslist_t), intent(in) :: gaslist
       character(len=*), intent(in), dimension(:) :: gas_names
       real(r8), intent(out), dimension(:,:,:) :: gas_vmr
 
@@ -2488,16 +2518,10 @@ contains
       real(r8), parameter :: n2_vol_mix_ratio = 0.7906_r8
 
       ! Loop indices
-      integer :: igas
-
-      ! Number of columns
-      integer :: ncol
+      integer :: igas, idx
 
       ! Name of subroutine for error messages
       character(len=32) :: subname = 'get_gas_vmr'
-
-      ! Number of columns in chunk
-      ncol = state%ncol
 
       ! initialize
       gas_vmr(:,:,:) = 0._r8
@@ -2506,46 +2530,34 @@ contains
       ! CAM rad_constituents interface, convert to volume mixing ratios, and
       ! subset for daytime-only indices if needed.
       do igas = 1,size(gas_names)
-
          select case(trim(gas_names(igas)))
-
             case('CO')
-
                ! CO not available, use default
-               gas_vmr(igas,1:ncol,1:pver) = co_vol_mix_ratio
-
+               gas_vmr(igas,:,:) = co_vol_mix_ratio
             case('N2')
-
                ! N2 not available, use default
-               gas_vmr(igas,1:ncol,1:pver) = n2_vol_mix_ratio
-
+               gas_vmr(igas,:,:) = n2_vol_mix_ratio
             case('H2O')
-
                ! Water vapor is represented as specific humidity in CAM, so we
                ! need to handle water a little differently
-               call rad_cnst_get_gas(icall, trim(gas_species(igas)), state, pbuf, mmr)
-
+               idx = rad_gas_index(trim(gas_names(igas)))
+               mmr => gaslist%gas(idx)%mmr
                ! Convert to volume mixing ratio by multiplying by the ratio of
                ! molecular weight of dry air to molecular weight of gas. Note that
                ! first specific humidity (held in the mass_mix_ratio array read
                ! from rad_constituents) is converted to an actual mass mixing
                ! ratio.
-               gas_vmr(igas,1:ncol,1:pver) = mmr(1:ncol,1:pver) / ( &
-                  1._r8 - mmr(1:ncol,1:pver) &
+               gas_vmr(igas,:ncol,:nlay) = mmr(:ncol,:nlay) / ( &
+                  1._r8 - mmr(:ncol,:nlay) &
                )  * mol_weight_air / mol_weight_gas(igas)
-
             case DEFAULT
-
                ! Get mass mixing ratio from the rad_constituents interface
-               call rad_cnst_get_gas(icall, trim(gas_species(igas)), state, pbuf, mmr)
-
+               idx = rad_gas_index(trim(gas_names(igas)))
+               mmr => gaslist%gas(idx)%mmr
                ! Convert to volume mixing ratio by multiplying by the ratio of
                ! molecular weight of dry air to molecular weight of gas
-               gas_vmr(igas,1:ncol,1:pver) = mmr(1:ncol,1:pver) &
-                                            * mol_weight_air / mol_weight_gas(igas)
-
+               gas_vmr(igas,:ncol,:nlay) = mmr(:ncol,:nlay) * mol_weight_air / mol_weight_gas(igas)
          end select
-
       end do  ! igas
 
    end subroutine get_gas_vmr
