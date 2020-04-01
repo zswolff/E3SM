@@ -9,9 +9,7 @@ use shr_kind_mod,     only: r8 => shr_kind_r8
 use ppgrid,           only: pcols, pver, pverp
 use physconst,        only: rga
 use physics_types,    only: physics_state
-
-use physics_buffer, only : physics_buffer_desc, pbuf_get_field, pbuf_get_index
-
+use physics_buffer,   only: physics_buffer_desc, pbuf_get_field, pbuf_get_index
 use radconstants,     only: nrh, nswbands, nlwbands, idx_sw_diag,idx_lw_diag, ot_length
 use rad_constituents, only: rad_cnst_get_info, rad_cnst_get_aer_mmr, &
                             rad_cnst_get_aer_props
@@ -23,9 +21,9 @@ use cam_history_support, only : fillvalue
 use ref_pres,     only: clim_modal_aero_top_lev
 
 use cam_abortutils,       only: endrun
-use tropopause,           only : tropopause_find
+use tropopause,           only: tropopause_find
 use cam_logfile,          only: iulog
-use prescribed_volcaero,  only: is_cmip6_volc
+use prescribed_volcaero,  only: is_cmip6_volc !, ext_cmip6_sw, ssa_cmip6_sw, asm_cmip6_sw, ...
 
 implicit none
 private
@@ -41,7 +39,6 @@ public :: &
 ! Private data
 real(r8), parameter :: km_inv_to_m_inv = 0.001_r8      !1/km to 1/m 
 character(len=fieldname_len), pointer :: odv_names(:)  ! outfld names for visible OD
-integer  :: idx_ext_sw, idx_ssa_sw, idx_af_sw, idx_ext_lw !pbuf indices for volcanic cmip6 file
 !==============================================================================
 contains
 !==============================================================================
@@ -127,10 +124,11 @@ subroutine aer_rad_props_sw( &
    type(physics_buffer_desc), pointer :: pbuf(:)
    integer,             intent(in) :: nnite                ! number of night columns
    integer,             intent(in) :: idxnite(:)           ! local column indices of night columns
+   ! TODO: move these to module data?
    real(r8), intent(in) :: ext_cmip6_sw(:,:,:)
    real(r8), intent(in) :: ssa_cmip6_sw(:,:,:)
    real(r8), intent(in) :: asm_cmip6_sw(:,:,:)
-   real(r8), intent(in) :: volc_rad_geom(:,:)        ! geometric mean radius of volcanic aerosol
+   real(r8), intent(in) :: volc_rad_geom(:,:)      ! geometric mean radius of volcanic aerosol
 
    real(r8), intent(out) :: tau    (pcols,0:pver,nswbands) ! aerosol extinction optical depth
    real(r8), intent(out) :: tau_w  (pcols,0:pver,nswbands) ! aerosol single scattering albedo * tau
