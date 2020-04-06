@@ -5,18 +5,40 @@ list(APPEND NOOPT_FILES
   cam/src/dynamics/sld/dyn_comp.F90
   cam/src/physics/cam/microp_aero.F90)
 
-set(FILES_NEED_CUDA_FLAGS
-  homme/src/preqx_acc/bndry_mod.F90
-  homme/src/preqx_acc/derivative_mod.F90
-  homme/src/preqx_acc/edge_mod.F90
-  homme/src/share/element_mod.F90
-  homme/src/preqx_acc/element_state.F90
-  homme/src/preqx_acc/openacc_utils_mod.F90
-  homme/src/preqx_acc/prim_advection_mod.F90
-  homme/src/share/prim_si_mod.F90
-  homme/src/preqx_acc/model_init_mod.F90
-  homme/src/preqx_acc/viscosity_mod.F90
-  homme/src/preqx_acc/prim_driver_mod.F90
-  homme/src/share/prim_driver_base.F90
-  homme/src/share/physics_mod.F90
-  cam/src/control/physconst.F90)
+set(FILES_NEED_OPENACC_FLAGS
+  # RRTMGP sources
+  cam/src/physics/rrtmgp/external/rte/mo_fluxes.F90
+  cam/src/physics/rrtmgp/external/rte/mo_optical_props.F90
+  cam/src/physics/rrtmgp/external/rte/mo_rte_kind.F90
+  cam/src/physics/rrtmgp/external/rte/mo_rte_lw.F90
+  cam/src/physics/rrtmgp/external/rte/mo_rte_sw.F90
+  cam/src/physics/rrtmgp/external/rte/mo_rte_util_array.F90
+  cam/src/physics/rrtmgp/external/rte/mo_source_functions.F90
+  cam/src/physics/rrtmgp/external/rte/kernels/mo_fluxes_broadband_kernels.F90
+  cam/src/physics/rrtmgp/external/rte/kernels/mo_optical_props_kernels.F90
+  cam/src/physics/rrtmgp/external/rte/kernels/mo_rte_solver_kernels.F90
+  cam/src/physics/rrtmgp/external/rte/kernels-openacc/mo_optical_props_kernels.F90
+  cam/src/physics/rrtmgp/external/rte/kernels-openacc/mo_rte_solver_kernels.F90
+  cam/src/physics/rrtmgp/external/rrtmgp/mo_gas_concentrations.F90
+  cam/src/physics/rrtmgp/external/rrtmgp/mo_gas_optics.F90
+  cam/src/physics/rrtmgp/external/rrtmgp/mo_gas_optics_rrtmgp.F90
+  cam/src/physics/rrtmgp/external/rrtmgp/mo_rrtmgp_constants.F90
+  cam/src/physics/rrtmgp/external/rrtmgp/mo_rrtmgp_util_reorder.F90
+  cam/src/physics/rrtmgp/external/rrtmgp/mo_rrtmgp_util_string.F90
+  cam/src/physics/rrtmgp/external/rrtmgp/kernels/mo_gas_optics_kernels.F90
+  cam/src/physics/rrtmgp/external/rrtmgp/kernels/mo_rrtmgp_util_reorder_kernels.F90
+  cam/src/physics/rrtmgp/external/rrtmgp/kernels-openacc/mo_gas_optics_kernels.F90
+  cam/src/physics/rrtmgp/external/extensions/mo_compute_bc.F90
+  cam/src/physics/rrtmgp/external/extensions/mo_fluxes_byband.F90
+  cam/src/physics/rrtmgp/external/extensions/mo_fluxes_byband_kernels.F90
+  cam/src/physics/rrtmgp/external/extensions/mo_fluxes_bygpoint.F90
+  cam/src/physics/rrtmgp/external/extensions/mo_heating_rates.F90
+  cam/src/physics/rrtmgp/external/extensions/mo_rrtmgp_clr_all_sky.F90
+  cam/src/physics/rrtmgp/radiation.F90
+  cam/src/physics/rrtmgp/radconstants.F90
+  cam/src/physics/rrtmgp/cam_optics.F90
+  cam/src/physics/rrtmgp/mcica_subcol_gen.F90
+  cam/src/physics/rrtmgp/cloud_rad_props.F90
+  cam/src/physics/rrtmgp/ebert_curry.F90
+  cam/src/physics/rrtmgp/slingo.F90
+)

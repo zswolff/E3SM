@@ -2069,7 +2069,7 @@
     <NODENAME_REGEX>titan</NODENAME_REGEX>
     <NODE_FAIL_REGEX>Received node event ec_node</NODE_FAIL_REGEX>
     <OS>CNL</OS>
-    <COMPILERS>pgi,pgiacc,intel,cray</COMPILERS>
+    <COMPILERS>pgi,intel,cray</COMPILERS>
     <MPILIBS>mpich</MPILIBS>
     <PROJECT>cli115</PROJECT>
     <SAVE_TIMING_DIR>$ENV{PROJWORK}/$PROJECT</SAVE_TIMING_DIR>
@@ -2119,24 +2119,7 @@
         <command name="load">cmake3/3.6.0</command>
       </modules>
 
-      <modules compiler="pgiacc"> <!-- changing pgi_acc to pgiacc -->
-        <command name="rm">PrgEnv-cray</command>
-        <command name="rm">PrgEnv-gnu</command>
-        <command name="rm">PrgEnv-intel</command>
-        <command name="rm">PrgEnv-pathscale</command>
-        <command name="load">PrgEnv-pgi</command>
-        <command name="switch">pgi pgi/17.5.0</command>
-        <command name="rm">cray-mpich</command>
-        <command name="rm">cray-libsci</command>
-        <command name="rm">atp</command>
-        <command name="rm">esmf</command>
-        <command name="rm">cudatoolkit</command>
-        <command name="load">cray-mpich/7.6.3</command>
-        <command name="load">cray-libsci/16.11.1</command>
-        <command name="load">atp/2.1.1</command>
-        <command name="load">esmf/5.2.0rp2</command>
-        <command name="load">cudatoolkit</command>
-      </modules>
+
       <modules compiler="pgi">
         <command name="rm">PrgEnv-cray</command>
         <command name="rm">PrgEnv-gnu</command>
@@ -2208,11 +2191,6 @@
     </environment_variables>
 
     <!-- Set if compiler and mpilib  -->
-    <environment_variables compiler="pgiacc">
-      <!-- NOTE(wjs, 2015-03-12) The following line is needed for bit-for-bit reproducibility -->
-      <env name="CRAY_CPU_TARGET">istanbul</env>
-      <env name="CRAY_CUDA_MPS">1</env>
-    </environment_variables>
     <environment_variables compiler="intel">
       <env name="CRAYPE_LINK_TYPE">dynamic</env>
     </environment_variables>
@@ -2832,7 +2810,7 @@
     <DESC>ORNL pre-Summit testbed. Node: 2x POWER8 + 4x Tesla P100, 20 cores/node, 8 HW threads/core.</DESC>
     <NODENAME_REGEX>summitdev-*</NODENAME_REGEX>
     <OS>LINUX</OS>
-    <COMPILERS>ibm,pgi,pgiacc</COMPILERS>
+    <COMPILERS>ibm,pgi,pgigpu</COMPILERS>
     <MPILIBS>spectrum-mpi,mpi-serial</MPILIBS>
     <PROJECT>csc249</PROJECT>
     <CHARGE_ACCOUNT>CSC249ADSE15</CHARGE_ACCOUNT>
@@ -2957,7 +2935,7 @@
     <DESC>ORNL Summit. Node: 2x POWER9 + 6x Volta V100, 22 cores/socket, 4 HW threads/core.</DESC>
     <NODENAME_REGEX>.*summit.*</NODENAME_REGEX>
     <OS>LINUX</OS>
-    <COMPILERS>ibm,pgi,pgiacc,gnu</COMPILERS>
+    <COMPILERS>ibm,pgi,pgigpu,gnu</COMPILERS>
     <MPILIBS>spectrum-mpi,mpi-serial</MPILIBS>
     <PROJECT>cli115</PROJECT>
     <CHARGE_ACCOUNT>cli115</CHARGE_ACCOUNT>
@@ -3022,8 +3000,8 @@
       <modules compiler="gnu">
         <command name="load">gcc/6.4.0</command>
       </modules>
-      <modules compiler="pgiacc">
-        <command name="load">cuda/10.1.168</command>
+      <modules compiler="pgigpu">
+        <command name="load">cuda</command>
       </modules>
 
       <modules>
@@ -3080,9 +3058,6 @@
     <environment_variables mpilib="!mpi-serial">
       <env name="HDF5_PATH">$ENV{OLCF_HDF5_ROOT}</env>
       <env name="PNETCDF_PATH">$ENV{OLCF_PARALLEL_NETCDF_ROOT}</env>
-    </environment_variables>
-    <environment_variables mpilib="!mpi-serial" compiler="pgiacc">
-      <env name="OMPI_CXX">$SRCROOT/externals/kokkos/bin/nvcc_wrapper</env>
     </environment_variables>
   </machine>
 
