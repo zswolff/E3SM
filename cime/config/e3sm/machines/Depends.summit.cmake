@@ -6,7 +6,6 @@ list(APPEND NOOPT_FILES
   cam/src/physics/cam/microp_aero.F90)
 
 set(FILES_NEED_OPENACC_FLAGS
-  # RRTMGP sources
   cam/src/physics/rrtmgp/external/rte/mo_fluxes.F90
   cam/src/physics/rrtmgp/external/rte/mo_optical_props.F90
   cam/src/physics/rrtmgp/external/rte/mo_rte_kind.F90
@@ -40,5 +39,8 @@ set(FILES_NEED_OPENACC_FLAGS
   cam/src/physics/rrtmgp/mcica_subcol_gen.F90
   cam/src/physics/rrtmgp/cloud_rad_props.F90
   cam/src/physics/rrtmgp/ebert_curry.F90
-  cam/src/physics/rrtmgp/slingo.F90
-)
+  cam/src/physics/rrtmgp/slingo.F90)
+
+foreach(ITEM IN LISTS FILES_NEED_OPENACC_FLAGS)
+  set_property(SOURCE ${ITEM} APPEND_STRING PROPERTY COMPILE_FLAGS "-Minline -ta=nvidia,cc70,fastmath,loadcache:L1,unroll,fma,managed,ptxinfo -Mcuda -Minfo=accel")
+endforeach()
