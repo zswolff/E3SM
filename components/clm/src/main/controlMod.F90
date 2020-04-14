@@ -417,8 +417,7 @@ contains
        end if
        
        if (.not. use_crop .and. irrigate) then
-          call endrun(msg=' ERROR: irrigate = .true. requires CROP model active.'//&
-            errMsg(__FILE__, __LINE__))
+          write(iulog,*) 'Warning: Irrigation turned on without active crop model'
        end if
 
        if (.not. use_erosion .and. ero_ccycle) then

@@ -195,7 +195,6 @@ OPTIONS
      -inputdata "filepath"    Writes out a list containing pathnames for required input datasets in
                               file specified.
      -irrig "value"           If .true. turn irrigation on with namelist logical irrigate (for CLM4.5 physics)
-                              (requires use_crop to be true in the clm configuration)
                               Seek surface datasets with irrigation turned on.  (for CLM4.0 physics)
                               Default: .false.
      -l_ncpl "LND_NCPL"       Number of CLM coupling time-steps in a day.
@@ -1532,7 +1531,8 @@ sub setup_cmdl_irrigation {
     }
   } else {
     if ( $nl_flags->{'irrig'} =~ /$TRUE/i && $nl_flags->{'use_crop'} =~ /$FALSE/i ) {
-      fatal_error("The -irrig=.true. option requires -crop");
+      #fatal_error("The -irrig=.true. option requires -crop");
+      warning("Warning, Irrigation turned on without crop model\n");                                                               
     }
     if ( defined($nl->get_value("irrigate")) && $nl->get_value("irrigate") ne $nl_flags->{'irrig'} ) {
       my $irrigate = $nl->get_value("irrigate");
@@ -2131,7 +2131,8 @@ sub setup_logic_irrigate {
     }
     elsif ( defined($nl->get_value('irrigate')) ) {
       if ($nl->get_value('irrigate') =~ /$TRUE/i ) {
-        fatal_error("irrigate TRUE needs crop TRUE but it is not\n");
+        #fatal_error("irrigate TRUE needs crop TRUE but it is not\n");
+         warning("Warning, Irrigation turned on without crop model\n");                                                             
       }
     }
     $nl_flags->{'irrigate'} = lc($nl->get_value('irrigate'));
