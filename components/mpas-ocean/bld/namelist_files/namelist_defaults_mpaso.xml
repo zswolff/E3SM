@@ -152,7 +152,9 @@
 
 <!-- Redi_isopycnal_mixing -->
 <config_use_Redi>.false.</config_use_Redi>
-<config_Redi_kappa>0.0</config_Redi_kappa>
+<config_Redi_kappa>1800.0</config_Redi_kappa>
+<config_Redi_kappa ocn_forcing="datm_forced_restoring">600.0</config_Redi_kappa>
+<config_Redi_maximum_slope>0.3</config_Redi_maximum_slope>
 <config_Redi_closure>'constant'</config_Redi_closure>
 <config_Redi_surface_taper_layers>10</config_Redi_surface_taper_layers>
 <config_Redi_bottom_taper_height>200.0</config_Redi_bottom_taper_height>
