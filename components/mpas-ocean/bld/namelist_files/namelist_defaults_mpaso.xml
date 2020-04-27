@@ -27,22 +27,6 @@
 <config_explicit_proc_decomp>.false.</config_explicit_proc_decomp>
 <config_proc_decomp_file_prefix>'graph.info.part.'</config_proc_decomp_file_prefix>
 
-<!-- init_setup -->
-<config_vert_levels>-1</config_vert_levels>
-<config_init_configuration>'none'</config_init_configuration>
-<config_expand_sphere>.false.</config_expand_sphere>
-<config_realistic_coriolis_parameter>.false.</config_realistic_coriolis_parameter>
-<config_write_cull_cell_mask>.true.</config_write_cull_cell_mask>
-<config_vertical_grid>'uniform'</config_vertical_grid>
-
-<!-- CVTgenerator -->
-<config_1dCVTgenerator_stretch1>1.0770</config_1dCVTgenerator_stretch1>
-<config_1dCVTgenerator_stretch2>1.0275</config_1dCVTgenerator_stretch2>
-<config_1dCVTgenerator_dzSeed>1.2</config_1dCVTgenerator_dzSeed>
-
-<!-- init_ssh_and_landIcePressure -->
-<config_iterative_init_variable>'landIcePressure'</config_iterative_init_variable>
-
 <!-- time_integration -->
 <config_dt ocn_grid="oQU480">'02:00:00'</config_dt>
 <config_dt ocn_grid="oQU240">'01:00:00'</config_dt>
@@ -154,10 +138,13 @@
 <config_use_Redi>.false.</config_use_Redi>
 <config_Redi_kappa>1800.0</config_Redi_kappa>
 <config_Redi_kappa ocn_forcing="datm_forced_restoring">600.0</config_Redi_kappa>
+<config_Redi_set_RediKappa_to_GMKappa>.true.</config_Redi_set_RediKappa_to_GMKappa>
 <config_Redi_maximum_slope>0.3</config_Redi_maximum_slope>
 <config_Redi_closure>'constant'</config_Redi_closure>
-<config_Redi_surface_taper_layers>10</config_Redi_surface_taper_layers>
-<config_Redi_bottom_taper_height>200.0</config_Redi_bottom_taper_height>
+<config_Redi_use_slope_taper>.true.</config_Redi_use_slope_taper>
+<config_Redi_use_surface_taper>.true.</config_Redi_use_surface_taper>
+<config_Redi_use_N2_based_taper>.true.</config_Redi_use_N2_based_taper>
+<config_Redi_N2_limit_term1>.true.</config_Redi_N2_limit_term1>
 
 <!-- GM_eddy_parameterization -->
 <config_use_GM>.true.</config_use_GM>
@@ -171,12 +158,17 @@
 <config_GM_kappa>1800.0</config_GM_kappa>
 <config_GM_kappa ocn_forcing="datm_forced_restoring" ocn_grid="oEC60to30v3wLI">600.0</config_GM_kappa>
 <config_GM_closure>'N2_dependent'</config_GM_closure>
+<config_GM_baroclinic_mode>1.0</config_GM_baroclinic_mode>
+<config_GM_visbeck_alpha>0.005</config_GM_visbeck_alpha>
+<config_GM_visbeck_min_depth>50.0</config_GM_visbeck_min_depth>
+<config_GM_visbeck_max_depth>1000.0</config_GM_visbeck_max_depth>
+<config_GM_visbeck_min_kappa>300.0</config_GM_visbeck_min_kappa>
+<config_GM_visbeck_max_kappa>1800.0</config_GM_visbeck_max_kappa>
 <config_GM_min_stratification_ratio>0.1</config_GM_min_stratification_ratio>
 <config_GM_constant_gravWaveSpeed>0.3</config_GM_constant_gravWaveSpeed>
 
 <!-- mesoscale_eddy_parameterizations -->
-<config_mesoscale_eddy_isopycnal_slope_limit>0.01</config_mesoscale_eddy_isopycnal_slope_limit>
-<config_eddying_resolution_taper>'constant'</config_eddying_resolution_taper>
+<config_eddying_resolution_taper>'ramp'</config_eddying_resolution_taper>
 <config_eddying_resolution_ramp_min>20e3</config_eddying_resolution_ramp_min>
 <config_eddying_resolution_ramp_max>30e3</config_eddying_resolution_ramp_max>
 
