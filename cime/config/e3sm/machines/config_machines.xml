@@ -2963,7 +2963,7 @@
       <executable>/gpfs/alpine/world-shared/cli115/mpirun.summit</executable>
       <!-- <executable>jsrun</executable> -->
       <arguments>
-        <arg name="num_tasks"> -n {{ total_tasks }} -N {{ tasks_per_node }}</arg>
+        <arg name="num_tasks"> -n {{ total_tasks }} -N {{ tasks_per_node }} -gpu</arg>
       </arguments>
     </mpirun>
     <module_system type="module" allow_error="true">
@@ -3058,6 +3058,9 @@
     <environment_variables mpilib="!mpi-serial">
       <env name="HDF5_PATH">$ENV{OLCF_HDF5_ROOT}</env>
       <env name="PNETCDF_PATH">$ENV{OLCF_PARALLEL_NETCDF_ROOT}</env>
+    </environment_variables>
+    <environment_variables compiler="pgigpu">
+      <env name="PGI_ACC_POOL_ALLOC">0</env>
     </environment_variables>
   </machine>
 

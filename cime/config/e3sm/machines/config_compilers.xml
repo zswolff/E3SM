@@ -477,6 +477,9 @@ flags should be captured within MPAS CMake files.
   <SLIBS>
     <append>-L$ENV{NETCDF_C_PATH}/lib -lnetcdf -L$ENV{NETCDF_FORTRAN_PATH}/lib -lnetcdff -L$ENV{PNETCDF_PATH}/lib -lpnetcdf -L$ENV{HDF5_PATH}/lib -lhdf5_hl -lhdf5 -L$ENV{ESSL_PATH}/lib64 -lessl -L$ENV{NETLIB_LAPACK_PATH}/lib -llapack</append>
   </SLIBS>
+  <LDFLAGS>
+    <append>-Minline -ta=nvidia,cc70,fastmath,loadcache:L1,unroll,fma,ptxinfo -Mcuda -Minfo=accel</append>
+  </LDFLAGS>
   <MPICC> mpicc </MPICC>
   <MPICXX> mpiCC </MPICXX>
   <MPIFC> mpif90 </MPIFC>
